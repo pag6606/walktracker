@@ -345,6 +345,65 @@
     .history-item .stats span { white-space: nowrap; }
     .history-item .stats .val { font-weight: 600; color: var(--text); }
 
+    /* Step counter (auto mode) */
+    .step-counter {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 8px 0;
+    }
+    .step-counter.visible { display: flex; }
+    .step-counter .label { font-size: 0.85rem; color: var(--text-secondary); }
+    .step-counter .count { font-size: 1.8rem; font-weight: 700; color: var(--accent); }
+    .step-bar {
+      width: 80%;
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    .step-bar-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 3px;
+      transition: width 0.15s;
+    }
+
+    /* Toggle switch */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 0;
+    }
+    .toggle-row label { font-size: 0.9rem; color: var(--text-secondary); font-weight: 600; }
+    .toggle {
+      position: relative;
+      width: 48px;
+      height: 28px;
+      background: var(--border);
+      border-radius: 14px;
+      cursor: pointer;
+      transition: background 0.2s;
+      flex-shrink: 0;
+    }
+    .toggle.on { background: var(--success); }
+    .toggle::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 24px;
+      height: 24px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .toggle.on::after { transform: translateX(20px); }
+
     /* Pulse animation for lap button */
     @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.02); } 100% { transform: scale(1); } }
     .btn-lap.hit { animation: pulse 0.15s ease-out; }
@@ -382,6 +441,13 @@
         <span>·</span>
         <span id="metric-pace">--:-- /km</span>
       </div>
+    </div>
+
+    <!-- Step counter (auto mode only) -->
+    <div class="step-counter" id="step-counter">
+      <span class="label">Pasos de esta vuelta</span>
+      <span class="count"><span id="step-current">0</span> / <span id="step-target">62</span></span>
+      <div class="step-bar"><div class="step-bar-fill" id="step-bar-fill" style="width:0%"></div></div>
     </div>
 
     <button class="btn-lap" id="btn-lap">
@@ -443,6 +509,13 @@
       <input type="text" id="input-perimeter" readonly value="—">
       <div class="derived-label">se calcula automáticamente</div>
     </div>
+
+    <div class="toggle-row">
+      <label>🏃 Modo automático (acelerómetro)</label>
+      <div class="toggle" id="toggle-auto"></div>
+    </div>
+    <div class="derived-label" style="margin-top:-12px;">Cuenta pasos automáticamente y registra vueltas sin tocar la pantalla</div>
+
     <div class="settings-actions">
       <button class="btn-back" id="btn-settings-back">← Volver</button>
       <button class="btn-save" id="btn-save-config">💾 Guardar</button>
@@ -615,18 +688,91 @@
     function load() {
       try {
         const raw = localStorage.getItem(CONFIG_KEY);
-        if (!raw) return { strideM: 0.655, stepsPerLap: 62 };
+        if (!raw) return { strideM: 0.655, stepsPerLap: 62, autoMode: false };
         const parsed = JSON.parse(raw);
         return {
           strideM: Number.isFinite(parsed.strideM) ? parsed.strideM : 0.655,
           stepsPerLap: Number.isFinite(parsed.stepsPerLap) ? parsed.stepsPerLap : 62,
+          autoMode: !!parsed.autoMode,
         };
-      } catch(e) { return { strideM: 0.655, stepsPerLap: 62 }; }
+      } catch(e) { return { strideM: 0.655, stepsPerLap: 62, autoMode: false }; }
     }
-    function save(strideM, stepsPerLap) {
-      try { localStorage.setItem(CONFIG_KEY, JSON.stringify({ strideM, stepsPerLap })); } catch(e) {}
+    function save(strideM, stepsPerLap, autoMode) {
+      try { localStorage.setItem(CONFIG_KEY, JSON.stringify({ strideM, stepsPerLap, autoMode: !!autoMode })); } catch(e) {}
     }
     return { load, save };
+  })();
+
+  /* ═══════════════════════════════════════════════════════
+     Pedometer — step detection via accelerometer (v1.1)
+     ═══════════════════════════════════════════════════════ */
+  const Pedometer = (() => {
+    'use strict';
+    let listening = false;
+    let stepCount = 0;
+    let stepsPerLap = 62;
+    let onStep = null;
+    let onLap = null;
+    let lastStepTime = 0;
+    let avgMagnitude = 9.8;   // gravity baseline
+    const ALPHA = 0.2;        // low-pass filter coefficient
+    const STEP_DELTA = 0.6;   // g above average to count as step
+    const MIN_INTERVAL = 250; // ms between steps (debounce)
+
+    async function start(target, stepCb, lapCb) {
+      stepsPerLap = target;
+      stepCount = 0;
+      onStep = stepCb;
+      onLap = lapCb;
+      avgMagnitude = 9.8;
+      lastStepTime = 0;
+
+      // iOS: request permission
+      if (typeof DeviceMotionEvent !== 'undefined' &&
+          typeof DeviceMotionEvent.requestPermission === 'function') {
+        try {
+          const perm = await DeviceMotionEvent.requestPermission();
+          if (perm !== 'granted') return false;
+        } catch(e) { return false; }
+      }
+
+      window.addEventListener('devicemotion', handleMotion);
+      listening = true;
+      return true;
+    }
+
+    function handleMotion(event) {
+      const acc = event.accelerationIncludingGravity;
+      if (!acc || acc.x == null) return;
+
+      const mag = Math.sqrt(acc.x * acc.x + acc.y * acc.y + acc.z * acc.z);
+
+      // Dynamic threshold via low-pass filter
+      avgMagnitude = avgMagnitude * (1 - ALPHA) + mag * ALPHA;
+      const threshold = avgMagnitude + STEP_DELTA;
+
+      const now = Date.now();
+      if (mag > threshold && now - lastStepTime > MIN_INTERVAL) {
+        lastStepTime = now;
+        stepCount++;
+        if (onStep) onStep(stepCount, stepsPerLap);
+        if (stepCount >= stepsPerLap) {
+          stepCount = 0;
+          if (onLap) onLap();
+        }
+      }
+    }
+
+    function stop() {
+      window.removeEventListener('devicemotion', handleMotion);
+      listening = false;
+    }
+
+    function isListening() { return listening; }
+    function getStepCount() { return stepCount; }
+    function reset() { stepCount = 0; }
+
+    return { start, stop, isListening, getStepCount, reset };
   })();
 
   /* ═══════════════════════════════════════════════════════
@@ -662,6 +808,12 @@
     const errorStride = $('error-stride');
     const errorSteps = $('error-steps');
     const homeCalib = document.getElementById('home-calib');
+    const toggleAuto = $('toggle-auto');
+    const stepCounter = $('step-counter');
+    const stepCurrent = $('step-current');
+    const stepTarget = $('step-target');
+    const stepBarFill = $('step-bar-fill');
+    let autoMode = false;
     const mLaps = $('metric-laps');
     const mDist = $('metric-distance');
     const mTime = $('metric-time');
@@ -772,10 +924,11 @@
 
     // ---- Event handlers ----
 
-    btnStart.addEventListener('click', () => {
+    btnStart.addEventListener('click', async () => {
       const now = Date.now();
       const cfg = AppConfig.load();
       activeSession = Domain.createSession(now, cfg.strideM, cfg.stepsPerLap);
+      autoMode = cfg.autoMode;
       show(session);
       updateMetrics(activeSession);
       startTick();
@@ -787,6 +940,21 @@
       btnUndo.classList.remove('hidden');
       // trigger beep callback (set by Story 1.3)
       if (typeof onBeep === 'function') onBeep('start');
+      // Auto-mode: start pedometer
+      if (autoMode) {
+        stepTarget.textContent = cfg.stepsPerLap;
+        stepCurrent.textContent = '0';
+        stepBarFill.style.width = '0%';
+        stepCounter.classList.add('visible');
+        const ok = await Pedometer.start(cfg.stepsPerLap, onPedometerStep, onPedometerLap);
+        if (!ok) {
+          // Permission denied or no sensor — fall back to manual
+          autoMode = false;
+          stepCounter.classList.remove('visible');
+        }
+      } else {
+        stepCounter.classList.remove('visible');
+      }
     });
 
     btnLap.addEventListener('click', () => {
@@ -827,6 +995,7 @@
 
     btnFinish.addEventListener('click', () => {
       if (!activeSession || activeSession.status === Domain.SESSION_STATUS.FINISHED) return;
+      Pedometer.stop();
       const now = Date.now();
       activeSession = Domain.finish(activeSession, now);
       stopTick();
@@ -845,6 +1014,8 @@
 
     btnNew.addEventListener('click', () => {
       activeSession = null;
+      Pedometer.stop();
+      stepCounter.classList.remove('visible');
       clearSnapshot();
       show(home);
     });
@@ -940,19 +1111,6 @@
       homeCalib.textContent = `${cfg.stepsPerLap} pasos × ${cfg.strideM.toFixed(3)} m = ${cal.lapPerimeterM.toFixed(2)} m/vuelta`;
     }
 
-    // Settings button: navigate to settings, populate fields
-    btnSettings.addEventListener('click', () => {
-      const cfg = AppConfig.load();
-      inputStride.value = cfg.strideM.toFixed(3);
-      inputSteps.value = cfg.stepsPerLap;
-      // Show derived perimeter
-      const cal = Domain.recalibrate(cfg);
-      inputPerimeter.value = cal.lapPerimeterM.toFixed(2) + ' m';
-      errorStride.textContent = '';
-      errorSteps.textContent = '';
-      show(settings);
-    });
-
     // Live preview: recalculate perimeter on input change
     function previewPerimeter() {
       const s = parseFloat(inputStride.value);
@@ -969,7 +1127,43 @@
     inputStride.addEventListener('input', previewPerimeter);
     inputSteps.addEventListener('input', previewPerimeter);
 
-    // Save button: validate + persist
+    // Back button: go home without saving
+    btnSettingsBack.addEventListener('click', () => {
+      show(home);
+    });
+
+    // Initialize home calibration display
+    updateHomeCalib(AppConfig.load());
+
+    // ---- Pedometer callbacks (auto mode v1.1) ----
+
+    function onPedometerStep(count, target) {
+      stepCurrent.textContent = count;
+      stepBarFill.style.width = Math.min(100, (count / target) * 100) + '%';
+    }
+
+    function onPedometerLap() {
+      if (!activeSession || activeSession.status !== Domain.SESSION_STATUS.ACTIVE) return;
+      activeSession = Domain.lap(activeSession);
+      updateMetrics(activeSession);
+      stepCurrent.textContent = '0';
+      stepBarFill.style.width = '0%';
+      btnLap.classList.remove('hit');
+      void btnLap.offsetWidth;
+      btnLap.classList.add('hit');
+      if (typeof onBeep === 'function') onBeep('lap');
+      saveSnapshot();
+    }
+
+    // ---- Toggle auto mode in settings ----
+
+    let settingsAutoMode = false;
+    toggleAuto.addEventListener('click', () => {
+      settingsAutoMode = !settingsAutoMode;
+      toggleAuto.classList.toggle('on', settingsAutoMode);
+    });
+
+    // Update btnSaveConfig to include autoMode
     btnSaveConfig.addEventListener('click', () => {
       const s = parseFloat(inputStride.value);
       const p = parseFloat(inputSteps.value);
@@ -979,18 +1173,24 @@
       if (!Number.isFinite(s) || s <= 0) { errorStride.textContent = 'Ingresa un número > 0'; valid = false; }
       if (!Number.isFinite(p) || p <= 0) { errorSteps.textContent = 'Ingresa un número > 0'; valid = false; }
       if (!valid) return;
-      AppConfig.save(s, Math.round(p));
+      AppConfig.save(s, Math.round(p), settingsAutoMode);
       updateHomeCalib(AppConfig.load());
       show(home);
     });
 
-    // Back button: go home without saving
-    btnSettingsBack.addEventListener('click', () => {
-      show(home);
+    // Settings nav: populate autoMode toggle
+    btnSettings.addEventListener('click', () => {
+      const cfg = AppConfig.load();
+      inputStride.value = cfg.strideM.toFixed(3);
+      inputSteps.value = cfg.stepsPerLap;
+      settingsAutoMode = cfg.autoMode;
+      toggleAuto.classList.toggle('on', cfg.autoMode);
+      const cal = Domain.recalibrate(cfg);
+      inputPerimeter.value = cal.lapPerimeterM.toFixed(2) + ' m';
+      errorStride.textContent = '';
+      errorSteps.textContent = '';
+      show(settings);
     });
-
-    // Initialize home calibration display
-    updateHomeCalib(AppConfig.load());
 
     // Expose for Story 1.3 (Beep) and Story 1.4 (Autosave)
     return {
