@@ -1,0 +1,123 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {},
+  "model": "opencode-go/deepseek-v4-flash",
+  "small_model": "opencode-go/qwen3.6-plus",
+
+  "mcp": {
+    "engram": {
+      "type": "local",
+      "command": ["engram", "mcp", "--tools=agent"],
+      "enabled": true
+    },
+    "mcc-tool": {
+      "type": "local",
+      "command": ["uv", "run", "mcc-mcp"],
+      "env": {
+        "MCC_GRAPH_PATH": "grafo/mcc.kuzu"
+      },
+      "enabled": false
+    }
+  },
+
+  "permission": {
+    "engram_mem_search": "allow",
+    "engram_mem_context": "allow",
+    "engram_mem_get_observation": "allow",
+    "engram_mem_timeline": "allow",
+    "engram_mem_current_project": "allow",
+
+    "engram_mem_save": "deny",
+    "engram_mem_update": "deny",
+    "engram_mem_suggest_topic_key": "deny",
+    "engram_mem_judge": "deny",
+    "engram_mem_compare": "deny",
+    "engram_mem_review": "deny",
+    "engram_mem_pin": "deny",
+    "engram_mem_unpin": "deny",
+    "engram_mem_stats": "deny",
+    "engram_mem_save_prompt": "deny",
+
+    "engram_mem_session_start": "deny",
+    "engram_mem_session_end": "deny",
+    "engram_mem_session_summary": "deny",
+    "engram_mem_delete": "deny",
+    "engram_mem_capture_passive": "deny",
+    "engram_mem_merge_projects": "deny",
+    "engram_mem_doctor": "deny"
+  },
+
+  "agent": {
+    "analyst": {
+      "mode": "primary",
+      "model": "zai-coding-plan/glm-5.2",
+      "temperature": 0.3,
+      "prompt": "Operas como el rol Analyst de BMAD. Usa el skill bmad-agent-analyst y los skills de research/brief relacionados para esta sesion.",
+      "permission": {
+        "engram_mem_save": "allow",
+        "engram_mem_suggest_topic_key": "allow",
+        "engram_mem_pin": "allow",
+        "engram_mem_unpin": "allow"
+      }
+    },
+    "architect": {
+      "mode": "primary",
+      "model": "zai-coding-plan/glm-5.2",
+      "temperature": 0.2,
+      "prompt": "Operas como el rol Architect de BMAD. Usa el skill bmad-agent-architect y los skills de arquitectura/ADR relacionados para esta sesion.",
+      "permission": {
+        "engram_mem_save": "allow",
+        "engram_mem_update": "allow",
+        "engram_mem_suggest_topic_key": "allow",
+        "engram_mem_judge": "allow",
+        "engram_mem_compare": "allow",
+        "engram_mem_review": "allow",
+        "engram_mem_pin": "allow",
+        "engram_mem_unpin": "allow"
+      }
+    },
+    "pm": {
+      "mode": "primary",
+      "model": "opencode-go/qwen3.6-plus",
+      "temperature": 0.3,
+      "prompt": "Operas como el rol PM de BMAD. Usa el skill bmad-agent-pm y los skills de PRD/epics relacionados para esta sesion."
+    },
+    "ux": {
+      "mode": "all",
+      "model": "opencode-go/qwen3.6-plus",
+      "temperature": 0.4,
+      "prompt": "Operas como el rol UX Designer de BMAD. Usa el skill bmad-agent-ux-designer para esta sesion."
+    },
+    "dev": {
+      "mode": "primary",
+      "model": "opencode-go/deepseek-v4-flash",
+      "temperature": 0.1,
+      "prompt": "Operas como el rol Dev de BMAD. Usa el skill bmad-agent-dev y los skills de story/implementacion relacionados para esta sesion.",
+      "permission": {
+        "engram_mem_save": "allow",
+        "engram_mem_suggest_topic_key": "allow",
+        "engram_mem_pin": "allow",
+        "engram_mem_unpin": "allow"
+      }
+    },
+    "tea": {
+      "mode": "all",
+      "model": "zai-coding-plan/glm-4.7",
+      "temperature": 0.1,
+      "prompt": "Operas como el rol Test Architect (TEA) de BMAD. Usa el skill bmad-tea y los skills testarch relacionados para esta sesion.",
+      "permission": {
+        "engram_mem_judge": "allow",
+        "engram_mem_compare": "allow",
+        "engram_mem_review": "allow",
+        "engram_mem_pin": "allow",
+        "engram_mem_unpin": "allow"
+      }
+    },
+    "party": {
+      "mode": "primary",
+      "model": "opencode-go/deepseek-v4-flash",
+      "temperature": 0.4,
+      "prompt": "Operas en modo mesa redonda multi-agente. Usa el skill bmad-party-mode para esta sesion."
+    }
+  }
+}
