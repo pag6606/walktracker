@@ -704,6 +704,35 @@
   })();
 
   /* ═══════════════════════════════════════════════════════
+     WakeLock — mantiene pantalla activa durante sesión (RF-12)
+     ═══════════════════════════════════════════════════════ */
+  const WakeLock = (() => {
+    let sentinel = null;
+
+    async function request() {
+      try {
+        if (!('wakeLock' in navigator)) return false;
+        sentinel = await navigator.wakeLock.request('screen');
+        sentinel.addEventListener('release', () => { sentinel = null; });
+        return true;
+      } catch(e) { return false; }
+    }
+
+    function release() {
+      if (sentinel) { sentinel.release(); sentinel = null; }
+    }
+
+    // Re-acquire on visibility change (iOS libera el lock al background)
+    document.addEventListener('visibilitychange', async () => {
+      if (document.visibilityState === 'visible' && sentinel === null && window.__wtSessionActive) {
+        await request();
+      }
+    });
+
+    return { request, release };
+  })();
+
+  /* ═══════════════════════════════════════════════════════
      Pedometer — step detection via accelerometer (v1.1)
      ═══════════════════════════════════════════════════════ */
   const Pedometer = (() => {
@@ -940,6 +969,9 @@
       btnUndo.classList.remove('hidden');
       // trigger beep callback (set by Story 1.3)
       if (typeof onBeep === 'function') onBeep('start');
+      // Wake Lock: pantalla activa durante la sesión
+      window.__wtSessionActive = true;
+      WakeLock.request();
       // Auto-mode: start pedometer
       if (autoMode) {
         stepTarget.textContent = cfg.stepsPerLap;
@@ -996,6 +1028,8 @@
     btnFinish.addEventListener('click', () => {
       if (!activeSession || activeSession.status === Domain.SESSION_STATUS.FINISHED) return;
       Pedometer.stop();
+      window.__wtSessionActive = false;
+      WakeLock.release();
       const now = Date.now();
       activeSession = Domain.finish(activeSession, now);
       stopTick();
@@ -1015,6 +1049,8 @@
     btnNew.addEventListener('click', () => {
       activeSession = null;
       Pedometer.stop();
+      window.__wtSessionActive = false;
+      WakeLock.release();
       stepCounter.classList.remove('visible');
       clearSnapshot();
       show(home);
