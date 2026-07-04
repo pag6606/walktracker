@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WalkTracker v2.0 — Color Themes</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, 'Helvetica Neue', sans-serif; background: #f0f0f5; padding: 24px; }
+  h1 { text-align: center; margin-bottom: 8px; font-size: 1.5rem; }
+  .subtitle { text-align: center; color: #666; margin-bottom: 32px; font-size: 0.9rem; }
+  .themes { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; max-width: 1400px; margin: 0 auto; }
+  .theme { background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+  .theme-header { padding: 20px; }
+  .theme-header h2 { font-size: 1.2rem; margin-bottom: 4px; }
+  .theme-header p { font-size: 0.85rem; color: #666; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 20px 16px; }
+  .chip { padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+  .preview { padding: 16px 20px; }
+  .preview .phone { width: 200px; height: 400px; border-radius: 24px; margin: 0 auto; position: relative; overflow: hidden; border: 3px solid #333; }
+  .preview .phone .status-bar { height: 24px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 600; }
+  .preview .phone .content { padding: 16px; }
+  .preview .phone .metric-big { font-size: 2.5rem; font-weight: 800; text-align: center; line-height: 1; }
+  .preview .phone .metric-label { font-size: 0.7rem; text-align: center; margin-bottom: 12px; }
+  .preview .phone .btn-big { width: 100%; height: 120px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; font-weight: 800; margin: 16px 0; }
+  .preview .phone .metrics-row { display: flex; justify-content: space-around; font-size: 0.7rem; }
+  .preview .phone .metrics-row span { text-align: center; }
+  .preview .phone .metrics-row .val { font-weight: 700; font-size: 0.85rem; display: block; }
+  .preview .phone .controls { display: flex; gap: 8px; margin-top: 12px; }
+  .preview .phone .controls button { flex: 1; height: 36px; border-radius: 8px; border: none; font-size: 0.7rem; font-weight: 600; }
+  .mode-toggle { display: flex; gap: 8px; justify-content: center; margin-bottom: 16px; }
+  .mode-toggle button { padding: 6px 16px; border-radius: 16px; border: 1px solid #ccc; background: #fff; cursor: pointer; font-size: 0.8rem; }
+  .mode-toggle button.active { background: #333; color: #fff; border-color: #333; }
+  .dark .phone { border-color: #555; }
+  .dark .phone .status-bar { background: #1a1a2e; color: #fff; }
+  .dark .phone .content { background: #1a1a2e; }
+  .light .phone .status-bar { background: #f5f5f7; color: #333; }
+  .light .phone .content { background: #f5f5f7; }
+</style>
+</head>
+<body>
+<h1>🎨 WalkTracker v2.0 — Color Themes</h1>
+<p class="subtitle">4 direcciones inspiradas en Adidas Running · Emoción energética · Legible día/noche</p>
+
+<div class="themes">
+
+  <!-- THEME 1: Energy Blue -->
+  <div class="theme">
+    <div class="theme-header">
+      <h2>🔵 Energy Blue</h2>
+      <p>Azul profundo + naranja vibrante. El clásico deportivo, moderno y legible.</p>
+    </div>
+    <div class="chips">
+      <span class="chip" style="background:#0A1628;color:#fff;">Canvas #0A1628</span>
+      <span class="chip" style="background:#1A2744;color:#fff;">Surface #1A2744</span>
+      <span class="chip" style="background:#FF6B35;color:#fff;">Accent #FF6B35</span>
+      <span class="chip" style="background:#00E5FF;color:#000;">Highlight #00E5FF</span>
+      <span class="chip" style="background:#FFFFFF;color:#000;">Text #FFFFFF</span>
+      <span class="chip" style="background:#8899AA;color:#fff;">Muted #8899AA</span>
+    </div>
+    <div class="preview">
+      <div class="mode-toggle">
+        <button class="active" onclick="toggleMode(this, 'dark')">🌙 Dark</button>
+        <button onclick="toggleMode(this, 'light')">☀️ Light</button>
+      </div>
+      <div class="phone dark">
+        <div class="status-bar">9:41</div>
+        <div class="content">
+          <div class="metric-big" style="color:#FFFFFF;">42</div>
+          <div class="metric-label" style="color:#8899AA;">vueltas</div>
+          <div class="btn-big" style="background:#FF6B35;color:#fff;">+1 VUELTA</div>
+          <div class="metrics-row">
+            <span><span class="val" style="color:#00E5FF;">1.71 km</span>distancia</span>
+            <span><span class="val" style="color:#FFFFFF;">18:24</span>tiempo</span>
+            <span><span class="val" style="color:#FFFFFF;">10:44</span>ritmo</span>
+          </div>
+          <div class="controls">
+            <button style="background:#1A2744;color:#8899AA;">⏸ Pausar</button>
+            <button style="background:#FF3B30;color:#fff;">⏹ Finalizar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- THEME 2: Neon Pulse -->
+  <div class="theme">
+    <div class="theme-header">
+      <h2>⚡ Neon Pulse</h2>
+      <p>Negro total + verde neón. Máximo contraste bajo sol. Energía pura.</p>
+    </div>
+    <div class="chips">
+      <span class="chip" style="background:#000000;color:#fff;">Canvas #000000</span>
+      <span class="chip" style="background:#111111;color:#fff;">Surface #111111</span>
+      <span class="chip" style="background:#00FF66;color:#000;">Accent #00FF66</span>
+      <span class="chip" style="background:#FF3366;color:#fff;">Danger #FF3366</span>
+      <span class="chip" style="background:#FFFFFF;color:#000;">Text #FFFFFF</span>
+      <span class="chip" style="background:#555555;color:#fff;">Muted #555555</span>
+    </div>
+    <div class="preview">
+      <div class="mode-toggle">
+        <button class="active" onclick="toggleMode(this, 'dark')">🌙 Dark</button>
+        <button onclick="toggleMode(this, 'light')">☀️ Light</button>
+      </div>
+      <div class="phone dark">
+        <div class="status-bar">9:41</div>
+        <div class="content">
+          <div class="metric-big" style="color:#00FF66;">42</div>
+          <div class="metric-label" style="color:#555555;">vueltas</div>
+          <div class="btn-big" style="background:#00FF66;color:#000;">+1 VUELTA</div>
+          <div class="metrics-row">
+            <span><span class="val" style="color:#00FF66;">1.71 km</span>distancia</span>
+            <span><span class="val" style="color:#FFFFFF;">18:24</span>tiempo</span>
+            <span><span class="val" style="color:#FFFFFF;">10:44</span>ritmo</span>
+          </div>
+          <div class="controls">
+            <button style="background:#111111;color:#555555;border:1px solid #333;">⏸ Pausar</button>
+            <button style="background:#FF3366;color:#fff;">⏹ Finalizar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- THEME 3: Solar Flare -->
+  <div class="theme">
+    <div class="theme-header">
+      <h2>🔥 Solar Flare</h2>
+      <p>Gris oscuro + rojo/naranja cálido. Calidez deportiva, legibilidad extrema.</p>
+    </div>
+    <div class="chips">
+      <span class="chip" style="background:#1C1C1E;color:#fff;">Canvas #1C1C1E</span>
+      <span class="chip" style="background:#2C2C2E;color:#fff;">Surface #2C2C2E</span>
+      <span class="chip" style="background:#FF453A;color:#fff;">Accent #FF453A</span>
+      <span class="chip" style="background:#FFD60A;color:#000;">Highlight #FFD60A</span>
+      <span class="chip" style="background:#FFFFFF;color:#000;">Text #FFFFFF</span>
+      <span class="chip" style="background:#8E8E93;color:#fff;">Muted #8E8E93</span>
+    </div>
+    <div class="preview">
+      <div class="mode-toggle">
+        <button class="active" onclick="toggleMode(this, 'dark')">🌙 Dark</button>
+        <button onclick="toggleMode(this, 'light')">☀️ Light</button>
+      </div>
+      <div class="phone dark">
+        <div class="status-bar">9:41</div>
+        <div class="content">
+          <div class="metric-big" style="color:#FF453A;">42</div>
+          <div class="metric-label" style="color:#8E8E93;">vueltas</div>
+          <div class="btn-big" style="background:#FF453A;color:#fff;">+1 VUELTA</div>
+          <div class="metrics-row">
+            <span><span class="val" style="color:#FFD60A;">1.71 km</span>distancia</span>
+            <span><span class="val" style="color:#FFFFFF;">18:24</span>tiempo</span>
+            <span><span class="val" style="color:#FFFFFF;">10:44</span>ritmo</span>
+          </div>
+          <div class="controls">
+            <button style="background:#2C2C2E;color:#8E8E93;">⏸ Pausar</button>
+            <button style="background:#FF453A;color:#fff;">⏹ Finalizar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- THEME 4: Volt -->
+  <div class="theme">
+    <div class="theme-header">
+      <h2>💚 Volt</h2>
+      <p>Gris carbón + amarillo volt. Inspirado en Nike/Adidas premium. Ultra legible.</p>
+    </div>
+    <div class="chips">
+      <span class="chip" style="background:#1A1A1A;color:#fff;">Canvas #1A1A1A</span>
+      <span class="chip" style="background:#2A2A2A;color:#fff;">Surface #2A2A2A</span>
+      <span class="chip" style="background:#CCFF00;color:#000;">Accent #CCFF00</span>
+      <span class="chip" style="background:#FF6600;color:#fff;">Secondary #FF6600</span>
+      <span class="chip" style="background:#FFFFFF;color:#000;">Text #FFFFFF</span>
+      <span class="chip" style="background:#777777;color:#fff;">Muted #777777</span>
+    </div>
+    <div class="preview">
+      <div class="mode-toggle">
+        <button class="active" onclick="toggleMode(this, 'dark')">🌙 Dark</button>
+        <button onclick="toggleMode(this, 'light')">☀️ Light</button>
+      </div>
+      <div class="phone dark">
+        <div class="status-bar">9:41</div>
+        <div class="content">
+          <div class="metric-big" style="color:#CCFF00;">42</div>
+          <div class="metric-label" style="color:#777777;">vueltas</div>
+          <div class="btn-big" style="background:#CCFF00;color:#000;">+1 VUELTA</div>
+          <div class="metrics-row">
+            <span><span class="val" style="color:#CCFF00;">1.71 km</span>distancia</span>
+            <span><span class="val" style="color:#FFFFFF;">18:24</span>tiempo</span>
+            <span><span class="val" style="color:#FFFFFF;">10:44</span>ritmo</span>
+          </div>
+          <div class="controls">
+            <button style="background:#2A2A2A;color:#777777;">⏸ Pausar</button>
+            <button style="background:#FF6600;color:#fff;">⏹ Finalizar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function toggleMode(btn, mode) {
+  const parent = btn.closest('.preview');
+  const phone = parent.querySelector('.phone');
+  const buttons = parent.querySelectorAll('.mode-toggle button');
+  buttons.forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  phone.className = 'phone ' + mode;
+  if (mode === 'light') {
+    phone.querySelector('.status-bar').style.background = '#f5f5f7';
+    phone.querySelector('.status-bar').style.color = '#333';
+    phone.querySelector('.content').style.background = '#f5f5f7';
+  } else {
+    phone.querySelector('.status-bar').style.background = '';
+    phone.querySelector('.status-bar').style.color = '';
+    phone.querySelector('.content').style.background = '';
+  }
+}
+</script>
+</body>
+</html>

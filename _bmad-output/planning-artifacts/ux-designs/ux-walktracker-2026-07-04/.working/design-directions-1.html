@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WalkTracker v2.0 — Design Directions</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, 'Helvetica Neue', sans-serif; background: #f0f0f5; padding: 24px; }
+  h1 { text-align: center; margin-bottom: 8px; font-size: 1.5rem; }
+  .subtitle { text-align: center; color: #666; margin-bottom: 32px; font-size: 0.9rem; }
+  .directions { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 32px; max-width: 1200px; margin: 0 auto; }
+  .direction { background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+  .direction-header { padding: 20px; border-bottom: 1px solid #eee; }
+  .direction-header h2 { font-size: 1.2rem; margin-bottom: 4px; }
+  .direction-header p { font-size: 0.85rem; color: #666; }
+  .phone-frame { width: 280px; height: 560px; margin: 24px auto; border-radius: 36px; border: 4px solid #333; overflow: hidden; position: relative; }
+  .phone-frame .notch { width: 120px; height: 28px; background: #333; border-radius: 0 0 16px 16px; margin: 0 auto; position: relative; z-index: 2; }
+  .phone-frame .screen { height: calc(100% - 28px); position: relative; }
+
+  /* Direction A: Sport Bold */
+  .dir-a .screen { background: #0A1628; color: #fff; display: flex; flex-direction: column; }
+  .dir-a .header { padding: 16px; text-align: center; }
+  .dir-a .header .title { font-size: 0.8rem; color: #8899AA; text-transform: uppercase; letter-spacing: 0.1em; }
+  .dir-a .metrics { padding: 8px 16px; text-align: center; }
+  .dir-a .big-number { font-size: 5rem; font-weight: 900; color: #fff; line-height: 1; letter-spacing: -0.03em; }
+  .dir-a .big-label { font-size: 0.9rem; color: #8899AA; margin-top: 4px; }
+  .dir-a .sub-metrics { display: flex; justify-content: space-around; padding: 16px; }
+  .dir-a .sub-metric { text-align: center; }
+  .dir-a .sub-metric .val { font-size: 1.3rem; font-weight: 700; color: #00E5FF; }
+  .dir-a .sub-metric .label { font-size: 0.7rem; color: #8899AA; margin-top: 2px; }
+  .dir-a .lap-btn { margin: auto 16px 16px; height: 180px; background: linear-gradient(135deg, #FF6B35, #FF8F65); border-radius: 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 2rem; font-weight: 900; color: #fff; box-shadow: 0 8px 32px rgba(255,107,53,0.3); }
+  .dir-a .lap-btn .sub { font-size: 0.85rem; font-weight: 400; opacity: 0.8; margin-top: 4px; }
+  .dir-a .controls { display: flex; gap: 8px; padding: 0 16px 24px; }
+  .dir-a .controls button { flex: 1; height: 44px; border-radius: 12px; border: none; font-size: 0.85rem; font-weight: 600; }
+  .dir-a .controls .pause { background: #1A2744; color: #8899AA; }
+  .dir-a .controls .finish { background: #FF3B30; color: #fff; }
+
+  /* Direction B: Minimal Dark */
+  .dir-b .screen { background: #000000; color: #fff; display: flex; flex-direction: column; }
+  .dir-b .header { padding: 16px; display: flex; justify-content: space-between; align-items: center; }
+  .dir-b .header .brand { font-size: 0.85rem; font-weight: 700; color: #00FF66; letter-spacing: 0.05em; }
+  .dir-b .header .icons { font-size: 1.1rem; }
+  .dir-b .metrics { padding: 24px 16px 16px; text-align: center; }
+  .dir-b .big-number { font-size: 6rem; font-weight: 800; color: #00FF66; line-height: 1; }
+  .dir-b .big-label { font-size: 0.8rem; color: #555; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.15em; }
+  .dir-b .sub-metrics { display: flex; justify-content: space-around; padding: 16px; border-top: 1px solid #222; border-bottom: 1px solid #222; }
+  .dir-b .sub-metric { text-align: center; }
+  .dir-b .sub-metric .val { font-size: 1.1rem; font-weight: 600; color: #fff; }
+  .dir-b .sub-metric .label { font-size: 0.65rem; color: #555; margin-top: 2px; text-transform: uppercase; }
+  .dir-b .lap-btn { margin: auto 16px 16px; height: 200px; background: #00FF66; border-radius: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: 800; color: #000; }
+  .dir-b .lap-btn .sub { font-size: 0.75rem; font-weight: 400; color: #333; margin-top: 4px; }
+  .dir-b .controls { display: flex; gap: 8px; padding: 0 16px 24px; }
+  .dir-b .controls button { flex: 1; height: 44px; border-radius: 10px; border: 1px solid #333; background: #111; color: #555; font-size: 0.8rem; font-weight: 600; }
+  .dir-b .controls .finish { background: #FF3366; border-color: #FF3366; color: #fff; }
+
+  /* Direction C: Card Sport */
+  .dir-c .screen { background: #1C1C1E; color: #fff; display: flex; flex-direction: column; }
+  .dir-c .header { padding: 16px; display: flex; justify-content: space-between; align-items: center; }
+  .dir-c .header .title { font-size: 1rem; font-weight: 700; }
+  .dir-c .header .status { font-size: 0.7rem; color: #FF453A; font-weight: 600; }
+  .dir-c .card { margin: 8px 16px; background: #2C2C2E; border-radius: 16px; padding: 20px; text-align: center; }
+  .dir-c .card .big-number { font-size: 4rem; font-weight: 900; color: #FF453A; line-height: 1; }
+  .dir-c .card .big-label { font-size: 0.8rem; color: #8E8E93; margin-top: 4px; }
+  .dir-c .sub-metrics { display: flex; justify-content: space-around; padding: 12px 0; }
+  .dir-c .sub-metric { text-align: center; }
+  .dir-c .sub-metric .val { font-size: 1rem; font-weight: 700; color: #FFD60A; }
+  .dir-c .sub-metric .label { font-size: 0.65rem; color: #8E8E93; margin-top: 2px; }
+  .dir-c .lap-btn { margin: 16px; height: 160px; background: #FF453A; border-radius: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 1.6rem; font-weight: 900; color: #fff; }
+  .dir-c .lap-btn .sub { font-size: 0.75rem; font-weight: 400; opacity: 0.8; margin-top: 4px; }
+  .dir-c .controls { display: flex; gap: 8px; padding: 0 16px 24px; }
+  .dir-c .controls button { flex: 1; height: 44px; border-radius: 12px; border: none; font-size: 0.8rem; font-weight: 600; }
+  .dir-c .controls .pause { background: #2C2C2E; color: #8E8E93; }
+  .dir-c .controls .finish { background: #FF453A; color: #fff; }
+</style>
+</head>
+<body>
+<h1>🎯 WalkTracker v2.0 — Design Directions</h1>
+<p class="subtitle">3 personalidades visuales para la pantalla de sesión · Inspiradas en apps deportivas nativas</p>
+
+<div class="directions">
+
+  <!-- Direction A: Sport Bold -->
+  <div class="direction dir-a">
+    <div class="direction-header">
+      <h2>A — Sport Bold</h2>
+      <p>Energía deportiva clásica. Gradientes, números enormes, acentos cyan/naranja. Se siente como Adidas Running.</p>
+    </div>
+    <div class="phone-frame">
+      <div class="notch"></div>
+      <div class="screen">
+        <div class="header"><div class="title">WalkTracker</div></div>
+        <div class="metrics">
+          <div class="big-number">42</div>
+          <div class="big-label">vueltas</div>
+        </div>
+        <div class="sub-metrics">
+          <div class="sub-metric"><div class="val">1.71 km</div><div class="label">distancia</div></div>
+          <div class="sub-metric"><div class="val">18:24</div><div class="label">tiempo</div></div>
+          <div class="sub-metric"><div class="val">10:44</div><div class="label">ritmo</div></div>
+        </div>
+        <div class="lap-btn">+1 VUELTA<div class="sub">toca para marcar</div></div>
+        <div class="controls">
+          <button class="pause">⏸ Pausar</button>
+          <button class="finish">⏹ Finalizar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Direction B: Minimal Dark -->
+  <div class="direction dir-b">
+    <div class="direction-header">
+      <h2>B — Minimal Dark</h2>
+      <p>Negro absoluto + verde neón. Máximo contraste bajo sol. Estilo Apple Fitness / Nike Run Club.</p>
+    </div>
+    <div class="phone-frame">
+      <div class="notch"></div>
+      <div class="screen">
+        <div class="header">
+          <div class="brand">WALKTRACKER</div>
+          <div class="icons">⚙ 📋</div>
+        </div>
+        <div class="metrics">
+          <div class="big-number">42</div>
+          <div class="big-label">vueltas</div>
+        </div>
+        <div class="sub-metrics">
+          <div class="sub-metric"><div class="val">1.71 km</div><div class="label">distancia</div></div>
+          <div class="sub-metric"><div class="val">18:24</div><div class="label">tiempo</div></div>
+          <div class="sub-metric"><div class="val">10:44</div><div class="label">ritmo</div></div>
+        </div>
+        <div class="lap-btn">+1 VUELTA<div class="sub">toca para marcar</div></div>
+        <div class="controls">
+          <button class="pause">⏸ Pausar</button>
+          <button class="finish">⏹ Finalizar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Direction C: Card Sport -->
+  <div class="direction dir-c">
+    <div class="direction-header">
+      <h2>C — Card Sport</h2>
+      <p>Tarjetas con fondo elevado. Métricas agrupadas en card. Estilo Strava moderno con acentos rojo/amarillo.</p>
+    </div>
+    <div class="phone-frame">
+      <div class="notch"></div>
+      <div class="screen">
+        <div class="header">
+          <div class="title">Sesión activa</div>
+          <div class="status">● EN CURSO</div>
+        </div>
+        <div class="card">
+          <div class="big-number">42</div>
+          <div class="big-label">vueltas completadas</div>
+          <div class="sub-metrics">
+            <div class="sub-metric"><div class="val">1.71 km</div><div class="label">distancia</div></div>
+            <div class="sub-metric"><div class="val">18:24</div><div class="label">tiempo</div></div>
+            <div class="sub-metric"><div class="val">10:44</div><div class="label">ritmo</div></div>
+          </div>
+        </div>
+        <div class="lap-btn">+1 VUELTA<div class="sub">toca para marcar</div></div>
+        <div class="controls">
+          <button class="pause">⏸ Pausar</button>
+          <button class="finish">⏹ Finalizar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

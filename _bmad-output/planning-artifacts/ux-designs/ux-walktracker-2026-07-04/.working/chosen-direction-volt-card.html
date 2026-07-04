@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WalkTracker v2.0 — Volt + Card Sport (Light + Dark)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, 'Helvetica Neue', sans-serif; background: #e8e8ed; padding: 24px; }
+  h1 { text-align: center; margin-bottom: 4px; font-size: 1.4rem; }
+  .subtitle { text-align: center; color: #666; margin-bottom: 32px; font-size: 0.85rem; }
+  .pair { display: flex; gap: 32px; justify-content: center; flex-wrap: wrap; margin-bottom: 48px; }
+  .mode-label { text-align: center; font-size: 0.9rem; font-weight: 700; margin-bottom: 12px; color: #333; }
+  .phone-frame { width: 280px; height: 580px; border-radius: 36px; overflow: hidden; position: relative; }
+  .phone-frame .notch { width: 120px; height: 28px; border-radius: 0 0 16px 16px; margin: 0 auto; position: relative; z-index: 2; }
+  .phone-frame .screen { height: calc(100% - 28px); display: flex; flex-direction: column; }
+
+  /* DARK MODE — Volt + Card Sport */
+  .dark .phone-frame { border: 4px solid #333; }
+  .dark .notch { background: #333; }
+  .dark .screen { background: #1A1A1A; color: #fff; }
+  .dark .header { padding: 16px; display: flex; justify-content: space-between; align-items: center; }
+  .dark .header .title { font-size: 1rem; font-weight: 700; }
+  .dark .header .status { font-size: 0.7rem; color: #CCFF00; font-weight: 600; }
+  .dark .card { margin: 8px 16px; background: #2A2A2A; border-radius: 16px; padding: 20px; text-align: center; }
+  .dark .card .big-number { font-size: 4rem; font-weight: 900; color: #CCFF00; line-height: 1; }
+  .dark .card .big-label { font-size: 0.8rem; color: #777; margin-top: 4px; }
+  .dark .sub-metrics { display: flex; justify-content: space-around; padding: 12px 0; }
+  .dark .sub-metric { text-align: center; }
+  .dark .sub-metric .val { font-size: 1rem; font-weight: 700; color: #FF6600; }
+  .dark .sub-metric .label { font-size: 0.65rem; color: #777; margin-top: 2px; }
+  .dark .lap-btn { margin: 16px; height: 160px; background: #CCFF00; border-radius: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 1.6rem; font-weight: 900; color: #000; }
+  .dark .lap-btn .sub { font-size: 0.75rem; font-weight: 400; color: #555; margin-top: 4px; }
+  .dark .controls { display: flex; gap: 8px; padding: 0 16px 24px; }
+  .dark .controls button { flex: 1; height: 44px; border-radius: 12px; border: none; font-size: 0.8rem; font-weight: 600; }
+  .dark .controls .pause { background: #2A2A2A; color: #777; }
+  .dark .controls .finish { background: #FF453A; color: #fff; }
+
+  /* LIGHT MODE — Volt + Card Sport */
+  .light .phone-frame { border: 4px solid #ccc; }
+  .light .notch { background: #ccc; }
+  .light .screen { background: #F5F5F7; color: #1D1D1F; }
+  .light .header { padding: 16px; display: flex; justify-content: space-between; align-items: center; }
+  .light .header .title { font-size: 1rem; font-weight: 700; }
+  .light .header .status { font-size: 0.7rem; color: #CC9900; font-weight: 600; }
+  .light .card { margin: 8px 16px; background: #FFFFFF; border-radius: 16px; padding: 20px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .light .card .big-number { font-size: 4rem; font-weight: 900; color: #CC9900; line-height: 1; }
+  .light .card .big-label { font-size: 0.8rem; color: #86868B; margin-top: 4px; }
+  .light .sub-metrics { display: flex; justify-content: space-around; padding: 12px 0; }
+  .light .sub-metric { text-align: center; }
+  .light .sub-metric .val { font-size: 1rem; font-weight: 700; color: #FF6600; }
+  .light .sub-metric .label { font-size: 0.65rem; color: #86868B; margin-top: 2px; }
+  .light .lap-btn { margin: 16px; height: 160px; background: #CC9900; border-radius: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 1.6rem; font-weight: 900; color: #fff; box-shadow: 0 4px 16px rgba(204,153,0,0.3); }
+  .light .lap-btn .sub { font-size: 0.75rem; font-weight: 400; color: #997700; margin-top: 4px; }
+  .light .controls { display: flex; gap: 8px; padding: 0 16px 24px; }
+  .light .controls button { flex: 1; height: 44px; border-radius: 12px; border: none; font-size: 0.8rem; font-weight: 600; }
+  .light .controls .pause { background: #FFFFFF; color: #86868B; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  .light .controls .finish { background: #FF453A; color: #fff; }
+
+  /* Token reference */
+  .tokens { max-width: 600px; margin: 0 auto 48px; background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  .tokens h3 { font-size: 0.9rem; margin-bottom: 12px; }
+  .token-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .token { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; }
+  .token .swatch { width: 24px; height: 24px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.1); }
+</style>
+</head>
+<body>
+<h1>⚡ WalkTracker v2.0 — Volt + Card Sport</h1>
+<p class="subtitle">Paleta D (Volt) · Dirección C (Card Sport) · Modo claro + oscuro</p>
+
+<!-- Token reference -->
+<div class="tokens">
+  <h3>Tokens de color — Volt</h3>
+  <div class="token-grid">
+    <div class="token"><div class="swatch" style="background:#1A1A1A"></div>canvas-dark #1A1A1A</div>
+    <div class="token"><div class="swatch" style="background:#F5F5F7"></div>canvas-light #F5F5F7</div>
+    <div class="token"><div class="swatch" style="background:#2A2A2A"></div>surface-dark #2A2A2A</div>
+    <div class="token"><div class="swatch" style="background:#FFFFFF"></div>surface-light #FFFFFF</div>
+    <div class="token"><div class="swatch" style="background:#CCFF00"></div>accent-dark #CCFF00</div>
+    <div class="token"><div class="swatch" style="background:#CC9900"></div>accent-light #CC9900</div>
+    <div class="token"><div class="swatch" style="background:#FF6600"></div>secondary #FF6600</div>
+    <div class="token"><div class="swatch" style="background:#FF453A"></div>danger #FF453A</div>
+    <div class="token"><div class="swatch" style="background:#FFFFFF;border-color:#333"></div>text-dark #FFFFFF</div>
+    <div class="token"><div class="swatch" style="background:#1D1D1F"></div>text-light #1D1D1F</div>
+    <div class="token"><div class="swatch" style="background:#777777"></div>muted-dark #777777</div>
+    <div class="token"><div class="swatch" style="background:#86868B"></div>muted-light #86868B</div>
+  </div>
+</div>
+
+<!-- Session screen: Dark + Light side by side -->
+<div class="pair">
+  <div class="dark">
+    <div class="mode-label">🌙 Dark Mode</div>
+    <div class="phone-frame">
+      <div class="notch"></div>
+      <div class="screen">
+        <div class="header">
+          <div class="title">Sesión activa</div>
+          <div class="status">● EN CURSO</div>
+        </div>
+        <div class="card">
+          <div class="big-number">42</div>
+          <div class="big-label">vueltas completadas</div>
+          <div class="sub-metrics">
+            <div class="sub-metric"><div class="val">1.71 km</div><div class="label">distancia</div></div>
+            <div class="sub-metric"><div class="val">18:24</div><div class="label">tiempo</div></div>
+            <div class="sub-metric"><div class="val">10:44</div><div class="label">ritmo</div></div>
+          </div>
+        </div>
+        <div class="lap-btn">+1 VUELTA<div class="sub">toca para marcar</div></div>
+        <div class="controls">
+          <button class="pause">⏸ Pausar</button>
+          <button class="finish">⏹ Finalizar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="light">
+    <div class="mode-label">☀️ Light Mode</div>
+    <div class="phone-frame">
+      <div class="notch"></div>
+      <div class="screen">
+        <div class="header">
+          <div class="title">Sesión activa</div>
+          <div class="status">● EN CURSO</div>
+        </div>
+        <div class="card">
+          <div class="big-number">42</div>
+          <div class="big-label">vueltas completadas</div>
+          <div class="sub-metrics">
+            <div class="sub-metric"><div class="val">1.71 km</div><div class="label">distancia</div></div>
+            <div class="sub-metric"><div class="val">18:24</div><div class="label">tiempo</div></div>
+            <div class="sub-metric"><div class="val">10:44</div><div class="label">ritmo</div></div>
+          </div>
+        </div>
+        <div class="lap-btn">+1 VUELTA<div class="sub">toca para marcar</div></div>
+        <div class="controls">
+          <button class="pause">⏸ Pausar</button>
+          <button class="finish">⏹ Finalizar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

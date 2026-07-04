@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WalkTracker v2.0 — Key Screens</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, 'Helvetica Neue', sans-serif; background: #e8e8ed; padding: 24px; }
+  h1 { text-align: center; margin-bottom: 4px; font-size: 1.3rem; }
+  .subtitle { text-align: center; color: #666; margin-bottom: 32px; font-size: 0.85rem; }
+  .screens { display: flex; flex-wrap: wrap; gap: 32px; justify-content: center; }
+  .screen-group { text-align: center; }
+  .screen-group h3 { font-size: 0.9rem; margin-bottom: 12px; color: #333; }
+  .phone-frame { width: 280px; height: 580px; border-radius: 36px; overflow: hidden; position: relative; margin: 0 auto 16px; }
+  .phone-frame .notch { width: 120px; height: 28px; border-radius: 0 0 16px 16px; margin: 0 auto; position: relative; z-index: 2; }
+  .phone-frame .screen { height: calc(100% - 28px); display: flex; flex-direction: column; }
+
+  /* DARK */
+  .dark .phone-frame { border: 4px solid #333; }
+  .dark .notch { background: #333; }
+  .dark .screen { background: #1A1A1A; color: #fff; }
+  .dark .header { padding: 16px; display: flex; justify-content: space-between; align-items: center; }
+  .dark .header .title { font-size: 17px; font-weight: 700; }
+  .dark .header .icons { font-size: 20px; }
+  .dark .header .status { font-size: 12px; color: #CCFF00; font-weight: 600; }
+  .dark .card { margin: 8px 16px; background: #2A2A2A; border-radius: 16px; padding: 20px; text-align: center; }
+  .dark .card .big-number { font-size: 48px; font-weight: 900; color: #CCFF00; line-height: 1; }
+  .dark .card .big-label { font-size: 11px; color: #777; margin-top: 4px; }
+  .dark .sub-metrics { display: flex; justify-content: space-around; padding: 12px 0; }
+  .dark .sub-metric { text-align: center; }
+  .dark .sub-metric .val { font-size: 16px; font-weight: 700; color: #FF6600; }
+  .dark .sub-metric .label { font-size: 11px; color: #777; margin-top: 2px; }
+  .dark .lap-btn { margin: 16px; height: 160px; background: #CCFF00; border-radius: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 24px; font-weight: 900; color: #000; }
+  .dark .lap-btn .sub { font-size: 12px; font-weight: 400; color: #555; margin-top: 4px; }
+  .dark .controls { display: flex; gap: 8px; padding: 0 16px 24px; }
+  .dark .controls button { flex: 1; height: 44px; border-radius: 12px; border: none; font-size: 14px; font-weight: 600; }
+  .dark .controls .pause { background: #2A2A2A; color: #777; }
+  .dark .controls .finish { background: #FF453A; color: #fff; }
+  .dark .controls .resume { background: #30D158; color: #fff; }
+  .dark .home-center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 16px; }
+  .dark .home-center h2 { font-size: 28px; font-weight: 700; color: #CCFF00; }
+  .dark .home-center p { font-size: 15px; color: #777; text-align: center; max-width: 240px; }
+  .dark .btn-start { width: 160px; height: 160px; border-radius: 50%; background: #CCFF00; color: #000; border: none; font-size: 20px; font-weight: 900; }
+  .dark .calib { font-size: 12px; color: #777; text-align: center; }
+  .dark .settings-content { padding: 16px; flex: 1; }
+  .dark .settings-content h2 { font-size: 20px; font-weight: 700; margin-bottom: 20px; text-align: center; }
+  .dark .field { margin-bottom: 16px; }
+  .dark .field label { font-size: 15px; color: #777; display: block; margin-bottom: 6px; }
+  .dark .field input { width: 100%; padding: 12px 14px; border-radius: 8px; border: 1px solid #3A3A3A; background: #2A2A2A; color: #fff; font-size: 17px; font-weight: 600; }
+  .dark .field input[readonly] { background: transparent; border-color: transparent; color: #CCFF00; font-size: 20px; font-weight: 900; }
+  .dark .field .derived { font-size: 11px; color: #CCFF00; margin-top: 4px; }
+  .dark .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; }
+  .dark .toggle-row label { font-size: 15px; color: #fff; font-weight: 600; }
+  .dark .toggle { width: 48px; height: 28px; background: #3A3A3A; border-radius: 14px; position: relative; }
+  .dark .toggle.on { background: #30D158; }
+  .dark .toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 24px; height: 24px; background: #fff; border-radius: 50%; }
+  .dark .toggle.on::after { left: 22px; }
+  .dark .settings-actions { display: flex; gap: 12px; margin-top: 24px; }
+  .dark .settings-actions button { flex: 1; height: 44px; border-radius: 12px; border: none; font-size: 14px; font-weight: 600; }
+  .dark .settings-actions .back { background: #2A2A2A; color: #777; }
+  .dark .settings-actions .save { background: #CCFF00; color: #000; }
+  .dark .history-content { padding: 16px; flex: 1; }
+  .dark .history-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .dark .history-header .back { font-size: 20px; background: none; border: none; color: #fff; cursor: pointer; }
+  .dark .history-header h2 { font-size: 20px; font-weight: 700; flex: 1; }
+  .dark .history-totals { background: #2A2A2A; border-radius: 12px; padding: 16px; margin-bottom: 12px; display: flex; justify-content: space-around; text-align: center; }
+  .dark .history-totals .label { font-size: 11px; color: #777; }
+  .dark .history-totals .value { font-size: 17px; font-weight: 700; color: #fff; margin-top: 4px; }
+  .dark .history-row { background: #2A2A2A; border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; }
+  .dark .history-row .date { font-size: 11px; color: #777; margin-bottom: 4px; }
+  .dark .history-row .stats { display: flex; gap: 12px; font-size: 14px; }
+  .dark .history-row .stats .val { font-weight: 700; color: #fff; }
+  .dark .summary-content { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; padding: 16px; }
+  .dark .summary-content h2 { font-size: 20px; font-weight: 700; }
+  .dark .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; max-width: 280px; }
+  .dark .summary-item { background: #2A2A2A; padding: 16px; border-radius: 12px; text-align: center; }
+  .dark .summary-item .label { font-size: 11px; color: #777; }
+  .dark .summary-item .value { font-size: 20px; font-weight: 700; color: #fff; margin-top: 4px; }
+  .dark .healthkit-badge { font-size: 12px; color: #30D158; font-weight: 600; }
+  .dark .btn-new { padding: 16px 48px; border-radius: 12px; background: #CCFF00; color: #000; border: none; font-size: 17px; font-weight: 600; }
+
+  /* LIGHT */
+  .light .phone-frame { border: 4px solid #ccc; }
+  .light .notch { background: #ccc; }
+  .light .screen { background: #F5F5F7; color: #1D1D1F; }
+  .light .header { padding: 16px; display: flex; justify-content: space-between; align-items: center; }
+  .light .header .title { font-size: 17px; font-weight: 700; }
+  .light .header .icons { font-size: 20px; }
+  .light .header .status { font-size: 12px; color: #CC9900; font-weight: 600; }
+  .light .card { margin: 8px 16px; background: #FFFFFF; border-radius: 16px; padding: 20px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .light .card .big-number { font-size: 48px; font-weight: 900; color: #CC9900; line-height: 1; }
+  .light .card .big-label { font-size: 11px; color: #86868B; margin-top: 4px; }
+  .light .sub-metrics { display: flex; justify-content: space-around; padding: 12px 0; }
+  .light .sub-metric { text-align: center; }
+  .light .sub-metric .val { font-size: 16px; font-weight: 700; color: #FF6600; }
+  .light .sub-metric .label { font-size: 11px; color: #86868B; margin-top: 2px; }
+  .light .lap-btn { margin: 16px; height: 160px; background: #CC9900; border-radius: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 24px; font-weight: 900; color: #fff; box-shadow: 0 4px 16px rgba(204,153,0,0.3); }
+  .light .lap-btn .sub { font-size: 12px; font-weight: 400; color: #997700; margin-top: 4px; }
+  .light .controls { display: flex; gap: 8px; padding: 0 16px 24px; }
+  .light .controls button { flex: 1; height: 44px; border-radius: 12px; border: none; font-size: 14px; font-weight: 600; }
+  .light .controls .pause { background: #FFFFFF; color: #86868B; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  .light .controls .finish { background: #FF453A; color: #fff; }
+  .light .controls .resume { background: #30D158; color: #fff; }
+  .light .home-center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 16px; }
+  .light .home-center h2 { font-size: 28px; font-weight: 700; color: #CC9900; }
+  .light .home-center p { font-size: 15px; color: #86868B; text-align: center; max-width: 240px; }
+  .light .btn-start { width: 160px; height: 160px; border-radius: 50%; background: #CC9900; color: #fff; border: none; font-size: 20px; font-weight: 900; }
+  .light .calib { font-size: 12px; color: #86868B; text-align: center; }
+  .light .settings-content { padding: 16px; flex: 1; }
+  .light .settings-content h2 { font-size: 20px; font-weight: 700; margin-bottom: 20px; text-align: center; }
+  .light .field { margin-bottom: 16px; }
+  .light .field label { font-size: 15px; color: #86868B; display: block; margin-bottom: 6px; }
+  .light .field input { width: 100%; padding: 12px 14px; border-radius: 8px; border: 1px solid #D2D2D7; background: #FFFFFF; color: #1D1D1F; font-size: 17px; font-weight: 600; }
+  .light .field input[readonly] { background: transparent; border-color: transparent; color: #CC9900; font-size: 20px; font-weight: 900; }
+  .light .field .derived { font-size: 11px; color: #CC9900; margin-top: 4px; }
+  .light .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; }
+  .light .toggle-row label { font-size: 15px; color: #1D1D1F; font-weight: 600; }
+  .light .toggle { width: 48px; height: 28px; background: #D2D2D7; border-radius: 14px; position: relative; }
+  .light .toggle.on { background: #30D158; }
+  .light .toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 24px; height: 24px; background: #fff; border-radius: 50%; }
+  .light .toggle.on::after { left: 22px; }
+  .light .settings-actions { display: flex; gap: 12px; margin-top: 24px; }
+  .light .settings-actions button { flex: 1; height: 44px; border-radius: 12px; border: none; font-size: 14px; font-weight: 600; }
+  .light .settings-actions .back { background: #FFFFFF; color: #86868B; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  .light .settings-actions .save { background: #CC9900; color: #fff; }
+  .light .history-content { padding: 16px; flex: 1; }
+  .light .history-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .light .history-header .back { font-size: 20px; background: none; border: none; color: #1D1D1F; cursor: pointer; }
+  .light .history-header h2 { font-size: 20px; font-weight: 700; flex: 1; }
+  .light .history-totals { background: #FFFFFF; border-radius: 12px; padding: 16px; margin-bottom: 12px; display: flex; justify-content: space-around; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .light .history-totals .label { font-size: 11px; color: #86868B; }
+  .light .history-totals .value { font-size: 17px; font-weight: 700; color: #1D1D1F; margin-top: 4px; }
+  .light .history-row { background: #FFFFFF; border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
+  .light .history-row .date { font-size: 11px; color: #86868B; margin-bottom: 4px; }
+  .light .history-row .stats { display: flex; gap: 12px; font-size: 14px; }
+  .light .history-row .stats .val { font-weight: 700; color: #1D1D1F; }
+  .light .summary-content { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; padding: 16px; }
+  .light .summary-content h2 { font-size: 20px; font-weight: 700; }
+  .light .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; max-width: 280px; }
+  .light .summary-item { background: #FFFFFF; padding: 16px; border-radius: 12px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .light .summary-item .label { font-size: 11px; color: #86868B; }
+  .light .summary-item .value { font-size: 20px; font-weight: 700; color: #1D1D1F; margin-top: 4px; }
+  .light .healthkit-badge { font-size: 12px; color: #30D158; font-weight: 600; }
+  .light .btn-new { padding: 16px 48px; border-radius: 12px; background: #CC9900; color: #fff; border: none; font-size: 17px; font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>⚡ WalkTracker v2.0 — 5 Key Screens</h1>
+<p class="subtitle">Volt + Card Sport · Dark + Light · iPhone 14 (390×844 pt)</p>
+
+<div class="screens">
+
+  <!-- HOME -->
+  <div class="screen-group">
+    <h3>Home</h3>
+    <div class="pair" style="display:flex;gap:16px;">
+      <div class="dark">
+        <div class="phone-frame"><div class="notch"></div><div class="screen">
+          <div class="header"><div class="title">WalkTracker</div><div class="icons">📋 ⚙</div></div>
+          <div class="home-center">
+            <h2>WalkTracker</h2>
+            <p>Registra tus caminatas por conteo de vueltas, sin GPS.</p>
+            <button class="btn-start">▶<br>INICIAR</button>
+            <div class="calib">62 pasos × 0,655 m = 40,61 m/vuelta</div>
+          </div>
+        </div></div>
+      </div>
+      <div class="light">
+        <div class="phone-frame"><div class="notch"></div><div class="screen">
+          <div class="header"><div class="title">WalkTracker</div><div class="icons">📋 ⚙</div></div>
+          <div class="home-center">
+            <h2>WalkTracker</h2>
+            <p>Registra tus caminatas por conteo de vueltas, sin GPS.</p>
+            <button class="btn-start">▶<br>INICIAR</button>
+            <div class="calib">62 pasos × 0,655 m = 40,61 m/vuelta</div>
+          </div>
+        </div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SESSION -->
+  <div class="screen-group">
+    <h3>Session (Active)</h3>
+    <div class="pair" style="display:flex;gap:16px;">
+      <div class="dark">
+        <div class="phone-frame"><div class="notch"></div><div class="screen">
+          <div class="header"><div class="title">Sesión activa</div><div class="status">● EN CURSO</div></div>
+          <div class="card">
+            <div class="big-number">42</div>
+            <div class="big-label">vueltas completadas</div>
+            <div class="sub-metrics">
+              <div class="sub-metric"><div class="val">1.71 km</div><div class="label">distancia</div></div>
+              <div class="sub-metric"><div class="val">18:24</div><div class="label">tiempo</div></div>
+              <div class="sub-metric"><div class="val">10:44</div><div class="label">ritmo</div></div>
+            </div>
+          </div>
+          <div class="lap-btn">+1 VUELTA<div class="sub">toca para marcar</div></div>
+          <div class="controls">
+            <button class="pause">⏸ Pausar</button>
+            <button class="finish">⏹ Finalizar</button>
+          </div>
+        </div></div>
+      </div>
+      <div class="light">
+        <div class="phone-frame"><div class="notch"></div><div class="screen">
+          <div class="header"><div class="title">Sesión activa</div><div class="status">● EN CURSO</div></div>
+          <div class="card">
+            <div class="big-number">42</div>
+            <div class="big-label">vueltas completadas</div>
+            <div class="sub-metrics">
+              <div class="sub-metric"><div class="val">1.71 km</div><div class="label">distancia</div></div>
+              <div class="sub-metric"><div class="val">18:24</div><div class="label">tiempo</div></div>
+              <div class="sub-metric"><div class="val">10:44</div><div class="label">ritmo</div></div>
+            </div>
+          </div>
+          <div class="lap-btn">+1 VUELTA<div class="sub">toca para marcar</div></div>
+          <div class="controls">
+            <button class="pause">⏸ Pausar</button>
+            <button class="finish">⏹ Finalizar</button>
+          </div>
+        </div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SUMMARY -->
+  <div class="screen-group">
+    <h3>Summary</h3>
+    <div class="pair" style="display:flex;gap:16px;">
+      <div class="dark">
+        <div class="phone-frame"><div class="notch"></div><div class="screen">
+          <div class="summary-content">
+            <h2>🏁 Sesión completada</h2>
+            <div class="summary-grid">
+              <div class="summary-item"><div class="label">Vueltas</div><div class="value">83</div></div>
+              <div class="summary-item"><div class="label">Distancia</div><div class="value">3.37 km</div></div>
+              <div class="summary-item"><div class="label">Duración</div><div class="value">62:00</div></div>
+              <div class="summary-item"><div class="label">Ritmo</div><div class="value">10:44</div></div>
+            </div>
+            <div class="healthkit-badge">✓ Escrito en Salud</div>
+            <button class="btn-new">➕ Nueva sesión</button>
+          </div>
+        </div></div>
+      </div>
+      <div class="light">
+        <div class="phone-frame"><div class="notch"></div><div class="screen">
+          <div class="summary-content">
+            <h2>🏁 Sesión completada</h2>
+            <div class="summary-grid">
+              <div class="summary-item"><div class="label">Vueltas</div><div class="value">83</div></div>
+              <div class="summary-item"><div class="label">Distancia</div><div class="value">3.37 km</div></div>
+              <div class="summary-item"><div class="label">Duración</div><div class="value">62:00</div></div>
+              <div class="summary-item"><div class="label">Ritmo</div><div class="value">10:44</div></div>
+            </div>
+            <div class="healthkit-badge">✓ Escrito en Salud</div>
+            <button class="btn-new">➕ Nueva sesión</button>
+          </div>
+        </div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="screen-group">
+    <h3>Settings</h3>
+    <div class="pair" style="display:flex;gap:16px;">
+      <div class="dark">
+        <div class="phone-frame"><div class="notch"></div><div class="screen">
+          <div class="settings-content">
+            <h2>⚙ Ajustes</h2>
+            <div class="field"><label>Zancada (m)</label><input type="number" value="0.655"></div>
+            <div class="field"><label>Pasos por vuelta</label><input type="number" value="62"></div>
+            <div class="field"><label>Perímetro (derivado)</label><input type="text" readonly value="40.61 m"><div class="derived">se calcula automáticamente</div></div>
+            <div class="toggle-row"><label>🏃 Modo automático</label><div class="toggle on"></div></div>
+            <div class="settings-actions">
+              <button class="back">← Volver</button>
+              <button class="save">💾 Guardar</button>
+            </div>
+          </div>
+        </div></div>
+      </div>
+      <div class="light">
+        <div class="phone-frame"><div class="notch"></div><div class="screen">
+          <div class="settings-content">
+            <h2>⚙ Ajustes</h2>
+            <div class="field"><label>Zancada (m)</label><input type="number" value="0.655"></div>
+            <div class="field"><label>Pasos por vuelta</label><input type="number" value="62"></div>
+            <div class="field"><label>Perímetro (derivado)</label><input type="text" readonly value="40.61 m"><div class="derived">se calcula automáticamente</div></div>
+            <div class="toggle-row"><label>🏃 Modo automático</label><div class="toggle on"></div></div>
+            <div class="settings-actions">
+              <button class="back">← Volver</button>
+              <button class="save">💾 Guardar</button>
+            </div>
+          </div>
+        </div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="screen-group">
+    <h3>History</h3>
+    <div class="pair" style="display:flex;gap:16px;">
+      <div class="dark">
+        <div class="phone-frame"><div class="notch"></div><div class="screen">
+          <div class="history-content">
+            <div class="history-header"><button class="back">←</button><h2>📋 Historial</h2></div>
+            <div class="history-totals">
+              <div><div class="label">Total km</div><div class="value">28.42</div></div>
+              <div><div class="label">Sesiones</div><div class="value">8</div></div>
+              <div><div class="label">Total tiempo</div><div class="value">8:12:00</div></div>
+            </div>
+            <div class="history-row"><div class="date">📅 04 jul 2026</div><div class="stats"><span class="val">3.37 km</span><span>·</span><span class="val">62:00</span><span>·</span><span class="val">10:44 /km</span></div></div>
+            <div class="history-row"><div class="date">📅 03 jul 2026</div><div class="stats"><span class="val">4.11 km</span><span>·</span><span class="val">75:00</span><span>·</span><span class="val">15:12 /km</span></div></div>
+            <div class="history-row"><div class="date">📅 02 jul 2026</div><div class="stats"><span class="val">2.84 km</span><span>·</span><span class="val">52:00</span><span>·</span><span class="val">11:28 /km</span></div></div>
+          </div>
+        </div></div>
+      </div>
+      <div class="light">
+        <div class="phone-frame"><div class="notch"></div><div class="screen">
+          <div class="history-content">
+            <div class="history-header"><button class="back">←</button><h2>📋 Historial</h2></div>
+            <div class="history-totals">
+              <div><div class="label">Total km</div><div class="value">28.42</div></div>
+              <div><div class="label">Sesiones</div><div class="value">8</div></div>
+              <div><div class="label">Total tiempo</div><div class="value">8:12:00</div></div>
+            </div>
+            <div class="history-row"><div class="date">📅 04 jul 2026</div><div class="stats"><span class="val">3.37 km</span><span>·</span><span class="val">62:00</span><span>·</span><span class="val">10:44 /km</span></div></div>
+            <div class="history-row"><div class="date">📅 03 jul 2026</div><div class="stats"><span class="val">4.11 km</span><span>·</span><span class="val">75:00</span><span>·</span><span class="val">15:12 /km</span></div></div>
+            <div class="history-row"><div class="date">📅 02 jul 2026</div><div class="stats"><span class="val">2.84 km</span><span>·</span><span class="val">52:00</span><span>·</span><span class="val">11:28 /km</span></div></div>
+          </div>
+        </div></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
