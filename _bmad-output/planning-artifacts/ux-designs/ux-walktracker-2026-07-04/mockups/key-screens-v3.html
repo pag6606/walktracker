@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WalkTracker v3.0 — Key Screens</title>
+<style>
+  :root {
+    --spacing-1: 4px; --spacing-2: 8px; --spacing-3: 12px;
+    --spacing-4: 16px; --spacing-5: 24px; --spacing-6: 32px;
+    --radius-sm: 8px; --radius-md: 12px; --radius-lg: 16px;
+    --radius-xl: 20px; --radius-full: 9999px;
+  }
+  [data-theme="dark"] {
+    --canvas: #1A1A1A; --surface: #2A2A2A; --accent: #CCFF00;
+    --secondary: #FF6600; --danger: #FF453A; --danger-text: #1D1D1F;
+    --text: #FFFFFF; --muted: #999999; --border: #555555;
+    --success: #30D158; --estimated: #FFB347;
+    --shadow: none; --card-shadow: none;
+  }
+  [data-theme="light"] {
+    --canvas: #F5F5F7; --surface: #FFFFFF; --accent: #CC9900;
+    --secondary: #FF6600; --danger: #FF453A; --danger-text: #1D1D1F;
+    --text: #1D1D1F; --muted: #666666; --border: #8E8E93;
+    --success: #30D158; --estimated: #CC7A00;
+    --shadow: 0 2px 8px rgba(0,0,0,0.06); --card-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Helvetica Neue", sans-serif;
+    background: #000; color: var(--text);
+    display: flex; flex-wrap: wrap; gap: 32px;
+    padding: 32px; justify-content: center;
+  }
+  .phone {
+    width: 390px; min-height: 844px; background: var(--canvas);
+    border-radius: 40px; overflow: hidden; position: relative;
+    border: 3px solid #333; box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  .phone-label {
+    position: absolute; top: -28px; left: 0; right: 0;
+    text-align: center; color: #888; font-size: 13px; font-weight: 600;
+  }
+  .screen { padding: 16px; min-height: 844px; display: flex; flex-direction: column; }
+  .header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 0 16px;
+  }
+  .header-title { font-size: 17px; font-weight: 700; }
+  .header-icons { display: flex; gap: 16px; }
+  .header-icons span { font-size: 20px; cursor: pointer; }
+  .card {
+    background: var(--surface); border-radius: var(--radius-lg);
+    padding: 20px; margin-bottom: 12px; box-shadow: var(--card-shadow);
+  }
+  .metric-hero {
+    font-size: 64px; font-weight: 900; line-height: 1;
+    letter-spacing: -0.03em; color: var(--accent);
+  }
+  .metric-sub { font-size: 16px; font-weight: 700; line-height: 1.2; }
+  .label { font-size: 11px; font-weight: 400; color: var(--muted); line-height: 1.3; }
+  .body-text { font-size: 15px; font-weight: 400; line-height: 1.4; }
+  .btn-primary {
+    width: 100%; padding: 16px; background: var(--accent);
+    color: var(--canvas); font-size: 24px; font-weight: 900;
+    border: none; border-radius: var(--radius-xl); cursor: pointer;
+    text-align: center;
+  }
+  .btn-secondary {
+    padding: 12px 16px; background: var(--surface); color: var(--muted);
+    font-size: 14px; font-weight: 600; border: 1px solid var(--border);
+    border-radius: var(--radius-md); cursor: pointer;
+  }
+  .btn-danger {
+    padding: 12px 16px; background: var(--danger); color: var(--danger-text);
+    font-size: 14px; font-weight: 600; border: none;
+    border-radius: var(--radius-md); cursor: pointer;
+  }
+  .btn-success {
+    padding: 12px 16px; background: var(--success); color: var(--danger-text);
+    font-size: 14px; font-weight: 600; border: none;
+    border-radius: var(--radius-md); cursor: pointer;
+  }
+  .status-badge {
+    display: inline-block; padding: 4px 10px; border-radius: var(--radius-full);
+    font-size: 12px; font-weight: 600; color: var(--accent);
+  }
+  .status-badge::before { content: "● "; }
+  .ring-container {
+    display: flex; flex-direction: column; align-items: center;
+    margin: 24px 0;
+  }
+  .ring {
+    width: 300px; height: 300px; border-radius: 50%;
+    position: relative; display: flex; align-items: center;
+    justify-content: center; flex-direction: column;
+  }
+  .ring svg { position: absolute; top: 0; left: 0; transform: rotate(-90deg); }
+  .ring-value { font-size: 36px; font-weight: 900; color: var(--accent); letter-spacing: -0.02em; }
+  .ring-label { font-size: 14px; font-weight: 600; color: var(--muted); margin-top: 4px; }
+  .sub-metrics {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+    text-align: center; margin-top: 16px;
+  }
+  .sub-metric-value { font-size: 16px; font-weight: 700; }
+  .sub-metric-label { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .weather-card {
+    display: flex; align-items: center; gap: 12px;
+  }
+  .weather-temp { font-size: 24px; font-weight: 700; }
+  .weather-condition { font-size: 15px; color: var(--muted); }
+  .weather-details { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .controls { display: flex; gap: 12px; margin-top: auto; padding-bottom: 32px; }
+  .controls .btn-secondary, .controls .btn-danger { flex: 1; text-align: center; }
+  .history-row {
+    background: var(--surface); border-radius: var(--radius-md);
+    padding: 16px; margin-bottom: 8px; display: flex;
+    justify-content: space-between; align-items: center;
+  }
+  .history-metrics { display: flex; gap: 16px; }
+  .history-metric { text-align: center; }
+  .trend-chart {
+    display: flex; align-items: flex-end; gap: 12px;
+    height: 120px; padding: 16px 0;
+  }
+  .trend-bar {
+    flex: 1; background: var(--muted); border-radius: 4px 4px 0 0;
+    min-height: 8px; position: relative;
+  }
+  .trend-bar.current { background: var(--accent); }
+  .trend-bar-label {
+    position: absolute; bottom: -20px; left: 50%; transform: translateX(-50%);
+    font-size: 10px; color: var(--muted);
+  }
+  .achievement-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
+  }
+  .achievement-card {
+    background: var(--surface); border-radius: var(--radius-md);
+    padding: 16px; text-align: center;
+  }
+  .achievement-icon {
+    width: 64px; height: 64px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px; margin: 0 auto 8px;
+  }
+  .achievement-icon.unlocked { background: var(--accent); }
+  .achievement-icon.locked { background: var(--muted); opacity: 0.4; }
+  .achievement-name { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .achievement-desc { font-size: 11px; color: var(--muted); }
+  .achievement-progress {
+    height: 4px; background: var(--border); border-radius: 2px;
+    margin-top: 8px; overflow: hidden;
+  }
+  .achievement-progress-fill { height: 100%; background: var(--accent); border-radius: 2px; }
+  .settings-field { margin-bottom: 20px; }
+  .settings-input {
+    width: 100%; padding: 12px 16px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    color: var(--text); font-size: 15px; margin-top: 8px;
+  }
+  .settings-input:focus { outline: 2px solid var(--accent); border-color: transparent; }
+  .toggle {
+    width: 48px; height: 28px; background: var(--border);
+    border-radius: 14px; position: relative; cursor: pointer;
+    padding: 2px;
+  }
+  .toggle.on { background: var(--success); }
+  .toggle-knob {
+    width: 24px; height: 24px; background: white; border-radius: 50%;
+    transition: transform 0.2s;
+  }
+  .toggle.on .toggle-knob { transform: translateX(20px); }
+  .settings-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 0; border-bottom: 1px solid var(--border);
+  }
+  .motivational-overlay {
+    position: absolute; inset: 0; background: var(--accent);
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; padding: 32px; z-index: 10;
+  }
+  .quote-text {
+    font-size: 28px; font-weight: 700; color: var(--canvas);
+    text-align: center; line-height: 1.3; letter-spacing: -0.01em;
+  }
+  .quote-hint {
+    position: absolute; bottom: 48px; font-size: 11px;
+    color: var(--canvas); opacity: 0.5;
+  }
+  .motion-denied {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; min-height: 844px; padding: 32px;
+    text-align: center;
+  }
+  .motion-icon { font-size: 80px; margin-bottom: 24px; }
+  .motion-title { font-size: 17px; font-weight: 700; margin-bottom: 12px; }
+  .motion-body { font-size: 15px; color: var(--muted); margin-bottom: 32px; line-height: 1.5; }
+  .banner {
+    padding: 12px 16px; border-radius: var(--radius-sm);
+    margin-bottom: 12px; font-size: 15px;
+  }
+  .banner-warning { background: var(--secondary); color: var(--danger-text); }
+  .banner-info { background: var(--surface); color: var(--muted); border-left: 4px solid var(--estimated); }
+  .banner-recovery { background: var(--surface); color: var(--muted); text-align: center; padding: 8px; font-size: 11px; }
+  .estimated-prefix { color: var(--estimated); }
+  .delete-icon { font-size: 18px; opacity: 0.5; cursor: pointer; padding: 8px; }
+  .summary-stats {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
+    margin: 16px 0;
+  }
+  .summary-stat {
+    background: var(--surface); border-radius: var(--radius-md);
+    padding: 16px; text-align: center;
+  }
+  .summary-stat-value { font-size: 20px; font-weight: 700; }
+  .summary-stat-label { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .theme-toggle {
+    position: fixed; top: 16px; right: 16px; z-index: 100;
+    padding: 8px 16px; background: #333; color: white;
+    border: none; border-radius: 8px; cursor: pointer; font-size: 14px;
+  }
+  .totals-row {
+    display: flex; justify-content: space-around; text-align: center;
+    padding: 16px; background: var(--surface); border-radius: var(--radius-sm);
+    margin-bottom: 12px;
+  }
+  .total-value { font-size: 20px; font-weight: 700; }
+  .total-label { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .goal-progress-text { font-size: 14px; color: var(--muted); text-align: center; margin-top: 8px; }
+  .goal-progress-bar {
+    height: 8px; background: var(--border); border-radius: 4px;
+    margin-top: 8px; overflow: hidden;
+  }
+  .goal-progress-fill { height: 100%; background: var(--accent); border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<button class="theme-toggle" onclick="toggleTheme()">🌓 Dark/Light</button>
+
+<!-- 1. HOME -->
+<div class="phone">
+  <div class="phone-label">Home — Dark</div>
+  <div class="screen">
+    <div class="header">
+      <div class="header-title">WalkTracker</div>
+      <div class="header-icons"><span aria-label="Logros">🏆</span><span aria-label="Historial">📋</span><span aria-label="Configuración">⚙</span></div>
+    </div>
+    <div class="ring-container">
+      <div class="ring">
+        <svg width="300" height="300"><circle cx="150" cy="150" r="140" fill="none" stroke="var(--surface)" stroke-width="12"/><circle cx="150" cy="150" r="140" fill="none" stroke="var(--accent)" stroke-width="12" stroke-dasharray="550" stroke-dashoffset="210" stroke-linecap="round"/></svg>
+        <div class="ring-value">6.2</div>
+        <div class="ring-label">km</div>
+      </div>
+      <div class="goal-progress-text">Meta semanal: 6.2 / 10 km</div>
+      <div class="goal-progress-bar" style="width:280px"><div class="goal-progress-fill" style="width:62%"></div></div>
+    </div>
+    <div class="card" style="display:flex;align-items:center;gap:12px;">
+      <span style="font-size:24px">⛅</span>
+      <div>
+        <div class="weather-temp">14°C</div>
+        <div class="weather-condition">Parcialmente nublado</div>
+        <div class="weather-details">Humedad 71% · UV 6 · Viento 9.4 km/h</div>
+      </div>
+    </div>
+    <div style="flex:1"></div>
+    <button class="btn-primary">Iniciar caminata</button>
+    <div style="height:32px"></div>
+  </div>
+</div>
+
+<!-- 2. SESSION -->
+<div class="phone">
+  <div class="phone-label">Session — Dark</div>
+  <div class="screen">
+    <div class="header">
+      <div class="header-title">Sesión</div>
+      <div class="status-badge">EN CURSO</div>
+    </div>
+    <div class="banner-recovery">Sesión recuperada</div>
+    <div class="card">
+      <div class="metric-hero">3.2</div>
+      <div class="label" style="text-align:center;margin-top:4px">kilómetros</div>
+      <div class="sub-metrics">
+        <div><div class="sub-metric-value">4,980</div><div class="sub-metric-label">pasos</div></div>
+        <div><div class="sub-metric-value">45:00</div><div class="sub-metric-label">tiempo</div></div>
+        <div><div class="sub-metric-value">9:22</div><div class="sub-metric-label">ritmo /km</div></div>
+        <div><div class="sub-metric-value">84</div><div class="sub-metric-label">cadencia</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="weather-card">
+        <span style="font-size:24px">⛅</span>
+        <div>
+          <div class="weather-temp">14°C</div>
+          <div class="weather-condition">Parcialmente nublado</div>
+        </div>
+      </div>
+    </div>
+    <div class="banner-info"><span class="estimated-prefix">~</span> 420 pasos estimados · <span style="cursor:pointer;text-decoration:underline">Descartar</span></div>
+    <div style="flex:1"></div>
+    <div class="controls">
+      <button class="btn-secondary">Pausar</button>
+      <button class="btn-danger">Finalizar</button>
+    </div>
+  </div>
+</div>
+
+<!-- 3. SESSION with Wake Lock Banner -->
+<div class="phone">
+  <div class="phone-label">Session — Wake Lock</div>
+  <div class="screen">
+    <div class="header">
+      <div class="header-title">Sesión</div>
+      <div class="status-badge">EN CURSO</div>
+    </div>
+    <div class="banner banner-warning">Mantén la pantalla encendida para contar pasos ✕</div>
+    <div class="card">
+      <div class="metric-hero">1.8</div>
+      <div class="label" style="text-align:center;margin-top:4px">kilómetros</div>
+      <div class="sub-metrics">
+        <div><div class="sub-metric-value">2,760</div><div class="sub-metric-label">pasos</div></div>
+        <div><div class="sub-metric-value">22:30</div><div class="sub-metric-label">tiempo</div></div>
+        <div><div class="sub-metric-value">8:10</div><div class="sub-metric-label">ritmo /km</div></div>
+        <div><div class="sub-metric-value">82</div><div class="sub-metric-label">cadencia</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="weather-card">
+        <span style="font-size:24px">☀️</span>
+        <div>
+          <div class="weather-temp">18°C</div>
+          <div class="weather-condition">Despejado</div>
+        </div>
+      </div>
+    </div>
+    <div style="flex:1"></div>
+    <div class="controls">
+      <button class="btn-success">Reanudar</button>
+      <button class="btn-danger">Finalizar</button>
+    </div>
+  </div>
+</div>
+
+<!-- 4. SUMMARY -->
+<div class="phone">
+  <div class="phone-label">Summary — Dark</div>
+  <div class="screen">
+    <div class="header"><div class="header-title" style="text-align:center;width:100%">Caminata completada</div></div>
+    <div style="text-align:center;padding:16px 0">
+      <div class="metric-hero">3.2</div>
+      <div class="label">kilómetros</div>
+    </div>
+    <div class="summary-stats">
+      <div class="summary-stat"><div class="summary-stat-value">4,980</div><div class="summary-stat-label">pasos</div></div>
+      <div class="summary-stat"><div class="summary-stat-value">45:00</div><div class="summary-stat-label">duración</div></div>
+      <div class="summary-stat"><div class="summary-stat-value">9:22</div><div class="summary-stat-label">ritmo /km</div></div>
+      <div class="summary-stat"><div class="summary-stat-value">84</div><div class="summary-stat-label">cadencia</div></div>
+    </div>
+    <div class="card" style="display:flex;gap:12px;align-items:center;">
+      <span style="font-size:28px">🏅</span>
+      <div>
+        <div class="body-text" style="font-weight:700">Logro desbloqueado</div>
+        <div class="label">Tu primer kilómetro</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="label">Meta semanal</div>
+      <div class="goal-progress-bar"><div class="goal-progress-fill" style="width:94%"></div></div>
+      <div class="goal-progress-text">6.2 → 9.4 / 10 km</div>
+    </div>
+    <div style="flex:1"></div>
+    <button class="btn-primary">Nueva sesión</button>
+    <div style="height:32px"></div>
+  </div>
+</div>
+
+<!-- 5. SETTINGS -->
+<div class="phone">
+  <div class="phone-label">Settings — Dark</div>
+  <div class="screen">
+    <div class="header">
+      <div class="header-title">Ajustes</div>
+      <span style="cursor:pointer;font-size:20px">←</span>
+    </div>
+    <div class="settings-field">
+      <div class="body-text">Zancada (metros)</div>
+      <input class="settings-input" type="number" value="0.655" step="0.001">
+    </div>
+    <div class="settings-field">
+      <div class="body-text">Meta semanal (km)</div>
+      <input class="settings-input" type="number" value="10.0" step="0.5">
+    </div>
+    <div class="settings-row">
+      <div class="body-text">Sonido</div>
+      <div class="toggle on"><div class="toggle-knob"></div></div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="label">Último respaldo</div>
+      <div class="body-text" style="color:var(--accent)">Hace 15 días</div>
+      <button class="btn-secondary" style="width:100%;margin-top:12px">Exportar historial</button>
+    </div>
+    <div style="flex:1"></div>
+    <button class="btn-secondary" style="width:100%;color:var(--danger);border-color:var(--danger)">Borrar todos los datos</button>
+    <div style="height:32px"></div>
+  </div>
+</div>
+
+<!-- 6. HISTORY -->
+<div class="phone">
+  <div class="phone-label">History — Dark</div>
+  <div class="screen">
+    <div class="header">
+      <div class="header-title">Historial</div>
+      <span style="cursor:pointer;font-size:20px">←</span>
+    </div>
+    <div class="totals-row">
+      <div><div class="total-value">10.3</div><div class="total-label">km</div></div>
+      <div><div class="total-value">3</div><div class="total-label">sesiones</div></div>
+      <div><div class="total-value">2:15</div><div class="total-label">tiempo</div></div>
+    </div>
+    <div class="label" style="margin-bottom:8px">Tendencia (últimas 4 semanas)</div>
+    <div class="trend-chart">
+      <div class="trend-bar" style="height:40%"><div class="trend-bar-label">S1</div></div>
+      <div class="trend-bar" style="height:55%"><div class="trend-bar-label">S2</div></div>
+      <div class="trend-bar" style="height:70%"><div class="trend-bar-label">S3</div></div>
+      <div class="trend-bar current" style="height:90%"><div class="trend-bar-label">S4</div></div>
+    </div>
+    <div style="height:24px"></div>
+    <div class="label" style="margin-bottom:8px">Sesiones</div>
+    <div class="history-row">
+      <div>
+        <div class="label">Hoy, 14:30</div>
+        <div class="history-metrics"><span class="metric-sub">3.2 km</span><span class="metric-sub">45:00</span><span class="metric-sub">9:22 /km</span></div>
+      </div>
+      <span class="delete-icon">🗑️</span>
+    </div>
+    <div class="history-row">
+      <div>
+        <div class="label">Ayer, 08:15</div>
+        <div class="history-metrics"><span class="metric-sub">2.8 km</span><span class="metric-sub">38:00</span><span class="metric-sub">9:05 /km</span></div>
+      </div>
+      <span class="delete-icon">🗑️</span>
+    </div>
+    <div class="history-row">
+      <div>
+        <div class="label">Lun, 16:00</div>
+        <div class="history-metrics"><span class="metric-sub"><span class="estimated-prefix">~</span>4.3 km</span><span class="metric-sub">52:00</span><span class="metric-sub">10:10 /km</span></div>
+      </div>
+      <span class="delete-icon">🗑️</span>
+    </div>
+  </div>
+</div>
+
+<!-- 7. ACHIEVEMENTS -->
+<div class="phone">
+  <div class="phone-label">Achievements — Dark</div>
+  <div class="screen">
+    <div class="header">
+      <div class="header-title">Logros</div>
+      <span style="cursor:pointer;font-size:20px">←</span>
+    </div>
+    <div class="achievement-grid">
+      <div class="achievement-card">
+        <div class="achievement-icon unlocked">🏅</div>
+        <div class="achievement-name">Tu primer kilómetro</div>
+        <div class="achievement-desc">Completa 1 km en una sesión</div>
+      </div>
+      <div class="achievement-card">
+        <div class="achievement-icon unlocked">🏆</div>
+        <div class="achievement-name">Primera meta semanal</div>
+        <div class="achievement-desc">Cumple tu meta de 10 km</div>
+      </div>
+      <div class="achievement-card">
+        <div class="achievement-icon unlocked">🌧️</div>
+        <div class="achievement-name">Caminata bajo la lluvia</div>
+        <div class="achievement-desc">Camina con clima lluvioso</div>
+      </div>
+      <div class="achievement-card">
+        <div class="achievement-icon locked">🔒</div>
+        <div class="achievement-name" style="color:var(--muted)">10 km en una sesión</div>
+        <div class="achievement-desc">Completa 10 km sin parar</div>
+        <div class="achievement-progress"><div class="achievement-progress-fill" style="width:32%"></div></div>
+      </div>
+      <div class="achievement-card">
+        <div class="achievement-icon locked">🔒</div>
+        <div class="achievement-name" style="color:var(--muted)">7 días consecutivos</div>
+        <div class="achievement-desc">Camina 7 días seguidos</div>
+        <div class="achievement-progress"><div class="achievement-progress-fill" style="width:43%"></div></div>
+      </div>
+      <div class="achievement-card">
+        <div class="achievement-icon locked">🔒</div>
+        <div class="achievement-name" style="color:var(--muted)">Maratonista</div>
+        <div class="achievement-desc">Acumula 42 km en total</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 8. MOTIVATIONAL OVERLAY -->
+<div class="phone">
+  <div class="phone-label">Motivational Overlay</div>
+  <div class="screen" style="padding:0">
+    <div class="motivational-overlay" role="dialog" aria-modal="true" aria-label="Frase motivacional">
+      <div class="quote-text">Cada paso te acerca a tu mejor versión</div>
+      <div class="quote-hint">Toca para continuar</div>
+    </div>
+  </div>
+</div>
+
+<!-- 9. MOTION DENIED -->
+<div class="phone">
+  <div class="phone-label">Motion Denied</div>
+  <div class="motion-denied">
+    <div class="motion-icon">📱</div>
+    <div class="motion-title">Sensor de movimiento requerido</div>
+    <div class="motion-body">WalkTracker necesita acceso al sensor de movimiento para contar tus pasos. Actívalo en Configuración de Safari > Movimiento y orientación.</div>
+    <button class="btn-primary" style="margin-bottom:12px">Abrir Configuración</button>
+    <button class="btn-secondary">Volver al inicio</button>
+  </div>
+</div>
+
+<script>
+function toggleTheme() {
+  const html = document.documentElement;
+  html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark';
+}
+</script>
+</body>
+</html>
