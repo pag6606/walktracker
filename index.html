@@ -129,7 +129,7 @@ body {
 <!-- ═══ HOME ═══ -->
 <div id="screen-home" class="screen active" data-testid="walk-screen">
   <div class="header">
-    <div class="header-t">WalkTracker <span style="font-size:10px;color:var(--muted)">v3.1</span></div>
+    <div class="header-t">WalkTracker <span style="font-size:10px;color:var(--muted)">v3.2</span></div>
     <div class="header-r"><span id="nav-achievements" data-testid="nav-achievements" aria-label="Logros">🏆</span><span id="nav-history" data-testid="nav-history" aria-label="Historial">📋</span><span id="nav-settings" data-testid="nav-settings" aria-label="Configuración">⚙</span></div>
   </div>
   <div class="ring-wrap">
@@ -167,6 +167,17 @@ body {
   </div>
   <div class="card" id="ses-weather" style="display:none" data-testid="ses-weather"></div>
   <div id="est-banner" class="banner-est" style="display:none" data-testid="est-banner"><span><span class="est-clr">~</span> <span id="est-count" data-testid="est-count">0</span> pasos estimados</span><span id="est-discard" data-testid="est-discard" style="cursor:pointer;text-decoration:underline;margin-left:12px;">Descartar</span></div>
+  <!-- DEBUG: panel de diagnóstico de sensores -->
+  <div id="debug-panel" style="background:var(--surface);border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:10px;color:var(--muted);font-family:monospace;line-height:1.6">
+    <div id="dbg-perm">perm: ?</div>
+    <div id="dbg-evt">eventos: 0</div>
+    <div id="dbg-raw">rawMag: --</div>
+    <div id="dbg-lin">linearMag: --</div>
+    <div id="dbg-cal">calibración: 0/60</div>
+    <div id="dbg-thr">umbral: --</div>
+    <div id="dbg-cnt">detector: 0 pasos</div>
+    <div id="dbg-err">errores: 0</div>
+  </div>
   <div style="flex:1"></div>
   <div class="ctrl">
     <button class="btn-s" id="btn-pause" data-testid="btn-pause">Pausar</button>
@@ -478,6 +489,17 @@ body {
     const cad = activeMin > 0 && state.session.stepsMeasured > 0 ? +(state.session.stepsMeasured / activeMin).toFixed(1) : 0;
     $('ses-cad').textContent = cad;
 
+    // === DEBUG PANEL ===
+    if (state._debug) {
+      const dbg = $('dbg-evt'); if (dbg) dbg.textContent = 'eventos: ' + state._debug.evtCount;
+      const dbr = $('dbg-raw'); if (dbr) dbr.textContent = 'rawMag: ' + state._debug.lastRaw.toFixed(3);
+      const dbl = $('dbg-lin'); if (dbl) dbl.textContent = 'linearMag: ' + state._debug.lastLin.toFixed(3);
+      const dbc = $('dbg-cal'); if (dbc) dbc.textContent = 'calibración: ' + Math.min(state._debug.evtCount, 60) + '/60';
+      const dbt = $('dbg-thr'); if (dbt) dbt.textContent = 'detector: ' + (state.stepDetector ? state.stepDetector.getCount() : '?') + ' pasos';
+      const dbcnt = $('dbg-cnt'); if (dbcnt) dbcnt.textContent = 'session: ' + (state.session.stepsMeasured || 0) + ' pasos';
+      const dbe = $('dbg-err'); if (dbe) dbe.textContent = 'errores: ' + state._debug.errCount;
+    }
+
     if (state.session.status === 'paused') {
       $('btn-pause').textContent = 'Reanudar';
       $('btn-pause').className = 'btn-g';
@@ -512,13 +534,24 @@ body {
     // StepDetector — create and attach devicemotion listener INMEDIATAMENTE
     state.stepDetector = D.createStepDetector({ alpha: 0.2, refractoryMs: 300, calibrationSamples: 60 });
     state.lastStepCount = 0;
+    state._debug = { evtCount: 0, errCount: 0, lastRaw: 0, lastLin: 0, perm: '?' };
+    // Actualizar panel debug con estado de permiso
+    const dbgPerm = $('dbg-perm');
+    if (dbgPerm) dbgPerm.textContent = 'perm: solicitando...';
+
     state.motionHandler = (event) => {
       if (!state.session || state.session.status !== 'active') return;
+      state._debug.evtCount++;
       const a = event.accelerationIncludingGravity;
-      if (!a || a.x == null || a.y == null || a.z == null) return;
+      if (!a || a.x == null || a.y == null || a.z == null) {
+        state._debug.errCount++;
+        return;
+      }
       // Restar gravedad: el detector espera ~0 en reposo, ~1-5 caminando
       const rawMag = Math.sqrt(a.x * a.x + a.y * a.y + a.z * a.z);
       const linearMag = Math.abs(rawMag - 9.81);
+      state._debug.lastRaw = rawMag;
+      state._debug.lastLin = linearMag;
       try {
         state.stepDetector.sample(linearMag, Date.now());
         const newCount = state.stepDetector.getCount();
@@ -527,9 +560,12 @@ body {
           state.session = D.addSteps(state.session, stepsAdded);
           state.lastStepCount = newCount;
         }
-      } catch (e) { /* ignore */ }
+      } catch (e) {
+        state._debug.errCount++;
+      }
     };
     window.addEventListener('devicemotion', state.motionHandler);
+    if (dbgPerm) dbgPerm.textContent = 'perm: listener conectado';
 
     // Show session screen first, then overlay on top
     wlPort.acquire();
