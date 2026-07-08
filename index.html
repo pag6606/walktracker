@@ -268,6 +268,9 @@ body {
   const state = {
     session: null,           // active v3 session object
     timerInterval: null,
+    stepDetector: null,      // StepDetector instance (created on session start)
+    lastStepCount: 0,        // last count from detector (to detect increments)
+    motionHandler: null,     // reference to devicemotion handler (for removal)
     config: { strideM: 0.655, weeklyGoalKm: 10, soundEnabled: true, recentQuoteIds: [], lastExportAt: null },
     allSessions: [],
     achievements: [],
@@ -276,7 +279,7 @@ body {
   };
 
   // ── Storage ──
-  const storage = S.createStoragePort();
+  const storage = S.createStoragePort({ useIndexedDB: true });
 
   // ── Wake Lock ──
   const wlPort = R.createWakeLockPort();
@@ -503,9 +506,9 @@ body {
       $('ov-quote').textContent = quote.text;
       state.config.recentQuoteIds = Mot.updateRecentIds(state.config.recentQuoteIds, quote.id);
       saveConfig({ recentQuoteIds: state.config.recentQuoteIds });
-      showEl('motivational-overlay');
+      $('motivational-overlay').classList.add('active');
       await new Promise(r => { setTimeout(r, 3000); $('motivational-overlay').addEventListener('click', r, { once: true }); });
-      hideEl('motivational-overlay');
+      $('motivational-overlay').classList.remove('active');
     }
 
     // Create session
@@ -517,12 +520,33 @@ body {
     hideEl('est-banner');
     hideEl('wl-banner');
 
-    // Weather
-    const weather = await fetchWeather();
-    if (weather) {
-      state.session.weather = weather;
-      renderWeather(weather, 'ses-weather');
-    }
+    // StepDetector — create and attach devicemotion listener
+    state.stepDetector = D.createStepDetector({ alpha: 0.2, refractoryMs: 300 });
+    state.lastStepCount = 0;
+    state.motionHandler = (event) => {
+      if (!state.session || state.session.status !== 'active') return;
+      const a = event.accelerationIncludingGravity;
+      if (!a || a.x == null || a.y == null || a.z == null) return;
+      const mag = Math.sqrt(a.x * a.x + a.y * a.y + a.z * a.z);
+      try {
+        state.stepDetector.sample(mag, Date.now());
+        const newCount = state.stepDetector.getCount();
+        if (newCount > state.lastStepCount) {
+          const stepsAdded = newCount - state.lastStepCount;
+          state.session = D.addSteps(state.session, stepsAdded);
+          state.lastStepCount = newCount;
+        }
+      } catch (e) { /* ignore sample errors */ }
+    };
+    window.addEventListener('devicemotion', state.motionHandler);
+
+    // Weather (non-blocking — don't let it prevent session start)
+    fetchWeather().then(weather => {
+      if (weather && state.session) {
+        state.session = { ...state.session, weather };
+        renderWeather(weather, 'ses-weather');
+      }
+    }).catch(() => { /* weather optional */ });
 
     // Start
     wlPort.acquire();
@@ -549,11 +573,15 @@ body {
     stopTimer();
     wlPort.release();
     bgHandler.stop();
-    storage.saveActiveSession(null);
-    // Save session
-    if (!state.session.id) {
-      state.session.id = crypto.randomUUID ? crypto.randomUUID() : `s-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+    // Remove devicemotion listener
+    if (state.motionHandler) {
+      window.removeEventListener('devicemotion', state.motionHandler);
+      state.motionHandler = null;
     }
+    storage.saveActiveSession(null);
+    // Assign ID without mutating frozen object
+    const sessionId = state.session.id || (crypto.randomUUID ? crypto.randomUUID() : `s-${Date.now()}-${Math.random().toString(36).slice(2,8)}`);
+    state.session = { ...state.session, id: sessionId };
     storage.saveSession(state.session);
     loadSessions();
 
