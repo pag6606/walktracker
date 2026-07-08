@@ -414,7 +414,7 @@ const Domain = (() => {
   function createStepDetector(options = {}) {
     const alpha = options.alpha ?? 0.2;
     const refractoryMs = options.refractoryMs ?? 300;
-    const calibrationSamples = 600;  // ~10s at 60Hz
+    const calibrationSamples = options.calibrationSamples ?? 600;  // configurable, ~10s at 60Hz
 
     // State (encapsulated in closure)
     let filtered = 0;           // last low-pass filtered value

@@ -521,15 +521,17 @@ body {
     hideEl('wl-banner');
 
     // StepDetector — create and attach devicemotion listener
-    state.stepDetector = D.createStepDetector({ alpha: 0.2, refractoryMs: 300 });
+    state.stepDetector = D.createStepDetector({ alpha: 0.2, refractoryMs: 300, calibrationSamples: 60 });
     state.lastStepCount = 0;
     state.motionHandler = (event) => {
       if (!state.session || state.session.status !== 'active') return;
       const a = event.accelerationIncludingGravity;
       if (!a || a.x == null || a.y == null || a.z == null) return;
-      const mag = Math.sqrt(a.x * a.x + a.y * a.y + a.z * a.z);
+      // Subtract gravity: detector expects linear acceleration (~0 at rest, ~1-3 walking)
+      const rawMag = Math.sqrt(a.x * a.x + a.y * a.y + a.z * a.z);
+      const linearMag = Math.abs(rawMag - 9.81);
       try {
-        state.stepDetector.sample(mag, Date.now());
+        state.stepDetector.sample(linearMag, Date.now());
         const newCount = state.stepDetector.getCount();
         if (newCount > state.lastStepCount) {
           const stepsAdded = newCount - state.lastStepCount;
