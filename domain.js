@@ -254,6 +254,280 @@ const Domain = (() => {
   }
 
   // ═══════════════════════════════════════════════════════
+  //  V3 Session Aggregate — AD-4 (pasos: measured + estimated)
+  //  ═══════════════════════════════════════════════════════
+
+  /**
+   * Crea una sesión v3 (conteo de pasos).
+   * @param {number} nowMs  - timestamp de inicio
+   * @param {number} strideM - zancada en metros (>0)
+   * @returns {object} sesión inmutabled
+   * @throws {TypeError} si strideM no es finito
+   * @throws {RangeError} si strideM ≤ 0
+   */
+  function createV3Session(nowMs, strideM) {
+    if (!Number.isFinite(strideM)) {
+      throw new TypeError('createV3Session: strideM debe ser un número finito');
+    }
+    if (strideM <= 0) {
+      throw new RangeError('createV3Session: strideM debe ser > 0');
+    }
+    return Object.freeze({
+      id: null,
+      startedAt: nowMs,
+      endedAt: null,
+      stepsMeasured: 0,
+      stepsEstimated: 0,
+      strideM,
+      status: SESSION_STATUS.ACTIVE,
+      totalPausesMs: 0,
+      pausedAtMs: null,
+      durationS: 0,
+      distanceM: 0,
+      paceSecPerKm: null,
+      pausesS: 0,
+      cadenceSpm: 0,
+    });
+  }
+
+  /**
+   * Distancia v3: (stepsMeasured + stepsEstimated) × strideM
+   */
+  function v3distance(stepsMeasured, stepsEstimated, strideM) {
+    if (!Number.isSafeInteger(stepsMeasured) || stepsMeasured < 0) {
+      throw new RangeError('v3distance: stepsMeasured debe ser entero ≥ 0');
+    }
+    if (!Number.isSafeInteger(stepsEstimated) || stepsEstimated < 0) {
+      throw new RangeError('v3distance: stepsEstimated debe ser entero ≥ 0');
+    }
+    if (!Number.isFinite(strideM) || strideM <= 0) {
+      throw new RangeError('v3distance: strideM debe ser > 0');
+    }
+    const total = stepsMeasured + stepsEstimated;
+    return +(total * strideM).toFixed(2);
+  }
+
+  /**
+   * Incrementa stepsMeasured en una sesión v3 activa.
+   */
+  function addSteps(session, count) {
+    assertMutable(session, 'addSteps');
+    if (!Number.isSafeInteger(count) || count < 0) {
+      throw new RangeError('addSteps: count debe ser entero ≥ 0');
+    }
+    if (count === 0) return session;
+    const newMeasured = session.stepsMeasured + count;
+    const dist = v3distance(newMeasured, session.stepsEstimated, session.strideM);
+    return mutate(session, { stepsMeasured: newMeasured, distanceM: dist });
+  }
+
+  /**
+   * Añade pasos estimados a una sesión v3 activa.
+   */
+  function addEstimatedSteps(session, count) {
+    assertMutable(session, 'addEstimatedSteps');
+    if (!Number.isSafeInteger(count) || count < 0) {
+      throw new RangeError('addEstimatedSteps: count debe ser entero ≥ 0');
+    }
+    if (count === 0) return session;
+    const newEstimated = session.stepsEstimated + count;
+    const dist = v3distance(session.stepsMeasured, newEstimated, session.strideM);
+    return mutate(session, { stepsEstimated: newEstimated, distanceM: dist });
+  }
+
+  /**
+   * Finaliza una sesión v3. Calcula duración, distancia, ritmo y cadencia.
+   */
+  function finishV3(session, nowMs) {
+    if (session.status === SESSION_STATUS.FINISHED) {
+      throw new Error('finishV3: la sesión ya está finalizada');
+    }
+    const totalPausesMs = session.pausedAtMs
+      ? session.totalPausesMs + (nowMs - session.pausedAtMs)
+      : session.totalPausesMs;
+    const durS = Math.round(elapsedS(session.startedAt, totalPausesMs, nowMs));
+    const dist = v3distance(session.stepsMeasured, session.stepsEstimated, session.strideM);
+    const p = dist >= 100 ? pace(durS, Math.round(totalPausesMs / 1000), dist) : null;
+    const activeMin = (durS - Math.round(totalPausesMs / 1000)) / 60;
+    const cad = activeMin > 0 ? +(session.stepsMeasured / activeMin).toFixed(1) : 0;
+
+    return Object.freeze({
+      ...session,
+      status: SESSION_STATUS.FINISHED,
+      endedAt: nowMs,
+      durationS: durS,
+      distanceM: dist,
+      paceSecPerKm: p,
+      pausesS: Math.round(totalPausesMs / 1000),
+      totalPausesMs,
+      pausedAtMs: null,
+      cadenceSpm: cad,
+    });
+  }
+
+  /**
+   * Restaura una sesión v3 desde un snapshot.
+   * Snapshot shape: { startedAtMs, stepsMeasured, stepsEstimated, totalPausesMs, paused, strideM }
+   */
+  function restoreV3Session(snapshot) {
+    if (!snapshot || snapshot.startedAtMs == null || snapshot.strideM == null) {
+      throw new TypeError('restoreV3Session: snapshot inválido');
+    }
+    if (!Number.isFinite(snapshot.strideM) || snapshot.strideM <= 0) {
+      throw new RangeError('restoreV3Session: strideM debe ser > 0');
+    }
+    const sM = snapshot.stepsMeasured || 0;
+    const sE = snapshot.stepsEstimated || 0;
+    const isPaused = !!snapshot.paused;
+    return Object.freeze({
+      id: null,
+      startedAt: snapshot.startedAtMs,
+      endedAt: null,
+      stepsMeasured: sM,
+      stepsEstimated: sE,
+      strideM: snapshot.strideM,
+      status: isPaused ? SESSION_STATUS.PAUSED : SESSION_STATUS.ACTIVE,
+      totalPausesMs: snapshot.totalPausesMs || 0,
+      pausedAtMs: isPaused ? snapshot.pausedAtMs || Date.now() : null,
+      durationS: 0,
+      distanceM: v3distance(sM, sE, snapshot.strideM),
+      paceSecPerKm: null,
+      pausesS: Math.round((snapshot.totalPausesMs || 0) / 1000),
+      cadenceSpm: 0,
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════
+  //  StepDetector — AD-12 (pure domain, accelerometer step detection)
+//  ═══════════════════════════════════════════════════════
+
+  /**
+   * Creates a pure-domain step detector.
+   * 
+   * Pipeline: magnitude → low-pass filter (α) → positive delta → adaptive threshold → refractory window
+   * 
+   * @param {object} [options]
+   * @param {number} [options.alpha=0.2]     - low-pass filter coefficient (0-1)
+   * @param {number} [options.refractoryMs=300] - anti-bounce window in ms
+   * @returns {{ sample, getCount, reset, getOptions }}
+   */
+  function createStepDetector(options = {}) {
+    const alpha = options.alpha ?? 0.2;
+    const refractoryMs = options.refractoryMs ?? 300;
+    const calibrationSamples = 600;  // ~10s at 60Hz
+
+    // State (encapsulated in closure)
+    let filtered = 0;           // last low-pass filtered value
+    let prevFiltered = 0;       // previous filtered value (for delta)
+    let count = 0;              // step counter
+    let lastStepTime = -Infinity; // timestamp of last detected step
+    let threshold = 0;          // adaptive threshold (calibrated from noise floor)
+    let calCount = 0;           // calibration samples collected
+    let sumSq = 0;              // sum of squares for RMS calculation
+
+    /**
+     * Process a single accelerometer magnitude sample.
+     * @param {number} magnitude - raw acceleration magnitude (positive expected, negative auto-abs'd)
+     * @param {number} nowMs - current timestamp in ms
+     * @throws {TypeError} if magnitude is NaN
+     */
+    function sample(magnitude, nowMs) {
+      if (typeof magnitude !== 'number' || isNaN(magnitude)) {
+        throw new TypeError('StepDetector.sample: magnitude must be a finite number');
+      }
+      
+      const absMag = Math.abs(magnitude);
+      
+      // Low-pass filter: smoothed = α × input + (1-α) × prevSmoothed
+      prevFiltered = filtered;
+      filtered = alpha * absMag + (1 - alpha) * (calCount === 0 ? absMag : filtered);
+      
+      // Calibration phase — estimate noise floor via RMS
+      if (calCount < calibrationSamples) {
+        sumSq += absMag * absMag;
+        calCount++;
+        if (calCount === calibrationSamples) {
+          // Set threshold: 3× RMS noise floor, minimum 0.15
+          const rms = Math.sqrt(sumSq / calibrationSamples);
+          threshold = Math.max(rms * 3, 0.15);
+        }
+        return;
+      }
+      
+      // Step detection: positive delta crossing threshold + refractory check
+      const delta = filtered - prevFiltered;
+      const timeSinceLastStep = nowMs - lastStepTime;
+      
+      if (delta > threshold && timeSinceLastStep >= refractoryMs) {
+        count++;
+        lastStepTime = nowMs;
+      }
+      
+      // Adaptive threshold: slowly track noise floor
+      threshold = threshold * 0.999 + Math.abs(delta) * 0.001;
+      if (threshold < 0.15) threshold = 0.15;  // minimum sensitivity floor
+    }
+
+    function getCount() {
+      return count;
+    }
+
+    function reset() {
+      filtered = 0;
+      prevFiltered = 0;
+      count = 0;
+      lastStepTime = -Infinity;
+      threshold = 0;
+      calCount = 0;
+      sumSq = 0;
+    }
+
+    function getOptions() {
+      return { alpha, refractoryMs };
+    }
+
+    return Object.freeze({ sample, getCount, reset, getOptions });
+  }
+
+  // ═══════════════════════════════════════════════════════
+  //  GapEstimator — AD-13 (extrapolación por cadencia)
+  //  ═══════════════════════════════════════════════════════
+
+  /**
+   * Calcula pasos estimados para un gap de background.
+   * @param {number} cadenceSpm - cadencia en pasos/minuto (> 0)
+   * @param {number} gapS - duración del gap en segundos (≥ 0)
+   * @returns {number} pasos estimados (entero)
+   */
+  function estimateSteps(cadenceSpm, gapS) {
+    if (typeof cadenceSpm !== 'number' || isNaN(cadenceSpm)) {
+      throw new TypeError('estimateSteps: cadenceSpm debe ser un número');
+    }
+    if (typeof gapS !== 'number' || isNaN(gapS)) {
+      throw new TypeError('estimateSteps: gapS debe ser un número');
+    }
+    if (cadenceSpm <= 0 || gapS <= 0) return 0;
+    return Math.round(cadenceSpm * (gapS / 60));
+  }
+
+  /**
+   * Calcula la cadencia media sobre tramos medidos.
+   * @param {number} stepsMeasured - pasos medidos (entero ≥ 0)
+   * @param {number} activeSeconds - segundos con sensor activo (> 0)
+   * @returns {number} cadencia en pasos/minuto (1 decimal)
+   */
+  function calculateCadence(stepsMeasured, activeSeconds) {
+    if (!Number.isFinite(stepsMeasured) || stepsMeasured < 0) {
+      throw new RangeError('calculateCadence: stepsMeasured debe ser ≥ 0');
+    }
+    if (!Number.isFinite(activeSeconds) || activeSeconds < 0) {
+      throw new RangeError('calculateCadence: activeSeconds debe ser ≥ 0');
+    }
+    if (stepsMeasured <= 0 || activeSeconds <= 0) return 0;
+    return +(stepsMeasured / (activeSeconds / 60)).toFixed(1);
+  }
+
+  // ═══════════════════════════════════════════════════════
   //  Helpers internos
   // ═══════════════════════════════════════════════════════
 
@@ -281,11 +555,9 @@ const Domain = (() => {
   // ═══════════════════════════════════════════════════════
 
   return {
+    // V1 (legacy — coexist until migration E0-S5)
     recalibrate,
     averageStepsPerLap,
-    elapsedS,
-    distance,
-    pace,
     createSession,
     lap,
     undo,
@@ -293,9 +565,24 @@ const Domain = (() => {
     resume,
     finish,
     restoreSession,
-    SESSION_STATUS,
     DEFAULT_STRIDE,
     DEFAULT_STEPS_PER_LAP,
+    // V3 (pasos)
+    createV3Session,
+    addSteps,
+    addEstimatedSteps,
+    finishV3,
+    restoreV3Session,
+    v3distance,
+    // Shared
+    elapsedS,
+    distance,
+    pace,
+    createStepDetector,
+    // GapEstimator
+    estimateSteps,
+    calculateCadence,
+    SESSION_STATUS,
   };
 })();
 

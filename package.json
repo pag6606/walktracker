@@ -1,0 +1,39 @@
+{
+  "name": "walktracker",
+  "version": "3.0.0",
+  "description": "Registro de caminatas con conteo de pasos, clima, metas y motivación.",
+  "main": "index.html",
+  "scripts": {
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage",
+    "test:unit": "vitest test/domain-tests.js test/storage-tests.js test/migration-tests.js test/climate-tests.js test/motivation-tests.js test/runtime-tests.js",
+    "test:integration": "vitest test/index-tests.js",
+    "test:e2e": "playwright test e2e/walk.e2e.js",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:chromium": "playwright test --project=chromium",
+    "test:e2e:firefox": "playwright test --project=firefox",
+    "test:e2e:webkit": "playwright test --project=webkit",
+    "test:all": "npm run test:unit && npm run test:integration && npm run test:e2e",
+    "test:legacy": "for f in test/*.js; do echo \"=== $f ===\"; node \"$f\" 2>&1 || true; done"
+  },
+  "keywords": [
+    "pwa",
+    "walking",
+    "fitness",
+    "steps",
+    "tracking",
+    "motivation",
+    "offline"
+  ],
+  "author": "BMAD",
+  "license": "MIT",
+  "devDependencies": {
+    "@playwright/test": "^1.45.0",
+    "@vitest/ui": "^1.6.0",
+    "@vitest/coverage-v8": "^1.6.0",
+    "jsdom": "^24.1.0",
+    "vitest": "^1.6.0"
+  }
+}

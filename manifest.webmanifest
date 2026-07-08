@@ -1,13 +1,13 @@
 {
   "name": "WalkTracker",
   "short_name": "WalkTracker",
-  "description": "Contador de vueltas y registro de caminatas sin GPS.",
+  "description": "Registro de caminatas con conteo de pasos, clima, metas y motivación.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#1a1a2e",
-  "theme_color": "#1a1a2e",
+  "background_color": "#1A1A1A",
+  "theme_color": "#1A1A1A",
   "icons": [
     {
       "src": "./icons/icon-192.png",

@@ -1,10 +1,19 @@
-/* Service Worker — WalkTracker PWA
-   Cache app shell: cache-first for static assets. Offline-first. */
-const CACHE = 'walktracker-v1';
+/* Service Worker — WalkTracker PWA v3.0
+   Cache app shell + modules: cache-first for static assets. Offline-first. */
+const CACHE = 'walktracker-v3';
 const SHELL = [
   './',
   './index.html',
+  './domain.js',
+  './storage.js',
+  './migration.js',
+  './climate.js',
+  './motivation.js',
+  './runtime.js',
+  './quotes.json',
   './manifest.webmanifest',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
 ];
 
 self.addEventListener('install', (e) => {

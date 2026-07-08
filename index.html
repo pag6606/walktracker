@@ -1,1296 +1,788 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="auto">
+<html lang="es" data-theme="dark">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#f5f5f5" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#1a1a2e" media="(prefers-color-scheme: dark)">
-  <title>WalkTracker</title>
-  <link rel="manifest" href="manifest.webmanifest">
-
-  <style>
-    /* ═══════════════════════════════════════════════
-       CSS Custom Properties — Theming
-       ═══════════════════════════════════════════════ */
-    :root {
-      --bg: #f5f5f7;
-      --bg-card: #ffffff;
-      --text: #1d1d1f;
-      --text-secondary: #86868b;
-      --accent: #007aff;
-      --accent-text: #ffffff;
-      --danger: #ff3b30;
-      --success: #34c759;
-      --border: #d2d2d7;
-      --shadow: 0 2px 12px rgba(0,0,0,0.08);
-      --radius: 16px;
-      --radius-sm: 10px;
-      --font: -apple-system, 'Helvetica Neue', sans-serif;
-      --safe-bottom: env(safe-area-inset-bottom, 0px);
-    }
-
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --bg: #1a1a2e;
-        --bg-card: #16213e;
-        --text: #f0f0f5;
-        --text-secondary: #a0a0b0;
-        --accent: #0a84ff;
-        --accent-text: #ffffff;
-        --danger: #ff453a;
-        --success: #30d158;
-        --border: #2c2c44;
-        --shadow: 0 2px 12px rgba(0,0,0,0.3);
-      }
-    }
-
-    /* ═══════════════════════════════════════════════
-       Reset & Base
-       ═══════════════════════════════════════════════ */
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body {
-      height: 100%;
-      overflow: hidden;
-      font-family: var(--font);
-      background: var(--bg);
-      color: var(--text);
-      -webkit-tap-highlight-color: transparent;
-      touch-action: manipulation;
-      user-select: none;
-    }
-    body {
-      display: flex;
-      flex-direction: column;
-      padding-bottom: var(--safe-bottom);
-    }
-
-    /* ═══════════════════════════════════════════════
-       Screens (show/hide by state)
-       ═══════════════════════════════════════════════ */
-    .screen { display: none; flex-direction: column; height: 100%; padding: 16px; }
-    .screen.active { display: flex; }
-
-    /* ═══════════════════════════════════════════════
-       HOME screen
-       ═══════════════════════════════════════════════ */
-    #home-screen {
-      justify-content: center;
-      align-items: center;
-      text-align: center;
-      gap: 24px;
-    }
-    #home-screen h1 {
-      font-size: 2rem;
-      font-weight: 700;
-      color: var(--accent);
-    }
-    #home-screen p {
-      font-size: 1rem;
-      color: var(--text-secondary);
-      max-width: 280px;
-    }
-
-    .btn-start {
-      width: 200px;
-      height: 200px;
-      border-radius: 50%;
-      background: var(--accent);
-      color: var(--accent-text);
-      border: none;
-      font-size: 1.5rem;
-      font-weight: 700;
-      cursor: pointer;
-      box-shadow: 0 8px 30px rgba(0,122,255,0.3);
-      transition: transform 0.15s, box-shadow 0.15s;
-      touch-action: manipulation;
-    }
-    .btn-start:active { transform: scale(0.95); box-shadow: 0 4px 15px rgba(0,122,255,0.2); }
-    .btn-start .icon { display: block; font-size: 2.5rem; margin-bottom: 4px; }
-
-    /* ═══════════════════════════════════════════════
-       SESSION screen
-       ═══════════════════════════════════════════════ */
-    #session-screen {
-      gap: 8px;
-      padding: 12px 16px calc(12px + var(--safe-bottom));
-      justify-content: space-between;
-    }
-
-    /* Metrics */
-    .metrics {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
-      padding-top: 20px;
-    }
-    .metric-laps {
-      font-size: 4rem;
-      font-weight: 800;
-      line-height: 1;
-      color: var(--text);
-      letter-spacing: -0.02em;
-    }
-    .metric-laps .unit { font-size: 1.5rem; font-weight: 400; color: var(--text-secondary); }
-    .metric-secondary {
-      display: flex;
-      gap: 16px;
-      font-size: 1rem;
-      color: var(--text-secondary);
-    }
-    .metric-secondary span { white-space: nowrap; }
-    .metric-secondary .value { font-weight: 600; color: var(--text); }
-
-    /* Lap button — ≥40% viewport */
-    .btn-lap {
-      width: 100%;
-      min-height: 40vh;
-      max-height: 50vh;
-      border-radius: var(--radius);
-      background: var(--accent);
-      color: var(--accent-text);
-      border: none;
-      font-size: 2.5rem;
-      font-weight: 800;
-      cursor: pointer;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      touch-action: manipulation;
-      transition: transform 0.1s, background 0.2s;
-      box-shadow: 0 4px 20px rgba(0,122,255,0.25);
-      position: relative;
-      overflow: hidden;
-    }
-    .btn-lap:active { transform: scale(0.97); background: #0066d6; }
-    .btn-lap .sub { font-size: 1rem; font-weight: 400; opacity: 0.85; margin-top: 4px; }
-    .btn-lap.disabled { opacity: 0.4; pointer-events: none; }
-
-    /* Undo button */
-    .btn-undo {
-      align-self: flex-end;
-      padding: 10px 20px;
-      border-radius: var(--radius-sm);
-      background: var(--border);
-      color: var(--text);
-      border: none;
-      font-size: 0.9rem;
-      font-weight: 600;
-      cursor: pointer;
-      min-height: 44px;
-      min-width: 44px;
-      touch-action: manipulation;
-      transition: opacity 0.15s;
-    }
-    .btn-undo:active { opacity: 0.6; }
-    .btn-undo.hidden { display: none; }
-
-    /* Controls row */
-    .controls {
-      display: flex;
-      gap: 12px;
-      justify-content: center;
-      padding: 8px 0;
-    }
-    .controls button {
-      flex: 1;
-      max-width: 160px;
-      padding: 14px 8px;
-      border-radius: var(--radius-sm);
-      border: none;
-      font-size: 1rem;
-      font-weight: 600;
-      cursor: pointer;
-      touch-action: manipulation;
-      min-height: 48px;
-      transition: opacity 0.15s;
-    }
-    .controls button:active { opacity: 0.7; }
-
-    .btn-pause {
-      background: var(--border);
-      color: var(--text);
-    }
-    .btn-resume {
-      background: var(--success);
-      color: #fff;
-    }
-    .btn-finish {
-      background: var(--danger);
-      color: #fff;
-    }
-
-    /* ═══════════════════════════════════════════════
-       SUMMARY screen
-       ═══════════════════════════════════════════════ */
-    #summary-screen {
-      justify-content: center;
-      align-items: center;
-      text-align: center;
-      gap: 20px;
-    }
-    #summary-screen h2 { font-size: 1.5rem; color: var(--text); }
-    .summary-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      width: 100%;
-      max-width: 320px;
-    }
-    .summary-item {
-      background: var(--bg-card);
-      padding: 16px;
-      border-radius: var(--radius-sm);
-      box-shadow: var(--shadow);
-    }
-    .summary-item .label { font-size: 0.8rem; color: var(--text-secondary); }
-    .summary-item .value { font-size: 1.4rem; font-weight: 700; color: var(--text); margin-top: 4px; }
-
-    .btn-new {
-      margin-top: 16px;
-      padding: 16px 48px;
-      border-radius: var(--radius-sm);
-      background: var(--accent);
-      color: var(--accent-text);
-      border: none;
-      font-size: 1.1rem;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    .btn-new:active { opacity: 0.8; }
-
-    /* ═══════════════════════════════════════════════
-       SETTINGS screen
-       ═══════════════════════════════════════════════ */
-    .settings-icon {
-      position: absolute;
-      top: 16px;
-      right: 16px;
-      font-size: 1.5rem;
-      background: none;
-      border: none;
-      cursor: pointer;
-      color: var(--text-secondary);
-      padding: 8px;
-      min-width: 44px;
-      min-height: 44px;
-    }
-    #settings-screen {
-      justify-content: flex-start;
-      gap: 20px;
-      padding: 60px 24px calc(24px + var(--safe-bottom));
-    }
-    #settings-screen h2 { font-size: 1.3rem; color: var(--text); text-align: center; }
-    .settings-field {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-    .settings-field label { font-size: 0.9rem; color: var(--text-secondary); font-weight: 600; }
-    .settings-field input {
-      padding: 12px 14px;
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--border);
-      background: var(--bg-card);
-      color: var(--text);
-      font-size: 1.1rem;
-      font-weight: 600;
-      font-family: var(--font);
-      outline: none;
-    }
-    .settings-field input:focus { border-color: var(--accent); }
-    .settings-field input[readonly] {
-      background: transparent;
-      border-color: transparent;
-      font-weight: 800;
-      font-size: 1.3rem;
-      color: var(--accent);
-    }
-    .settings-field .derived-label { font-size: 0.8rem; color: var(--accent); font-weight: 400; }
-    .settings-error {
-      color: var(--danger);
-      font-size: 0.85rem;
-      min-height: 1.2em;
-    }
-    .settings-actions {
-      display: flex;
-      gap: 12px;
-      margin-top: 8px;
-    }
-    .settings-actions button {
-      flex: 1;
-      padding: 14px;
-      border-radius: var(--radius-sm);
-      border: none;
-      font-size: 1rem;
-      font-weight: 600;
-      cursor: pointer;
-      min-height: 48px;
-    }
-    .btn-save { background: var(--accent); color: var(--accent-text); }
-    .btn-back { background: var(--border); color: var(--text); }
-
-    /* History */
-    .history-item {
-      background: var(--bg-card);
-      border-radius: var(--radius-sm);
-      padding: 12px 14px;
-      box-shadow: var(--shadow);
-    }
-    .history-item .date { font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 4px; }
-    .history-item .stats { display: flex; gap: 12px; font-size: 0.95rem; }
-    .history-item .stats span { white-space: nowrap; }
-    .history-item .stats .val { font-weight: 600; color: var(--text); }
-
-    /* Step counter (auto mode) */
-    .step-counter {
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
-      padding: 8px 0;
-    }
-    .step-counter.visible { display: flex; }
-    .step-counter .label { font-size: 0.85rem; color: var(--text-secondary); }
-    .step-counter .count { font-size: 1.8rem; font-weight: 700; color: var(--accent); }
-    .step-bar {
-      width: 80%;
-      height: 6px;
-      background: var(--border);
-      border-radius: 3px;
-      overflow: hidden;
-      margin-top: 4px;
-    }
-    .step-bar-fill {
-      height: 100%;
-      background: var(--accent);
-      border-radius: 3px;
-      transition: width 0.15s;
-    }
-
-    /* Toggle switch */
-    .toggle-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 4px 0;
-    }
-    .toggle-row label { font-size: 0.9rem; color: var(--text-secondary); font-weight: 600; }
-    .toggle {
-      position: relative;
-      width: 48px;
-      height: 28px;
-      background: var(--border);
-      border-radius: 14px;
-      cursor: pointer;
-      transition: background 0.2s;
-      flex-shrink: 0;
-    }
-    .toggle.on { background: var(--success); }
-    .toggle::after {
-      content: '';
-      position: absolute;
-      top: 2px;
-      left: 2px;
-      width: 24px;
-      height: 24px;
-      background: #fff;
-      border-radius: 50%;
-      transition: transform 0.2s;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-    }
-    .toggle.on::after { transform: translateX(20px); }
-
-    /* Pulse animation for lap button */
-    @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.02); } 100% { transform: scale(1); } }
-    .btn-lap.hit { animation: pulse 0.15s ease-out; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>WalkTracker</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+/* ═══════════════════════════════════════
+   Design Tokens — Volt palette
+   ═══════════════════════════════════════ */
+:root {
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px; --sp-6: 32px;
+  --rd-sm: 8px; --rd-md: 12px; --rd-lg: 16px; --rd-xl: 20px; --rd-full: 9999px;
+}
+[data-theme="dark"] {
+  --canvas: #1A1A1A; --surface: #2A2A2A; --accent: #CCFF00;
+  --secondary: #FF6600; --danger: #FF453A; --dtext: #1D1D1F;
+  --text: #FFFFFF; --muted: #999999; --border: #555555;
+  --success: #30D158; --estimated: #FFB347;
+  --shadow: none;
+}
+[data-theme="light"] {
+  --canvas: #F5F5F7; --surface: #FFFFFF; --accent: #CC9900;
+  --secondary: #FF6600; --danger: #FF453A; --dtext: #1D1D1F;
+  --text: #1D1D1F; --muted: #666666; --border: #8E8E93;
+  --success: #30D158; --estimated: #CC7A00;
+  --shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body {
+  font-family: -apple-system, "Helvetica Neue", sans-serif;
+  background: var(--canvas); color: var(--text);
+  min-height: 100vh; min-height: 100dvh;
+  overscroll-behavior: none;
+  user-select: none; -webkit-user-select: none;
+}
+.screen { display: none; flex-direction: column; padding: 16px; min-height: 100dvh; }
+.screen.active { display: flex; }
+/* Typography tokens */
+.h-hero { font-size: 64px; font-weight: 900; line-height: 1; letter-spacing: -0.03em; }
+.h-sub { font-size: 16px; font-weight: 700; line-height: 1.2; }
+.label { font-size: 11px; font-weight: 400; color: var(--muted); line-height: 1.3; }
+.body { font-size: 15px; font-weight: 400; line-height: 1.4; }
+/* Components */
+.card { background: var(--surface); border-radius: var(--rd-lg); padding: 20px; margin-bottom: 12px; box-shadow: var(--shadow); }
+.btn-p { width: 100%; padding: 16px; background: var(--accent); color: var(--canvas); font-size: 24px; font-weight: 900; border: none; border-radius: var(--rd-xl); cursor: pointer; text-align: center; }
+.btn-s { padding: 12px 16px; background: var(--surface); color: var(--muted); font-size: 14px; font-weight: 600; border: 1px solid var(--border); border-radius: var(--rd-md); cursor: pointer; text-align: center; }
+.btn-d { padding: 12px 16px; background: var(--danger); color: var(--dtext); font-size: 14px; font-weight: 600; border: none; border-radius: var(--rd-md); cursor: pointer; text-align: center; }
+.btn-g { padding: 12px 16px; background: var(--success); color: var(--dtext); font-size: 14px; font-weight: 600; border: none; border-radius: var(--rd-md); cursor: pointer; text-align: center; }
+.header { display: flex; justify-content: space-between; align-items: center; padding: 8px 0 16px; }
+.header-t { font-size: 17px; font-weight: 700; }
+.header-r { display: flex; gap: 16px; }
+.header-r span { font-size: 20px; cursor: pointer; padding: 8px; }
+.badge { display: inline-block; padding: 4px 10px; border-radius: var(--rd-full); font-size: 12px; font-weight: 600; color: var(--accent); }
+.badge::before { content: "● "; }
+.banner-wl { background: var(--secondary); color: var(--dtext); padding: 12px 16px; border-radius: var(--rd-sm); margin-bottom: 12px; font-size: 15px; display: flex; justify-content: space-between; align-items: center; }
+.banner-est { background: var(--surface); color: var(--muted); padding: 12px 16px; border-radius: var(--rd-sm); margin-bottom: 12px; font-size: 15px; border-left: 4px solid var(--estimated); }
+.banner-rec { background: var(--surface); color: var(--muted); padding: 8px; border-radius: var(--rd-sm); text-align: center; font-size: 11px; margin-bottom: 12px; }
+.sub-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; text-align: center; margin-top: 16px; }
+.sub-v { font-size: 16px; font-weight: 700; }
+.sub-l { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.weather { display: flex; align-items: center; gap: 12px; }
+.weather-t { font-size: 24px; font-weight: 700; }
+.weather-c { font-size: 15px; color: var(--muted); }
+.weather-d { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.ctrl { display: flex; gap: 12px; margin-top: auto; padding-bottom: 32px; }
+.ctrl button { flex: 1; }
+.ring-wrap { display: flex; flex-direction: column; align-items: center; margin: 24px 0; }
+.ring { width: 300px; height: 300px; border-radius: 50%; position: relative; display: flex; align-items: center; justify-content: center; flex-direction: column; }
+.ring svg { position: absolute; top: 0; left: 0; transform: rotate(-90deg); }
+.ring-v { font-size: 36px; font-weight: 900; color: var(--accent); letter-spacing: -0.02em; }
+.ring-l { font-size: 14px; font-weight: 600; color: var(--muted); margin-top: 4px; }
+.h-row { background: var(--surface); border-radius: var(--rd-md); padding: 16px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+.h-row .h-metrics { display: flex; gap: 16px; }
+.h-row .del { font-size: 18px; opacity: 0.5; cursor: pointer; padding: 8px; }
+.trend { display: flex; align-items: flex-end; gap: 12px; height: 120px; padding: 16px 0; }
+.trend-bar { flex: 1; background: var(--muted); border-radius: 4px 4px 0 0; min-height: 8px; position: relative; }
+.trend-bar.cur { background: var(--accent); }
+.trend-label { position: absolute; bottom: -20px; left: 50%; transform: translateX(-50%); font-size: 10px; color: var(--muted); }
+.ach-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.ach-card { background: var(--surface); border-radius: var(--rd-md); padding: 16px; text-align: center; }
+.ach-icon { width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 28px; margin: 0 auto 8px; }
+.ach-icon.ul { background: var(--accent); }
+.ach-icon.lk { background: var(--muted); opacity: 0.4; }
+.ach-name { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+.ach-desc { font-size: 11px; color: var(--muted); }
+.ach-prog { height: 4px; background: var(--border); border-radius: 2px; margin-top: 8px; overflow: hidden; }
+.ach-prog-f { height: 100%; background: var(--accent); border-radius: 2px; }
+.s-field { margin-bottom: 20px; }
+.s-input { width: 100%; padding: 12px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--rd-sm); color: var(--text); font-size: 15px; margin-top: 8px; }
+.s-input:focus { outline: 2px solid var(--accent); border-color: transparent; }
+.s-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.toggle { width: 48px; height: 28px; background: var(--border); border-radius: 14px; position: relative; cursor: pointer; padding: 2px; position: relative; }
+.toggle.on { background: var(--success); }
+.toggle-k { width: 24px; height: 24px; background: white; border-radius: 50%; transition: transform 0.2s; }
+.toggle.on .toggle-k { transform: translateX(20px); }
+.totals { display: flex; justify-content: space-around; text-align: center; padding: 16px; background: var(--surface); border-radius: var(--rd-sm); margin-bottom: 12px; }
+.tot-v { font-size: 20px; font-weight: 700; }
+.tot-l { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.ov { position: fixed; inset: 0; background: var(--accent); display: none; flex-direction: column; align-items: center; justify-content: center; padding: 32px; z-index: 100; }
+.ov.active { display: flex; }
+.ov-q { font-size: 28px; font-weight: 700; color: var(--canvas); text-align: center; line-height: 1.3; letter-spacing: -0.01em; }
+.ov-h { position: absolute; bottom: 48px; font-size: 11px; color: var(--canvas); opacity: 0.5; }
+.s-denied { display: none; flex-direction: column; align-items: center; justify-content: center; min-height: 100dvh; padding: 32px; text-align: center; }
+.s-denied.active { display: flex; }
+.sd-icon { font-size: 80px; margin-bottom: 24px; }
+.sd-title { font-size: 17px; font-weight: 700; margin-bottom: 12px; }
+.sd-body { font-size: 15px; color: var(--muted); margin-bottom: 32px; line-height: 1.5; }
+.sum-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 16px 0; }
+.sum-stat { background: var(--surface); border-radius: var(--rd-md); padding: 16px; text-align: center; }
+.sum-sv { font-size: 20px; font-weight: 700; }
+.sum-sl { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.pg-bar { height: 8px; background: var(--border); border-radius: 4px; margin-top: 8px; overflow: hidden; }
+.pg-fill { height: 100%; background: var(--accent); border-radius: 4px; }
+.est-clr { color: var(--estimated); }
+.del-icon { font-size: 18px; opacity: 0.5; cursor: pointer; padding: 8px; }
+.toast { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); background: var(--accent); color: var(--canvas); padding: 12px 24px; border-radius: var(--rd-md); font-size: 15px; font-weight: 700; z-index: 200; display: none; max-width: 90%; text-align: center; }
+.toast.show { display: block; }
+</style>
 </head>
 <body>
 
-  <!-- ═══════════════════════════════════════════════
-       HOME screen
-       ═══════════════════════════════════════════════ -->
-  <div id="home-screen" class="screen active">
-    <div style="position:absolute;top:16px;right:16px;display:flex;gap:8px;">
-      <button class="settings-icon" id="btn-history-nav">📋</button>
-      <button class="settings-icon" id="btn-settings">⚙</button>
-    </div>
-    <h1>WalkTracker</h1>
-    <p>Registra tus caminatas por conteo de vueltas, sin GPS.</p>
-    <button class="btn-start" id="btn-start">
-      <span class="icon">▶</span>
-      INICIAR
-    </button>
-    <p id="home-calib" style="font-size:0.8rem;color:var(--text-secondary);">Calibración: 62 pasos × 0,655 m = 40,61 m/vuelta</p>
+<!-- ═══ TOAST ═══ -->
+<div id="toast" class="toast" data-testid="toast"></div>
+
+<!-- ═══ HOME ═══ -->
+<div id="screen-home" class="screen active" data-testid="walk-screen">
+  <div class="header">
+    <div class="header-t">WalkTracker</div>
+    <div class="header-r"><span id="nav-achievements" data-testid="nav-achievements" aria-label="Logros">🏆</span><span id="nav-history" data-testid="nav-history" aria-label="Historial">📋</span><span id="nav-settings" data-testid="nav-settings" aria-label="Configuración">⚙</span></div>
   </div>
-
-  <!-- ═══════════════════════════════════════════════
-       SESSION screen
-       ═══════════════════════════════════════════════ -->
-  <div id="session-screen" class="screen">
-    <div class="metrics">
-      <div class="metric-laps" id="metric-laps">0 <span class="unit">vueltas</span></div>
-      <div class="metric-secondary">
-        <span id="metric-distance">0.00 m</span>
-        <span>·</span>
-        <span id="metric-time">00:00</span>
-        <span>·</span>
-        <span id="metric-pace">--:-- /km</span>
-      </div>
+  <div class="ring-wrap">
+    <div class="ring">
+      <svg width="300" height="300"><circle cx="150" cy="150" r="140" fill="none" stroke="var(--surface)" stroke-width="12"/><circle id="goal-arc" cx="150" cy="150" r="140" fill="none" stroke="var(--accent)" stroke-width="12" stroke-dasharray="880" stroke-dashoffset="880" stroke-linecap="round"/></svg>
+      <div class="ring-v" id="goal-km" data-testid="goal-km">0</div>
+      <div class="ring-l">km</div>
     </div>
+    <div class="label" id="goal-text">Meta semanal: 0 / 10 km</div>
+    <div class="pg-bar" style="width:280px"><div class="pg-fill" id="goal-bar" style="width:0%"></div></div>
+  </div>
+  <div class="card" id="home-weather" style="display:none"></div>
+  <div style="flex:1"></div>
+  <button class="btn-p" id="btn-start" data-testid="btn-start">Iniciar caminata</button>
+  <div style="height:32px"></div>
+</div>
 
-    <!-- Step counter (auto mode only) -->
-    <div class="step-counter" id="step-counter">
-      <span class="label">Pasos de esta vuelta</span>
-      <span class="count"><span id="step-current">0</span> / <span id="step-target">62</span></span>
-      <div class="step-bar"><div class="step-bar-fill" id="step-bar-fill" style="width:0%"></div></div>
-    </div>
-
-    <button class="btn-lap" id="btn-lap">
-      +1 VUELTA
-      <span class="sub">toca para marcar</span>
-    </button>
-
-    <button class="btn-undo hidden" id="btn-undo">↩ −1</button>
-
-    <div class="controls">
-      <button class="btn-pause" id="btn-pause">⏸ Pausar</button>
-      <button class="btn-finish" id="btn-finish">⏹ Finalizar</button>
+<!-- ═══ SESSION ═══ -->
+<div id="screen-session" class="screen" data-testid="session-screen">
+  <div class="header">
+    <div class="header-t">Sesión</div>
+    <div class="badge" id="session-status" data-testid="session-status">EN CURSO</div>
+  </div>
+  <div id="recovery-banner" class="banner-rec" style="display:none" data-testid="recovery-banner">Sesión recuperada</div>
+  <div id="wl-banner" class="banner-wl" style="display:none" data-testid="wl-banner"><span>Mantén la pantalla encendida para contar pasos</span><span id="wl-dismiss" data-testid="wl-dismiss" style="cursor:pointer;font-size:18px;">✕</span></div>
+  <div class="card">
+    <div class="h-hero" style="text-align:center;color:var(--accent)" id="ses-dist" data-testid="ses-dist">0.00</div>
+    <div class="label" style="text-align:center;margin-top:4px">kilómetros</div>
+    <div class="sub-metrics">
+      <div><div class="sub-v" id="ses-steps" data-testid="ses-steps">0</div><div class="sub-l">pasos</div></div>
+      <div><div class="sub-v" id="ses-time" data-testid="ses-time">00:00</div><div class="sub-l">tiempo</div></div>
+      <div><div class="sub-v" id="ses-pace" data-testid="ses-pace">--:--</div><div class="sub-l">ritmo /km</div></div>
+      <div><div class="sub-v" id="ses-cad" data-testid="ses-cad">0</div><div class="sub-l">cadencia</div></div>
     </div>
   </div>
-
-  <!-- ═══════════════════════════════════════════════
-       SUMMARY screen
-       ═══════════════════════════════════════════════ -->
-  <div id="summary-screen" class="screen">
-    <h2>🏁 Sesión completada</h2>
-    <div class="summary-grid">
-      <div class="summary-item">
-        <div class="label">Vueltas</div>
-        <div class="value" id="sum-laps">0</div>
-      </div>
-      <div class="summary-item">
-        <div class="label">Distancia</div>
-        <div class="value" id="sum-distance">0 m</div>
-      </div>
-      <div class="summary-item">
-        <div class="label">Duración</div>
-        <div class="value" id="sum-duration">00:00</div>
-      </div>
-      <div class="summary-item">
-        <div class="label">Ritmo</div>
-        <div class="value" id="sum-pace">--:--</div>
-      </div>
-    </div>
-    <button class="btn-new" id="btn-new">➕ Nueva sesión</button>
+  <div class="card" id="ses-weather" style="display:none" data-testid="ses-weather"></div>
+  <div id="est-banner" class="banner-est" style="display:none" data-testid="est-banner"><span><span class="est-clr">~</span> <span id="est-count" data-testid="est-count">0</span> pasos estimados</span><span id="est-discard" data-testid="est-discard" style="cursor:pointer;text-decoration:underline;margin-left:12px;">Descartar</span></div>
+  <div style="flex:1"></div>
+  <div class="ctrl">
+    <button class="btn-s" id="btn-pause" data-testid="btn-pause">Pausar</button>
+    <button class="btn-d" id="btn-finish" data-testid="btn-finish">Finalizar</button>
   </div>
+</div>
 
-  <!-- ═══════════════════════════════════════════════
-       SETTINGS screen
-       ═══════════════════════════════════════════════ -->
-  <div id="settings-screen" class="screen">
-    <h2>⚙ Ajustes</h2>
-    <div class="settings-field">
-      <label for="input-stride">Zancada (m)</label>
-      <input type="number" id="input-stride" step="0.001" min="0.001" lang="es" placeholder="0.655">
-      <div class="settings-error" id="error-stride"></div>
-    </div>
-    <div class="settings-field">
-      <label for="input-steps">Pasos por vuelta</label>
-      <input type="number" id="input-steps" step="1" min="1" lang="es" placeholder="62">
-      <div class="settings-error" id="error-steps"></div>
-    </div>
-    <div class="settings-field">
-      <label>Perímetro (derivado)</label>
-      <input type="text" id="input-perimeter" readonly value="—">
-      <div class="derived-label">se calcula automáticamente</div>
-    </div>
-
-    <div class="toggle-row">
-      <label>🏃 Modo automático (acelerómetro)</label>
-      <div class="toggle" id="toggle-auto"></div>
-    </div>
-    <div class="derived-label" style="margin-top:-12px;">Cuenta pasos automáticamente y registra vueltas sin tocar la pantalla</div>
-
-    <div class="settings-actions">
-      <button class="btn-back" id="btn-settings-back">← Volver</button>
-      <button class="btn-save" id="btn-save-config">💾 Guardar</button>
-    </div>
+<!-- ═══ SUMMARY ═══ -->
+<div id="screen-summary" class="screen" data-testid="summary-screen">
+  <div class="header"><div class="header-t" style="text-align:center;width:100%">Caminata completada</div></div>
+  <div style="text-align:center;padding:16px 0">
+    <div class="h-hero" style="color:var(--accent)" id="sum-dist" data-testid="sum-dist">0.00</div>
+    <div class="label">kilómetros</div>
   </div>
-
-  <!-- ═══════════════════════════════════════════════
-       HISTORY screen
-       ═══════════════════════════════════════════════ -->
-  <div id="history-screen" class="screen">
-    <div style="display:flex;align-items:center;gap:12px;padding:8px 0;">
-      <button class="settings-icon" id="btn-history-back" style="position:static;">←</button>
-      <h2 style="font-size:1.3rem;color:var(--text);flex:1;">📋 Historial</h2>
-    </div>
-    <div id="history-totals" style="background:var(--bg-card);border-radius:var(--radius-sm);padding:16px;margin-bottom:12px;box-shadow:var(--shadow);display:flex;justify-content:space-around;text-align:center;">
-      <div><div class="label" style="font-size:0.8rem;color:var(--text-secondary);">Total km</div><div class="value" id="hist-total-km" style="font-size:1.3rem;font-weight:700;color:var(--text);">0</div></div>
-      <div><div class="label" style="font-size:0.8rem;color:var(--text-secondary);">Sesiones</div><div class="value" id="hist-total-count" style="font-size:1.3rem;font-weight:700;color:var(--text);">0</div></div>
-      <div><div class="label" style="font-size:0.8rem;color:var(--text-secondary);">Total tiempo</div><div class="value" id="hist-total-time" style="font-size:1.3rem;font-weight:700;color:var(--text);">00:00</div></div>
-    </div>
-    <div id="history-list" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;">
-      <p style="color:var(--text-secondary);text-align:center;padding:40px 0;font-size:0.9rem;">Aún no hay sesiones registradas</p>
-    </div>
+  <div class="sum-stats" id="sum-stats" data-testid="sum-stats"></div>
+  <div id="sum-achievements" style="margin-bottom:12px" data-testid="sum-achievements"></div>
+  <div class="card">
+    <div class="label">Meta semanal</div>
+    <div class="pg-bar"><div class="pg-fill" id="sum-goal-bar" style="width:0%"></div></div>
+    <div class="label" style="margin-top:8px" id="sum-goal-text"></div>
   </div>
-
-  <script>
-  /* ═══════════════════════════════════════════════════════
-     Domain — WalkTracker Core (pure JS, no DOM)
-     AD-1, AD-4, AD-5, AD-6, AD-7
-     ═══════════════════════════════════════════════════════ */
-  const Domain = (() => {
-    'use strict';
-
-    const DEFAULT_STRIDE = 0.655;
-    const DEFAULT_STEPS_PER_LAP = 62;
-    const SESSION_STATUS = Object.freeze({ ACTIVE: 'active', PAUSED: 'paused', FINISHED: 'finished' });
-
-    function recalibrate({ strideM, stepsPerLap } = {}) {
-      if (!Number.isFinite(strideM) || !Number.isFinite(stepsPerLap))
-        throw new TypeError('recalibrate: strideM y stepsPerLap deben ser números finitos');
-      if (strideM <= 0 || stepsPerLap <= 0)
-        throw new RangeError('recalibrate: strideM y stepsPerLap deben ser > 0');
-      return { strideM, stepsPerLap, lapPerimeterM: +(strideM * stepsPerLap).toFixed(4) };
-    }
-
-    function averageStepsPerLap(totalSteps, laps) {
-      if (!Number.isFinite(totalSteps) || !Number.isFinite(laps) || laps <= 0)
-        throw new RangeError('averageStepsPerLap: totalSteps finito y laps > 0 requeridos');
-      return totalSteps / laps;
-    }
-
-    function elapsedS(startedAtMs, totalPausesMs, nowMs) {
-      if (!Number.isFinite(startedAtMs) || !Number.isFinite(nowMs))
-        throw new TypeError('elapsedS: startedAtMs y nowMs deben ser números finitos');
-      return (nowMs - startedAtMs - (totalPausesMs || 0)) / 1000;
-    }
-
-    function distance(laps, lapPerimeterM) {
-      if (!Number.isSafeInteger(laps) || laps < 0)
-        throw new RangeError('distance: laps debe ser un entero no negativo');
-      if (!Number.isFinite(lapPerimeterM) || lapPerimeterM <= 0)
-        throw new RangeError('distance: lapPerimeterM debe ser > 0');
-      return +(laps * lapPerimeterM).toFixed(2);
-    }
-
-    function pace(durationS, pausesS, distanceM) {
-      if (!Number.isFinite(durationS) || !Number.isFinite(pausesS))
-        throw new TypeError('pace: durationS y pausesS deben ser números finitos');
-      if (distanceM <= 0) return Infinity;
-      const movingS = durationS - (pausesS || 0);
-      if (movingS <= 0) return Infinity;
-      return Math.round(movingS / (distanceM / 1000));
-    }
-
-    function createSession(nowMs, strideM, stepsPerLap) {
-      const cal = recalibrate({ strideM, stepsPerLap });
-      return Object.freeze({
-        id: null, startedAt: nowMs, endedAt: null, laps: 0,
-        lapPerimeterM: cal.lapPerimeterM, strideM, stepsPerLap,
-        status: SESSION_STATUS.ACTIVE, totalPausesMs: 0, pausedAtMs: null,
-        durationS: 0, distanceM: 0, paceSecPerKm: null, pausesS: 0,
-      });
-    }
-
-    function lap(session) { assertMutable(session, 'lap'); const nl = session.laps + 1; return mutate(session, { laps: nl, distanceM: distance(nl, session.lapPerimeterM) }); }
-    function undo(session) { assertMutable(session, 'undo'); if (session.laps <= 0) return session; const nl = session.laps - 1; return mutate(session, { laps: nl, distanceM: distance(nl, session.lapPerimeterM) }); }
-    function pause(session, nowMs) { assertActive(session, 'pause'); return mutate(session, { status: SESSION_STATUS.PAUSED, pausedAtMs: nowMs }); }
-    function resume(session, nowMs) {
-      if (session.status !== SESSION_STATUS.PAUSED) throw new Error('resume: la sesión no está pausada');
-      const pd = nowMs - session.pausedAtMs;
-      return mutate(session, { status: SESSION_STATUS.ACTIVE, pausedAtMs: null, totalPausesMs: session.totalPausesMs + pd });
-    }
-    function finish(session, nowMs) {
-      if (session.status === SESSION_STATUS.FINISHED) throw new Error('finish: la sesión ya está finalizada');
-      const tp = session.pausedAtMs ? session.totalPausesMs + (nowMs - session.pausedAtMs) : session.totalPausesMs;
-      const ds = Math.round(elapsedS(session.startedAt, tp, nowMs));
-      const d = distance(session.laps, session.lapPerimeterM);
-      return Object.freeze({ ...session, status: SESSION_STATUS.FINISHED, endedAt: nowMs, durationS: ds, distanceM: d, paceSecPerKm: pace(ds, Math.round(tp / 1000), d), pausesS: Math.round(tp / 1000), totalPausesMs: tp, pausedAtMs: null });
-    }
-
-    /**
-     * Restaura una sesión desde un snapshot guardado (AD-8).
-     * Snapshot shape: { startedAtMs, laps, totalPausesMs, paused, strideM, stepsPerLap }
-     */
-    function restoreSession(snapshot) {
-      if (!snapshot || !snapshot.startedAtMs || snapshot.laps == null)
-        throw new TypeError('restoreSession: snapshot inválido');
-      const cal = recalibrate({ strideM: snapshot.strideM, stepsPerLap: snapshot.stepsPerLap });
-      const isPaused = !!snapshot.paused;
-      return Object.freeze({
-        id: null,
-        startedAt: snapshot.startedAtMs,
-        endedAt: null,
-        laps: snapshot.laps,
-        lapPerimeterM: cal.lapPerimeterM,
-        strideM: snapshot.strideM,
-        stepsPerLap: snapshot.stepsPerLap,
-        status: isPaused ? SESSION_STATUS.PAUSED : SESSION_STATUS.ACTIVE,
-        totalPausesMs: snapshot.totalPausesMs || 0,
-        pausedAtMs: isPaused ? Date.now() : null, // la pausa actual arranca desde ahora
-        durationS: 0,
-        distanceM: distance(snapshot.laps, cal.lapPerimeterM),
-        paceSecPerKm: null,
-        pausesS: Math.round((snapshot.totalPausesMs || 0) / 1000),
-      });
-    }
-
-    function assertMutable(s, op) {
-      if (s.status === SESSION_STATUS.FINISHED) throw new Error(op + ': sesión finalizada (inmutable)');
-      if (s.status === SESSION_STATUS.PAUSED && op !== 'resume') throw new Error(op + ': sesión pausada');
-    }
-    function assertActive(s, op) { if (s.status === SESSION_STATUS.FINISHED) throw new Error(op + ': sesión finalizada'); }
-    function mutate(s, c) { return Object.freeze({ ...s, ...c }); }
-
-    return { recalibrate, averageStepsPerLap, elapsedS, distance, pace, createSession, lap, undo, pause, resume, finish, restoreSession, SESSION_STATUS, DEFAULT_STRIDE, DEFAULT_STEPS_PER_LAP };
-  })();
-
-  /* ═══════════════════════════════════════════════════════
-     Audio — Web Audio beep (AD-9)
-     ═══════════════════════════════════════════════════════ */
-  const Audio = (() => {
-    'use strict';
-    let ctx = null;
-    function unlock() {
-      if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
-      if (ctx.state === 'suspended') ctx.resume();
-    }
-    function beep(freq = 440, duration = 0.08) {
-      if (!ctx || ctx.state !== 'running') return;
-      try {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.frequency.value = freq;
-        osc.type = 'sine';
-        gain.gain.setValueAtTime(0.3, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
-        osc.start(ctx.currentTime);
-        osc.stop(ctx.currentTime + duration);
-      } catch(e) { /* beep fallback: silencioso */ }
-    }
-    return { unlock, beep };
-  })();
-
-  /* ═══════════════════════════════════════════════════════
-     Config — calibration persistence (wt:config)
-     ═══════════════════════════════════════════════════════ */
-  const CONFIG_KEY = 'wt:config';
-  const AppConfig = (() => {
-    function load() {
-      try {
-        const raw = localStorage.getItem(CONFIG_KEY);
-        if (!raw) return { strideM: 0.655, stepsPerLap: 62, autoMode: false };
-        const parsed = JSON.parse(raw);
-        return {
-          strideM: Number.isFinite(parsed.strideM) ? parsed.strideM : 0.655,
-          stepsPerLap: Number.isFinite(parsed.stepsPerLap) ? parsed.stepsPerLap : 62,
-          autoMode: !!parsed.autoMode,
-        };
-      } catch(e) { return { strideM: 0.655, stepsPerLap: 62, autoMode: false }; }
-    }
-    function save(strideM, stepsPerLap, autoMode) {
-      try { localStorage.setItem(CONFIG_KEY, JSON.stringify({ strideM, stepsPerLap, autoMode: !!autoMode })); } catch(e) {}
-    }
-    return { load, save };
-  })();
-
-  /* ═══════════════════════════════════════════════════════
-     WakeLock — mantiene pantalla activa durante sesión (RF-12)
-     ═══════════════════════════════════════════════════════ */
-  const WakeLock = (() => {
-    let sentinel = null;
-
-    async function request() {
-      try {
-        if (!('wakeLock' in navigator)) return false;
-        sentinel = await navigator.wakeLock.request('screen');
-        sentinel.addEventListener('release', () => { sentinel = null; });
-        return true;
-      } catch(e) { return false; }
-    }
-
-    function release() {
-      if (sentinel) { sentinel.release(); sentinel = null; }
-    }
-
-    // Re-acquire on visibility change (iOS libera el lock al background)
-    document.addEventListener('visibilitychange', async () => {
-      if (document.visibilityState === 'visible' && sentinel === null && window.__wtSessionActive) {
-        await request();
-      }
-    });
-
-    return { request, release };
-  })();
-
-  /* ═══════════════════════════════════════════════════════
-     Pedometer — step detection via accelerometer (v1.1)
-     ═══════════════════════════════════════════════════════ */
-  const Pedometer = (() => {
-    'use strict';
-    let listening = false;
-    let stepCount = 0;
-    let stepsPerLap = 62;
-    let onStep = null;
-    let onLap = null;
-    let lastStepTime = 0;
-    let avgMagnitude = 9.8;   // gravity baseline
-    const ALPHA = 0.2;        // low-pass filter coefficient
-    const STEP_DELTA = 0.6;   // g above average to count as step
-    const MIN_INTERVAL = 250; // ms between steps (debounce)
-
-    async function start(target, stepCb, lapCb) {
-      stepsPerLap = target;
-      stepCount = 0;
-      onStep = stepCb;
-      onLap = lapCb;
-      avgMagnitude = 9.8;
-      lastStepTime = 0;
-
-      // iOS: request permission
-      if (typeof DeviceMotionEvent !== 'undefined' &&
-          typeof DeviceMotionEvent.requestPermission === 'function') {
-        try {
-          const perm = await DeviceMotionEvent.requestPermission();
-          if (perm !== 'granted') return false;
-        } catch(e) { return false; }
-      }
-
-      window.addEventListener('devicemotion', handleMotion);
-      listening = true;
-      return true;
-    }
-
-    function handleMotion(event) {
-      const acc = event.accelerationIncludingGravity;
-      if (!acc || acc.x == null) return;
-
-      const mag = Math.sqrt(acc.x * acc.x + acc.y * acc.y + acc.z * acc.z);
-
-      // Dynamic threshold via low-pass filter
-      avgMagnitude = avgMagnitude * (1 - ALPHA) + mag * ALPHA;
-      const threshold = avgMagnitude + STEP_DELTA;
-
-      const now = Date.now();
-      if (mag > threshold && now - lastStepTime > MIN_INTERVAL) {
-        lastStepTime = now;
-        stepCount++;
-        if (onStep) onStep(stepCount, stepsPerLap);
-        if (stepCount >= stepsPerLap) {
-          stepCount = 0;
-          if (onLap) onLap();
-        }
-      }
-    }
-
-    function stop() {
-      window.removeEventListener('devicemotion', handleMotion);
-      listening = false;
-    }
-
-    function isListening() { return listening; }
-    function getStepCount() { return stepCount; }
-    function reset() { stepCount = 0; }
-
-    return { start, stop, isListening, getStepCount, reset };
-  })();
-
-  /* ═══════════════════════════════════════════════════════
-     UI Layer — Session Controller
-     ═══════════════════════════════════════════════════════ */
-  const UI = (() => {
-    'use strict';
-
-    // DOM refs
-    const $ = id => document.getElementById(id);
-    const home = $('home-screen');
-    const session = $('session-screen');
-    const summary = $('summary-screen');
-    const settings = $('settings-screen');
-    const btnStart = $('btn-start');
-    const btnLap = $('btn-lap');
-    const btnPause = $('btn-pause');
-    const btnFinish = $('btn-finish');
-    const btnNew = $('btn-new');
-    const btnUndo = $('btn-undo');
-    const btnSettings = $('btn-settings');
-    const btnSettingsBack = $('btn-settings-back');
-    const btnSaveConfig = $('btn-save-config');
-    const btnHistoryNav = $('btn-history-nav');
-    const btnHistoryBack = $('btn-history-back');
-    const historyList = $('history-list');
-    const histTotalKm = $('hist-total-km');
-    const histTotalCount = $('hist-total-count');
-    const histTotalTime = $('hist-total-time');
-    const inputStride = $('input-stride');
-    const inputSteps = $('input-steps');
-    const inputPerimeter = $('input-perimeter');
-    const errorStride = $('error-stride');
-    const errorSteps = $('error-steps');
-    const homeCalib = document.getElementById('home-calib');
-    const toggleAuto = $('toggle-auto');
-    const stepCounter = $('step-counter');
-    const stepCurrent = $('step-current');
-    const stepTarget = $('step-target');
-    const stepBarFill = $('step-bar-fill');
-    let autoMode = false;
-    const mLaps = $('metric-laps');
-    const mDist = $('metric-distance');
-    const mTime = $('metric-time');
-    const mPace = $('metric-pace');
-    const sLaps = $('sum-laps');
-    const sDist = $('sum-distance');
-    const sDur = $('sum-duration');
-    const sPace = $('sum-pace');
-
-    const SNAPSHOT_KEY = 'wt:activeSession';
-    let activeSession = null;
-    let tickInterval = null;
-    let lastAutosave = 0;
-    let undoFn = null;
-
-    // ---- Snapshot persistence (AD-8) ----
-
-    function saveSnapshot() {
-      if (!activeSession || activeSession.status === Domain.SESSION_STATUS.FINISHED) return;
-      try {
-        const snap = {
-          startedAtMs: activeSession.startedAt,
-          laps: activeSession.laps,
-          totalPausesMs: activeSession.totalPausesMs,
-          paused: activeSession.status === Domain.SESSION_STATUS.PAUSED,
-          strideM: activeSession.strideM,
-          stepsPerLap: activeSession.stepsPerLap,
-        };
-        localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snap));
-        lastAutosave = Date.now();
-      } catch(e) { /* quota exceeded u otro error — ignorar */ }
-    }
-
-    function clearSnapshot() {
-      try { localStorage.removeItem(SNAPSHOT_KEY); } catch(e) { /* ignorar */ }
-    }
-
-    function loadSnapshot() {
-      try {
-        const raw = localStorage.getItem(SNAPSHOT_KEY);
-        if (!raw) return null;
-        return JSON.parse(raw);
-      } catch(e) { return null; }
-    }
-
-    function show(screen) {
-      [home, session, summary, settings, document.getElementById('history-screen')].forEach(s => {
-        if (s) s.classList.remove('active');
-      });
-      screen.classList.add('active');
-    }
-
-    function formatTime(totalS) {
-      if (!totalS || totalS <= 0) return '00:00';
-      const m = Math.floor(totalS / 60);
-      const s = Math.floor(totalS % 60);
-      return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
-    }
-
-    function formatDist(m) {
-      if (m >= 1000) return (m / 1000).toFixed(2) + ' km';
-      return m.toFixed(2) + ' m';
-    }
-
-    function formatPace(secPerKm) {
-      if (!secPerKm || secPerKm === Infinity || secPerKm <= 0) return '--:-- /km';
-      const m = Math.floor(secPerKm / 60);
-      const s = Math.floor(secPerKm % 60);
-      return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0') + ' /km';
-    }
-
-    function getElapsedNow(session) {
-      const now = Date.now();
-      return Domain.elapsedS(session.startedAt, session.totalPausesMs, now);
-    }
-
-    function updateMetrics(s) {
-      const laps = s.laps;
-      const dur = s.status === Domain.SESSION_STATUS.PAUSED
-        ? Domain.elapsedS(s.startedAt, s.totalPausesMs, s.pausedAtMs)
-        : getElapsedNow(s);
-      const dist = Domain.distance(laps, s.lapPerimeterM);
-      const p = Domain.pace(dur, s.pausesS, dist);
-
-      mLaps.innerHTML = laps + ' <span class="unit">vueltas</span>';
-      mDist.textContent = formatDist(dist);
-      mTime.textContent = formatTime(dur);
-      mPace.textContent = formatPace(p);
-    }
-
-    function startTick() {
-      stopTick();
-      lastAutosave = Date.now();
-      tickInterval = setInterval(() => {
-        if (activeSession && activeSession.status === Domain.SESSION_STATUS.ACTIVE) {
-          updateMetrics(activeSession);
-          // autosave cada 10s
-          if (Date.now() - lastAutosave >= 10000) saveSnapshot();
-        }
-      }, 1000);
-      // initial tick
-      if (activeSession) updateMetrics(activeSession);
-    }
-
-    function stopTick() {
-      if (tickInterval) { clearInterval(tickInterval); tickInterval = null; }
-    }
-
-    // ---- Event handlers ----
-
-    btnStart.addEventListener('click', async () => {
-      const now = Date.now();
-      const cfg = AppConfig.load();
-      activeSession = Domain.createSession(now, cfg.strideM, cfg.stepsPerLap);
-      autoMode = cfg.autoMode;
-      show(session);
-      updateMetrics(activeSession);
-      startTick();
-      // enable lap button
-      btnLap.classList.remove('disabled');
-      btnPause.textContent = '⏸ Pausar';
-      btnPause.className = 'btn-pause';
-      // undo visible when active
-      btnUndo.classList.remove('hidden');
-      // trigger beep callback (set by Story 1.3)
-      if (typeof onBeep === 'function') onBeep('start');
-      // Wake Lock: pantalla activa durante la sesión
-      window.__wtSessionActive = true;
-      WakeLock.request();
-      // Auto-mode: start pedometer
-      if (autoMode) {
-        stepTarget.textContent = cfg.stepsPerLap;
-        stepCurrent.textContent = '0';
-        stepBarFill.style.width = '0%';
-        stepCounter.classList.add('visible');
-        const ok = await Pedometer.start(cfg.stepsPerLap, onPedometerStep, onPedometerLap);
-        if (!ok) {
-          // Permission denied or no sensor — fall back to manual
-          autoMode = false;
-          stepCounter.classList.remove('visible');
-        }
-      } else {
-        stepCounter.classList.remove('visible');
-      }
-    });
-
-    btnLap.addEventListener('click', () => {
-      if (!activeSession || activeSession.status !== Domain.SESSION_STATUS.ACTIVE) return;
-      activeSession = Domain.lap(activeSession);
-      updateMetrics(activeSession);
-      // pulse animation
-      btnLap.classList.remove('hit');
-      void btnLap.offsetWidth; // reflow
-      btnLap.classList.add('hit');
-      // beep + autosave
-      if (typeof onBeep === 'function') onBeep('lap');
-      saveSnapshot();
-    });
-
-    btnPause.addEventListener('click', () => {
-      if (!activeSession) return;
-      if (activeSession.status === Domain.SESSION_STATUS.ACTIVE) {
-        const now = Date.now();
-        activeSession = Domain.pause(activeSession, now);
-        updateMetrics(activeSession);
-        btnPause.textContent = '▶ Reanudar';
-        btnPause.className = 'btn-resume';
-        btnLap.classList.add('disabled');
-      btnUndo.classList.add('hidden'); // no undo while paused
-      } else if (activeSession.status === Domain.SESSION_STATUS.PAUSED) {
-        const now = Date.now();
-        activeSession = Domain.resume(activeSession, now);
-        updateMetrics(activeSession);
-        btnPause.textContent = '⏸ Pausar';
-        btnPause.className = 'btn-pause';
-        btnLap.classList.remove('disabled');
-        btnUndo.classList.remove('hidden');
-        startTick();
-        saveSnapshot();
-      }
-    });
-
-    btnFinish.addEventListener('click', () => {
-      if (!activeSession || activeSession.status === Domain.SESSION_STATUS.FINISHED) return;
-      Pedometer.stop();
-      window.__wtSessionActive = false;
-      WakeLock.release();
-      const now = Date.now();
-      activeSession = Domain.finish(activeSession, now);
-      stopTick();
-      // Save to history (wt:sessions)
-      saveSessionToHistory(activeSession);
-      // show summary
-      sLaps.textContent = activeSession.laps;
-      sDist.textContent = formatDist(activeSession.distanceM);
-      sDur.textContent = formatTime(activeSession.durationS);
-      sPace.textContent = formatPace(activeSession.paceSecPerKm);
-      show(summary);
-      if (typeof onBeep === 'function') onBeep('finish');
-      btnUndo.classList.add('hidden');
-      clearSnapshot(); // limpiar snapshot al finalizar
-    });
-
-    btnNew.addEventListener('click', () => {
-      activeSession = null;
-      Pedometer.stop();
-      window.__wtSessionActive = false;
-      WakeLock.release();
-      stepCounter.classList.remove('visible');
-      clearSnapshot();
-      show(home);
-    });
-
-    // Undo button
-    btnUndo.addEventListener('click', () => {
-      if (!activeSession || activeSession.status !== Domain.SESSION_STATUS.ACTIVE) return;
-      const beforeLaps = activeSession.laps;
-      activeSession = Domain.undo(activeSession);
-      // if laps didn't change (at 0), no beep
-      updateMetrics(activeSession);
-      if (activeSession.laps < beforeLaps && typeof onBeep === 'function') onBeep('undo');
-    });
-
-    // ---- Settings handlers ----
-
-    const HISTORY_KEY = 'wt:sessions';
-
-    function saveSessionToHistory(session) {
-      if (!session || session.status !== Domain.SESSION_STATUS.FINISHED) return;
-      try {
-        const raw = localStorage.getItem(HISTORY_KEY);
-        const sessions = raw ? JSON.parse(raw) : [];
-        sessions.push({
-          id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-          startedAt: new Date(session.startedAt).toISOString(),
-          endedAt: new Date(session.endedAt).toISOString(),
-          laps: session.laps,
-          lapPerimeterM: session.lapPerimeterM,
-          distanceM: session.distanceM,
-          durationS: session.durationS,
-          paceSecPerKm: session.paceSecPerKm,
-          pausesS: session.pausesS,
-        });
-        localStorage.setItem(HISTORY_KEY, JSON.stringify(sessions));
-      } catch(e) { /* quota or parse error */ }
-    }
-
-    function loadSessions() {
-      try {
-        const raw = localStorage.getItem(HISTORY_KEY);
-        return raw ? JSON.parse(raw) : [];
-      } catch(e) { return []; }
-    }
-
-    function renderHistory() {
-      const sessions = loadSessions();
-      // Totals
-      const totalKm = sessions.reduce((a, s) => a + s.distanceM, 0) / 1000;
-      const totalSec = sessions.reduce((a, s) => a + s.durationS, 0);
-      histTotalKm.textContent = totalKm.toFixed(2) + ' km';
-      histTotalCount.textContent = sessions.length;
-      const m = Math.floor(totalSec / 60);
-      const sec = Math.floor(totalSec % 60);
-      histTotalTime.textContent = String(m).padStart(2,'0') + ':' + String(sec).padStart(2,'0');
-
-      // List
-      if (sessions.length === 0) {
-        historyList.innerHTML = '<p style="color:var(--text-secondary);text-align:center;padding:40px 0;font-size:0.9rem;">Aún no hay sesiones registradas</p>';
-        return;
-      }
-      const sorted = [...sessions].reverse(); // most recent first
-      historyList.innerHTML = sorted.map(s => {
-        const date = new Date(s.endedAt || s.startedAt);
-        const dateStr = date.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
-        const dist = s.distanceM >= 1000 ? (s.distanceM/1000).toFixed(2) + ' km' : s.distanceM.toFixed(0) + ' m';
-        const dur = formatTime(s.durationS);
-        const paceStr = formatPace(s.paceSecPerKm);
-        return `<div class="history-item">
-          <div class="date">📅 ${dateStr}</div>
-          <div class="stats">
-            <span>${dist}</span>
-            <span>·</span>
-            <span>⏱ ${dur}</span>
-            <span>·</span>
-            <span>🏃 ${paceStr}</span>
-          </div>
-        </div>`;
-      }).join('');
-    }
-
-    // History navigation
-    btnHistoryNav.addEventListener('click', () => {
-      renderHistory();
-      show(document.getElementById('history-screen'));
-    });
-    btnHistoryBack.addEventListener('click', () => {
-      show(home);
-    });
-
-    function updateHomeCalib(cfg) {
-      const cal = Domain.recalibrate(cfg);
-      homeCalib.textContent = `${cfg.stepsPerLap} pasos × ${cfg.strideM.toFixed(3)} m = ${cal.lapPerimeterM.toFixed(2)} m/vuelta`;
-    }
-
-    // Live preview: recalculate perimeter on input change
-    function previewPerimeter() {
-      const s = parseFloat(inputStride.value);
-      const p = parseFloat(inputSteps.value);
-      if (!Number.isFinite(s) || !Number.isFinite(p) || s <= 0 || p <= 0) {
-        inputPerimeter.value = '—';
-        return;
-      }
-      try {
-        const cal = Domain.recalibrate({ strideM: s, stepsPerLap: p });
-        inputPerimeter.value = cal.lapPerimeterM.toFixed(2) + ' m';
-      } catch(e) { inputPerimeter.value = '—'; }
-    }
-    inputStride.addEventListener('input', previewPerimeter);
-    inputSteps.addEventListener('input', previewPerimeter);
-
-    // Back button: go home without saving
-    btnSettingsBack.addEventListener('click', () => {
-      show(home);
-    });
-
-    // Initialize home calibration display
-    updateHomeCalib(AppConfig.load());
-
-    // ---- Pedometer callbacks (auto mode v1.1) ----
-
-    function onPedometerStep(count, target) {
-      stepCurrent.textContent = count;
-      stepBarFill.style.width = Math.min(100, (count / target) * 100) + '%';
-    }
-
-    function onPedometerLap() {
-      if (!activeSession || activeSession.status !== Domain.SESSION_STATUS.ACTIVE) return;
-      activeSession = Domain.lap(activeSession);
-      updateMetrics(activeSession);
-      stepCurrent.textContent = '0';
-      stepBarFill.style.width = '0%';
-      btnLap.classList.remove('hit');
-      void btnLap.offsetWidth;
-      btnLap.classList.add('hit');
-      if (typeof onBeep === 'function') onBeep('lap');
-      saveSnapshot();
-    }
-
-    // ---- Toggle auto mode in settings ----
-
-    let settingsAutoMode = false;
-    toggleAuto.addEventListener('click', () => {
-      settingsAutoMode = !settingsAutoMode;
-      toggleAuto.classList.toggle('on', settingsAutoMode);
-    });
-
-    // Update btnSaveConfig to include autoMode
-    btnSaveConfig.addEventListener('click', () => {
-      const s = parseFloat(inputStride.value);
-      const p = parseFloat(inputSteps.value);
-      let valid = true;
-      errorStride.textContent = '';
-      errorSteps.textContent = '';
-      if (!Number.isFinite(s) || s <= 0) { errorStride.textContent = 'Ingresa un número > 0'; valid = false; }
-      if (!Number.isFinite(p) || p <= 0) { errorSteps.textContent = 'Ingresa un número > 0'; valid = false; }
-      if (!valid) return;
-      AppConfig.save(s, Math.round(p), settingsAutoMode);
-      updateHomeCalib(AppConfig.load());
-      show(home);
-    });
-
-    // Settings nav: populate autoMode toggle
-    btnSettings.addEventListener('click', () => {
-      const cfg = AppConfig.load();
-      inputStride.value = cfg.strideM.toFixed(3);
-      inputSteps.value = cfg.stepsPerLap;
-      settingsAutoMode = cfg.autoMode;
-      toggleAuto.classList.toggle('on', cfg.autoMode);
-      const cal = Domain.recalibrate(cfg);
-      inputPerimeter.value = cal.lapPerimeterM.toFixed(2) + ' m';
-      errorStride.textContent = '';
-      errorSteps.textContent = '';
-      show(settings);
-    });
-
-    // Expose for Story 1.3 (Beep) and Story 1.4 (Autosave)
-    return {
-      get activeSession() { return activeSession; },
-      updateMetrics,
-      showHome() { show(home); },
-      getElapsedNow,
-      recoverFromSnapshot(snapshot) {
-        stopTick();
-        activeSession = Domain.restoreSession(snapshot);
-        show(session);
-        updateMetrics(activeSession);
-        if (activeSession.status === Domain.SESSION_STATUS.ACTIVE) {
-          btnLap.classList.remove('disabled');
-          btnUndo.classList.remove('hidden');
-          btnPause.textContent = '⏸ Pausar';
-          btnPause.className = 'btn-pause';
-          startTick();
-        } else if (activeSession.status === Domain.SESSION_STATUS.PAUSED) {
-          btnLap.classList.add('disabled');
-          btnUndo.classList.add('hidden');
-          btnPause.textContent = '▶ Reanudar';
-          btnPause.className = 'btn-resume';
-          // paused, no tick — metrics frozen
-        }
-      },
-    };
-  })();
-
-  /* ═══════════════════════════════════════════════════════
-     Wire Audio beep callbacks
-     ═══════════════════════════════════════════════════════ */
-  const onBeep = (type) => {
-    switch (type) {
-      case 'start': Audio.unlock(); break;
-      case 'lap':   Audio.beep(440, 0.08); break;
-      case 'undo':  Audio.beep(330, 0.05); break;
-      case 'finish': Audio.beep(660, 0.15); break;
-    }
+  <div style="flex:1"></div>
+  <button class="btn-p" id="btn-new" data-testid="btn-new">Nueva sesión</button>
+  <div style="height:32px"></div>
+</div>
+
+<!-- ═══ HISTORY ═══ -->
+<div id="screen-history" class="screen" data-testid="history-screen">
+  <div class="header"><div class="header-t">Historial</div><span id="btn-history-back" data-testid="btn-history-back" style="cursor:pointer;font-size:20px">←</span></div>
+  <div class="totals" id="hist-totals" data-testid="hist-totals"></div>
+  <div class="label" style="margin-bottom:8px">Tendencia</div>
+  <div class="trend" id="trend-chart" data-testid="trend-chart"></div>
+  <div style="height:16px"></div>
+  <div class="label" style="margin-bottom:8px">Sesiones</div>
+  <div id="history-list" data-testid="history-list"></div>
+</div>
+
+<!-- ═══ SETTINGS ═══ -->
+<div id="screen-settings" class="screen" data-testid="settings-screen">
+  <div class="header"><div class="header-t">Ajustes</div><span id="btn-settings-back" data-testid="btn-settings-back" style="cursor:pointer;font-size:20px">←</span></div>
+  <div id="backup-warning" class="banner-wl" style="display:none" data-testid="backup-warning"></div>
+  <div class="s-field"><div class="body">Zancada (metros)</div><input class="s-input" id="input-stride" data-testid="input-stride" type="number" value="0.655" step="0.001"></div>
+  <div class="s-field"><div class="body">Meta semanal (km)</div><input class="s-input" id="input-goal" data-testid="input-goal" type="number" value="10.0" step="0.5"></div>
+  <div class="s-row"><div class="body">Sonido</div><div class="toggle on" id="toggle-sound" data-testid="toggle-sound"><div class="toggle-k"></div></div></div>
+  <div class="card" style="margin-top:16px">
+    <div class="label">Último respaldo</div>
+    <div class="body" style="color:var(--accent)" id="last-export" data-testid="last-export">Nunca</div>
+    <button class="btn-s" style="width:100%;margin-top:12px" id="btn-export" data-testid="btn-export">Exportar historial</button>
+  </div>
+  <div style="flex:1"></div>
+  <button class="btn-s" style="width:100%;color:var(--danger);border-color:var(--danger)" id="btn-delete-all" data-testid="btn-delete-all">Borrar todos los datos</button>
+  <div style="height:32px"></div>
+</div>
+
+<!-- ═══ ACHIEVEMENTS ═══ -->
+<div id="screen-achievements" class="screen" data-testid="achievements-screen">
+  <div class="header"><div class="header-t">Logros</div><span id="btn-ach-back" data-testid="btn-ach-back" style="cursor:pointer;font-size:20px">←</span></div>
+  <div class="ach-grid" id="ach-grid" data-testid="ach-grid"></div>
+</div>
+
+<!-- ═══ MOTIVATIONAL OVERLAY ═══ -->
+<div id="motivational-overlay" class="ov" data-testid="motivational-overlay" role="dialog" aria-modal="true" aria-label="Frase motivacional">
+  <div class="ov-q" id="ov-quote"></div>
+  <div class="ov-h">Toca para continuar</div>
+</div>
+
+<!-- ═══ MOTION DENIED ═══ -->
+<div id="screen-motion-denied" class="s-denied" data-testid="motion-denied-screen">
+  <div class="sd-icon">📱</div>
+  <div class="sd-title">Sensor de movimiento requerido</div>
+  <div class="sd-body">WalkTracker necesita acceso al sensor de movimiento para contar tus pasos. Actívalo en Configuración de Safari &gt; Movimiento y orientación.</div>
+  <button class="btn-p" style="margin-bottom:12px" id="btn-open-settings" data-testid="btn-open-settings">Abrir Configuración</button>
+  <button class="btn-s" id="btn-back-home" data-testid="btn-back-home">Volver al inicio</button>
+</div>
+
+<!-- ═══ Modules ═══ -->
+<script src="./domain.js"></script>
+<script src="./storage.js"></script>
+<script src="./migration.js"></script>
+<script src="./climate.js"></script>
+<script src="./motivation.js"></script>
+<script src="./runtime.js"></script>
+<script src="./quotes.json" id="quotes-json"></script>
+<script>
+// ═══════════════════════════════════════════════════════
+//  WalkTracker v3.0 — Composition Root
+// ═══════════════════════════════════════════════════════
+(function () {
+  'use strict';
+
+  const D = window.WT.Domain;
+  const S = window.WT.Storage;
+  const M = window.WT.Migration;
+  const C = window.WT.Climate;
+  const Mot = window.WT.Motivation;
+  const R = window.WT.Runtime;
+
+  // ── State ──
+  const state = {
+    session: null,           // active v3 session object
+    timerInterval: null,
+    config: { strideM: 0.655, weeklyGoalKm: 10, soundEnabled: true, recentQuoteIds: [], lastExportAt: null },
+    allSessions: [],
+    achievements: [],
+    gapSeconds: 0,
+    wasRecovered: false,
   };
 
-  /* ═══════════════════════════════════════════════════════
-     Silent recovery (AD-8) — auto-resume on page load
-     ═══════════════════════════════════════════════════════ */
-  (function autoRecover() {
+  // ── Storage ──
+  const storage = S.createStoragePort();
+
+  // ── Wake Lock ──
+  const wlPort = R.createWakeLockPort();
+  wlPort.onLost(() => showEl('wl-banner'));
+  wlPort.onAcquired(() => hideEl('wl-banner'));
+
+  // ── Background Handler ──
+  let lastActiveAt = Date.now();
+  const bgHandler = R.createBackgroundHandler();
+  bgHandler.onBackground(() => {
+    lastActiveAt = Date.now();
+    if (state.session && state.session.status === 'active') {
+      storage.saveActiveSession({
+        startedAtMs: state.session.startedAt,
+        stepsMeasured: state.session.stepsMeasured,
+        stepsEstimated: state.session.stepsEstimated,
+        totalPausesMs: state.session.totalPausesMs,
+        paused: state.session.status === 'paused',
+        strideM: state.session.strideM,
+        weather: state.session.weather || null,
+        quoteId: state.session.quoteId,
+        lastActiveAt,
+      });
+    }
+  });
+  bgHandler.onForeground(() => {
+    const now = Date.now();
+    // Re-acquire wake lock
+    if (state.session && state.session.status === 'active') {
+      wlPort.acquire();
+    }
+    // Check estimated steps gap
+    if (state.session && state.session.status === 'active') {
+      const gapS = (now - lastActiveAt) / 1000;
+      if (gapS > 5 && state.session.stepsMeasured > 0) {
+        const durS = (now - state.session.startedAt - state.session.totalPausesMs) / 1000;
+        const activeMin = (durS - state.session.pausesS) / 60;
+        const cadence = activeMin > 0 ? state.session.stepsMeasured / activeMin : 0;
+        const estimated = D.estimateSteps(cadence, gapS);
+        if (estimated > 0) {
+          state.gapSeconds = gapS;
+          state.session = D.addEstimatedSteps(state.session, estimated);
+          showEl('est-banner');
+          document.getElementById('est-count').textContent = estimated;
+        }
+      }
+    }
+    // Recovery check
+    if (!state.session) {
+      const rec = R.checkRecovery(storage, Date.now());
+      if (rec.hasActiveSession) {
+        const snap = rec.snapshot;
+        state.session = D.restoreV3Session(snap);
+        state.wasRecovered = true;
+        if (rec.gapS > 5 && snap.stepsMeasured > 0) {
+          state.gapSeconds = rec.gapS;
+          showEl('recovery-banner');
+        }
+        showScreen('screen-session');
+        startTimer();
+      }
+    }
+  });
+
+  // ── Helpers ──
+  function $(id) { return document.getElementById(id); }
+  function showEl(id) { $(id).style.display = ''; }
+  function hideEl(id) { $(id).style.display = 'none'; }
+  function showScreen(id) {
+    document.querySelectorAll('.screen, .s-denied').forEach(s => s.classList.remove('active'));
+    const el = $(id);
+    if (el) el.classList.add('active');
+  }
+  function formatTime(s) {
+    if (!s || s <= 0) return '00:00';
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+  }
+  function formatPace(s) {
+    if (!s || s <= 0 || !Number.isFinite(s)) return '--:--';
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${m}:${String(sec).padStart(2,'0')}`;
+  }
+  function showToast(msg) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+  }
+  function playBeep() {
+    if (!state.config.soundEnabled) return;
     try {
-      const raw = localStorage.getItem('wt:activeSession');
-      if (!raw) return;
-      const snapshot = JSON.parse(raw);
-      if (!snapshot || !snapshot.startedAtMs) { localStorage.removeItem('wt:activeSession'); return; }
-      UI.recoverFromSnapshot(snapshot);
-      console.log('🔄 Sesión recuperada automáticamente:', snapshot.laps, 'vueltas');
-    } catch(e) {
-      try { localStorage.removeItem('wt:activeSession'); } catch(_) {}
-    }
-  })();
-  </script>
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      osc.frequency.value = 440;
+      osc.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.08);
+    } catch {}
+  }
 
-  <script>
-    // Register Service Worker (AD-10)
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./sw.js', { scope: './' });
-    }
-  </script>
+  // ── Config ──
+  function loadConfig() {
+    const cfg = storage.getConfig();
+    state.config = { ...state.config, ...cfg };
+    $('input-stride').value = state.config.strideM;
+    $('input-goal').value = state.config.weeklyGoalKm;
+    const tog = $('toggle-sound');
+    if (state.config.soundEnabled) tog.classList.add('on');
+    else tog.classList.remove('on');
+    updateGoalRing();
+    checkBackup();
+  }
+  function saveConfig(updates) {
+    state.config = { ...state.config, ...updates };
+    storage.saveConfig(state.config);
+  }
 
+  // ── Goal Ring ──
+  function updateGoalRing() {
+    const progress = Mot.getWeeklyProgress(state.allSessions, state.config.weeklyGoalKm);
+    const pct = Math.min(progress.percentage, 100);
+    const circumference = 2 * Math.PI * 140; // ~880
+    const offset = circumference - (pct / 100) * circumference;
+    $('goal-arc').setAttribute('stroke-dashoffset', offset);
+    $('goal-km').textContent = progress.completedKm.toFixed(1);
+    $('goal-text').textContent = `Meta semanal: ${progress.completedKm.toFixed(1)} / ${progress.goalKm} km`;
+    $('goal-bar').style.width = pct + '%';
+    if (progress.isComplete && state.config.soundEnabled) {
+      // Goal color change handled by arc
+    }
+  }
+
+  // ── Weather ──
+  async function fetchWeather() {
+    const geo = C.createGeoPort();
+    const pos = await geo.oneShot();
+    if (!pos) return null;
+    const wx = C.createWeatherPort();
+    const weather = await wx.fetch(pos);
+    return weather;
+  }
+  function renderWeather(weather, containerId) {
+    const el = $(containerId);
+    if (!weather) { el.style.display = 'none'; return; }
+    el.style.display = '';
+    el.innerHTML = `<div class="weather">
+      <span style="font-size:24px">${getWeatherEmoji(weather.condition)}</span>
+      <div>
+        <div class="weather-t">${weather.tempC}°C</div>
+        <div class="weather-c">${weather.condition}</div>
+        <div class="weather-d">Humedad ${weather.humidityPct}% · UV ${weather.uvIndex} · Viento ${weather.windKmh} km/h</div>
+      </div>
+    </div>`;
+  }
+  function getWeatherEmoji(condition) {
+    if (!condition) return '❓';
+    if (condition.includes('Tormenta')) return '⛈️';
+    if (condition.includes('Lluvia') || condition.includes('Llovizna') || condition.includes('Chubasco')) return '🌧️';
+    if (condition.includes('Nieve') || condition.includes('Granizo')) return '❄️';
+    if (condition.includes('Niebla')) return '🌫️';
+    if (condition.includes('Nublado')) return '☁️';
+    if (condition.includes('Despejado')) return '☀️';
+    return '🌤️';
+  }
+
+  // ── Sessions ──
+  function loadSessions() {
+    storage.getSessions().then(s => { state.allSessions = s; });
+    storage.getAchievements().then(a => { state.achievements = a; });
+  }
+
+  // ── Timer ──
+  function startTimer() {
+    if (state.timerInterval) clearInterval(state.timerInterval);
+    state.timerInterval = setInterval(updateSessionDisplay, 1000);
+    updateSessionDisplay();
+  }
+  function stopTimer() {
+    if (state.timerInterval) { clearInterval(state.timerInterval); state.timerInterval = null; }
+  }
+  function updateSessionDisplay() {
+    if (!state.session) return;
+    const now = Date.now();
+    const dur = D.elapsedS(state.session.startedAt, state.session.totalPausesMs, now);
+    const dist = state.session.distanceM;
+    const p = dist >= 100 ? D.pace(dur, state.session.pausesS, dist) : null;
+
+    $('ses-dist').textContent = (dist / 1000).toFixed(2);
+    $('ses-steps').textContent = (state.session.stepsMeasured || 0) + (state.session.stepsEstimated > 0 ? ` (~${state.session.stepsEstimated})` : '');
+    $('ses-time').textContent = formatTime(dur);
+    $('ses-pace').textContent = formatPace(p);
+    const activeMin = (state.session.status === 'active' ? dur : (dur || 1)) / 60;
+    const cad = activeMin > 0 && state.session.stepsMeasured > 0 ? +(state.session.stepsMeasured / activeMin).toFixed(1) : 0;
+    $('ses-cad').textContent = cad;
+
+    if (state.session.status === 'paused') {
+      $('btn-pause').textContent = 'Reanudar';
+      $('btn-pause').className = 'btn-g';
+    } else {
+      $('btn-pause').textContent = 'Pausar';
+      $('btn-pause').className = 'btn-s';
+    }
+  }
+
+  // ── Screen: Home ──
+  $('btn-start').addEventListener('click', async () => {
+    // Check motion permission
+    if (typeof DeviceMotionEvent !== 'undefined' && DeviceMotionEvent.requestPermission) {
+      try {
+        const perm = await DeviceMotionEvent.requestPermission();
+        if (perm !== 'granted') {
+          showScreen('motion-denied');
+          return;
+        }
+      } catch { /* iOS < 13 */ }
+    }
+
+    // Show motivational overlay
+    const quote = Mot.selectQuote(window.QUOTES || [], state.config.recentQuoteIds);
+    if (quote) {
+      $('ov-quote').textContent = quote.text;
+      state.config.recentQuoteIds = Mot.updateRecentIds(state.config.recentQuoteIds, quote.id);
+      saveConfig({ recentQuoteIds: state.config.recentQuoteIds });
+      showEl('motivational-overlay');
+      await new Promise(r => { setTimeout(r, 3000); $('motivational-overlay').addEventListener('click', r, { once: true }); });
+      hideEl('motivational-overlay');
+    }
+
+    // Create session
+    const now = Date.now();
+    state.session = D.createV3Session(now, state.config.strideM);
+    state.wasRecovered = false;
+    state.gapSeconds = 0;
+    hideEl('recovery-banner');
+    hideEl('est-banner');
+    hideEl('wl-banner');
+
+    // Weather
+    const weather = await fetchWeather();
+    if (weather) {
+      state.session.weather = weather;
+      renderWeather(weather, 'ses-weather');
+    }
+
+    // Start
+    wlPort.acquire();
+    bgHandler.start();
+    showScreen('screen-session');
+    startTimer();
+    playBeep();
+    $('ses-dist').textContent = '0.00';
+  });
+
+  // ── Screen: Session ──
+  $('btn-pause').addEventListener('click', () => {
+    if (!state.session) return;
+    if (state.session.status === 'active') {
+      state.session = D.pause(state.session, Date.now());
+    } else if (state.session.status === 'paused') {
+      state.session = D.resume(state.session, Date.now());
+    }
+    updateSessionDisplay();
+  });
+  $('btn-finish').addEventListener('click', () => {
+    if (!state.session || state.session.status === 'finished') return;
+    state.session = D.finishV3(state.session, Date.now());
+    stopTimer();
+    wlPort.release();
+    bgHandler.stop();
+    storage.saveActiveSession(null);
+    // Save session
+    if (!state.session.id) {
+      state.session.id = crypto.randomUUID ? crypto.randomUUID() : `s-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+    }
+    storage.saveSession(state.session);
+    loadSessions();
+
+    // Evaluate achievements
+    const newlyUnlocked = Mot.evaluateAchievements(state.session, state.allSessions, state.achievements);
+    for (const a of newlyUnlocked) {
+      storage.saveAchievement({ key: a.key, unlockedAt: new Date().toISOString(), progress: 1.0 });
+      showToast(`🎉 ${a.name}`);
+      playBeep();
+    }
+
+    // Show summary
+    showSummary();
+    showScreen('screen-summary');
+  });
+  $('wl-dismiss').addEventListener('click', () => hideEl('wl-banner'));
+  $('est-discard').addEventListener('click', () => {
+    if (state.session) {
+      state.session = D.addEstimatedSteps(state.session, -state.session.stepsEstimated);
+      hideEl('est-banner');
+    }
+  });
+
+  // ── Summary ──
+  function showSummary() {
+    if (!state.session) return;
+    const s = state.session;
+    $('sum-dist').textContent = (s.distanceM / 1000).toFixed(2);
+    $('sum-stats').innerHTML = `
+      <div class="sum-stat"><div class="sum-sv">${s.stepsMeasured}</div><div class="sum-sl">pasos</div></div>
+      <div class="sum-stat"><div class="sum-sv">${s.stepsEstimated ? '~'+s.stepsEstimated : '0'}</div><div class="sum-sl">estimados</div></div>
+      <div class="sum-stat"><div class="sum-sv">${formatTime(s.durationS)}</div><div class="sum-sl">duración</div></div>
+      <div class="sum-stat"><div class="sum-sv">${formatPace(s.paceSecPerKm)}</div><div class="sum-sl">ritmo /km</div></div>`;
+    updateGoalRing();
+    $('sum-goal-bar').style.width = Math.min(Mot.getWeeklyProgress(state.allSessions, state.config.weeklyGoalKm).percentage, 100) + '%';
+    $('sum-goal-text').textContent = `Meta semanal: ${Mot.getWeeklyProgress(state.allSessions, state.config.weeklyGoalKm).completedKm.toFixed(1)} / ${state.config.weeklyGoalKm} km`;
+  }
+  $('btn-new').addEventListener('click', () => {
+    state.session = null;
+    showScreen('screen-home');
+    updateGoalRing();
+  });
+
+  // ── History ──
+  function renderHistory() {
+    const sessions = state.allSessions;
+    // Totals
+    const weekKm = Mot.getWeeklyProgress(sessions, state.config.weeklyGoalKm).completedKm;
+    $('hist-totals').innerHTML = `
+      <div><div class="tot-v">${weekKm.toFixed(1)}</div><div class="tot-l">km</div></div>
+      <div><div class="tot-v">${sessions.length}</div><div class="tot-l">sesiones</div></div>
+      <div><div class="tot-v">${formatTime(sessions.reduce((sum,s) => sum + (s.durationS||0), 0))}</div><div class="tot-l">tiempo</div></div>`;
+
+    // Trend (4 weeks)
+    const weeks = [];
+    const now = new Date();
+    for (let w = 0; w < 4; w++) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - w * 7);
+      weeks.push(Mot.getWeeklyProgress(sessions, 100000, d).completedKm);
+    }
+    weeks.reverse();
+    const maxKm = Math.max(...weeks, 1);
+    $('trend-chart').innerHTML = weeks.map((km, i) =>
+      `<div class="trend-bar ${i === 3 ? 'cur' : ''}" style="height:${(km/maxKm*100)}%"><div class="trend-label">S${i+1}</div></div>`
+    ).join('');
+
+    // List
+    if (sessions.length === 0) {
+      $('history-list').innerHTML = '<div class="label" style="text-align:center;padding:32px" data-testid="history-empty">Aún no hay sesiones registradas</div>';
+      return;
+    }
+    const sorted = [...sessions].sort((a,b) => new Date(b.startedAt) - new Date(a.startedAt));
+    $('history-list').innerHTML = sorted.map((s, idx) => `
+      <div class="h-row" data-testid="session-item-${idx}">
+        <div>
+          <div class="label">${new Date(s.startedAt).toLocaleDateString('es-MX', { weekday:'short', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' })} ${s.stepsEstimated > 0 ? '<span class="est-clr">~</span>' : ''}</div>
+          <div class="h-metrics"><span class="h-sub">${(s.distanceM/1000).toFixed(2)} km</span><span class="h-sub">${formatTime(s.durationS)}</span><span class="h-sub">${formatPace(s.paceSecPerKm)}</span></div>
+        </div>
+        <span class="del" data-id="${s.id}" data-testid="btn-delete-session-${idx}">🗑️</span>
+      </div>
+    `).join('');
+
+    // Delete handlers
+    document.querySelectorAll('.del').forEach(el => {
+      el.addEventListener('click', () => {
+        if (confirm('¿Eliminar esta sesión?')) {
+          storage.deleteSession(el.dataset.id);
+          loadSessions();
+          renderHistory();
+        }
+      });
+    });
+  }
+  $('btn-history-back').addEventListener('click', () => { showScreen('screen-home'); updateGoalRing(); });
+  $('nav-history').addEventListener('click', () => { renderHistory(); showScreen('screen-history'); });
+
+  // ── Settings ──
+  $('btn-settings-back').addEventListener('click', () => { showScreen('screen-home'); updateGoalRing(); });
+  $('nav-settings').addEventListener('click', () => {
+    $('input-stride').value = state.config.strideM;
+    $('input-goal').value = state.config.weeklyGoalKm;
+    $('last-export').textContent = state.config.lastExportAt ? new Date(state.config.lastExportAt).toLocaleDateString('es-MX', { year:'numeric', month:'long', day:'numeric' }) : 'Nunca';
+    checkBackup();
+    showScreen('screen-settings');
+  });
+  $('toggle-sound').addEventListener('click', () => {
+    const tog = $('toggle-sound');
+    const on = !tog.classList.contains('on');
+    tog.classList.toggle('on', on);
+    saveConfig({ soundEnabled: on });
+  });
+  $('btn-export').addEventListener('click', async () => {
+    const sessions = await storage.getSessions();
+    const json = JSON.stringify(sessions, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const file = new File([blob], `walktracker-backup-${new Date().toISOString().slice(0,10)}.json`, { type: 'application/json' });
+    if (navigator.share && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: 'WalkTracker Backup' }); } catch { /* user cancelled */ }
+    } else {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = file.name; a.click();
+      URL.revokeObjectURL(url);
+    }
+    const now = new Date().toISOString();
+    saveConfig({ lastExportAt: now });
+    $('last-export').textContent = new Date(now).toLocaleDateString('es-MX', { year:'numeric', month:'long', day:'numeric' });
+    hideEl('backup-warning');
+  });
+  function checkBackup() {
+    if (!state.config.lastExportAt) {
+      showEl('backup-warning');
+      $('backup-warning').innerHTML = '⚠️ Nunca has exportado tu historial. Haz un respaldo.';
+      return;
+    }
+    const days = (Date.now() - new Date(state.config.lastExportAt).getTime()) / (1000*60*60*24);
+    if (days > 30) {
+      showEl('backup-warning');
+      $('backup-warning').innerHTML = `⚠️ Último respaldo: hace ${Math.floor(days)} días. Exporta tu historial.`;
+    } else hideEl('backup-warning');
+  }
+  $('btn-delete-all').addEventListener('click', () => {
+    if (confirm('¿Borrar TODOS los datos? Esta acción no se puede deshacer.')) {
+      if (confirm('¿Estás seguro?')) {
+        storage.getSessions().then(ss => ss.forEach(s => storage.deleteSession(s.id)));
+        storage.getAchievements().then(aa => aa.forEach(a => storage.saveAchievement({ key: a.key, unlockedAt: null, progress: 0 })));
+        state.allSessions = [];
+        state.achievements = [];
+        updateGoalRing();
+        showToast('Datos eliminados');
+      }
+    }
+  });
+
+  // ── Achievements ──
+  function renderAchievements() {
+    const cat = Mot.getAchievementsCatalog();
+    const unlockedMap = {};
+    state.achievements.forEach(a => { if (a.unlockedAt) unlockedMap[a.key] = a; });
+
+    $('ach-grid').innerHTML = cat.map((a, idx) => {
+      const ul = unlockedMap[a.key];
+      const pct = ul ? 100 : Math.round((a.key === 'marathon_42km' ?
+        Math.min(100, state.allSessions.reduce((sum,s) => sum + (s.distanceM||0), 0) / 42000 * 100) : 0));
+      return `<div class="ach-card" data-testid="achievement-${a.key}" data-testid="achievement-${idx}">
+        <div class="ach-icon ${ul ? 'ul' : 'lk'}" data-testid="achievement-icon-${a.key}">${ul ? a.icon : '🔒'}</div>
+        <div class="ach-name" style="color:${ul ? 'var(--text)' : 'var(--muted)'}">${a.name}</div>
+        <div class="ach-desc">${a.desc}</div>
+        ${!ul && pct > 0 ? `<div class="ach-prog"><div class="ach-prog-f" style="width:${pct}%"></div></div>` : ''}
+      </div>`;
+    }).join('');
+  }
+  $('nav-achievements').addEventListener('click', () => { renderAchievements(); showScreen('screen-achievements'); });
+  $('btn-ach-back').addEventListener('click', () => { showScreen('screen-home'); updateGoalRing(); });
+
+  // ── Motion Denied ──
+  $('btn-open-settings').addEventListener('click', () => {
+    // Try to open Settings (iOS URL scheme)
+    window.location.href = 'app-settings:';
+  });
+  $('btn-back-home').addEventListener('click', () => {
+    hideEl('screen-motion-denied');
+    showScreen('screen-home');
+  });
+
+  // ── Init ──
+  function init() {
+    // Run migration if needed
+    const raw = localStorage.getItem('wt:sessions');
+    if (raw && !storage.isMigrated()) {
+      try {
+        const v1Sessions = JSON.parse(raw);
+        const result = M.runMigration(storage, v1Sessions);
+        if (result.migrated > 0) localStorage.removeItem('wt:sessions');
+      } catch { /* no-op */ }
+    }
+    loadConfig();
+    loadSessions();
+    // Try auto-recovery
+    const rec = R.checkRecovery(storage, Date.now());
+    if (rec.hasActiveSession) {
+      const snap = rec.snapshot;
+      state.session = D.restoreV3Session(snap);
+      state.wasRecovered = true;
+      if (rec.gapS > 5) {
+        state.gapSeconds = rec.gapS;
+        showEl('recovery-banner');
+      }
+      showScreen('screen-session');
+      startTimer();
+      wlPort.acquire();
+      bgHandler.start();
+    }
+    // Dark/light mode
+    if (window.matchMedia) {
+      const mq = window.matchMedia('(prefers-color-scheme: light)');
+      document.documentElement.dataset.theme = mq.matches ? 'light' : 'dark';
+      mq.addEventListener('change', e => {
+        document.documentElement.dataset.theme = e.matches ? 'light' : 'dark';
+      });
+    }
+  }
+
+  // Load quotes
+  fetch('./quotes.json').then(r => r.json()).then(q => { window.QUOTES = q; });
+
+  init();
+})();
+</script>
 </body>
 </html>
