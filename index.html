@@ -129,7 +129,7 @@ body {
 <!-- ═══ HOME ═══ -->
 <div id="screen-home" class="screen active" data-testid="walk-screen">
   <div class="header">
-    <div class="header-t">WalkTracker</div>
+    <div class="header-t">WalkTracker <span style="font-size:10px;color:var(--muted)">v3.1</span></div>
     <div class="header-r"><span id="nav-achievements" data-testid="nav-achievements" aria-label="Logros">🏆</span><span id="nav-history" data-testid="nav-history" aria-label="Historial">📋</span><span id="nav-settings" data-testid="nav-settings" aria-label="Configuración">⚙</span></div>
   </div>
   <div class="ring-wrap">
@@ -489,29 +489,18 @@ body {
 
   // ── Screen: Home ──
   $('btn-start').addEventListener('click', async () => {
-    // Check motion permission
+    // Check motion permission (iOS 13+)
     if (typeof DeviceMotionEvent !== 'undefined' && DeviceMotionEvent.requestPermission) {
       try {
         const perm = await DeviceMotionEvent.requestPermission();
         if (perm !== 'granted') {
-          showScreen('motion-denied');
+          showScreen('screen-motion-denied');
           return;
         }
       } catch { /* iOS < 13 */ }
     }
 
-    // Show motivational overlay
-    const quote = Mot.selectQuote(window.QUOTES || [], state.config.recentQuoteIds);
-    if (quote) {
-      $('ov-quote').textContent = quote.text;
-      state.config.recentQuoteIds = Mot.updateRecentIds(state.config.recentQuoteIds, quote.id);
-      saveConfig({ recentQuoteIds: state.config.recentQuoteIds });
-      $('motivational-overlay').classList.add('active');
-      await new Promise(r => { setTimeout(r, 3000); $('motivational-overlay').addEventListener('click', r, { once: true }); });
-      $('motivational-overlay').classList.remove('active');
-    }
-
-    // Create session
+    // Create session immediately
     const now = Date.now();
     state.session = D.createV3Session(now, state.config.strideM);
     state.wasRecovered = false;
@@ -520,14 +509,14 @@ body {
     hideEl('est-banner');
     hideEl('wl-banner');
 
-    // StepDetector — create and attach devicemotion listener
+    // StepDetector — create and attach devicemotion listener INMEDIATAMENTE
     state.stepDetector = D.createStepDetector({ alpha: 0.2, refractoryMs: 300, calibrationSamples: 60 });
     state.lastStepCount = 0;
     state.motionHandler = (event) => {
       if (!state.session || state.session.status !== 'active') return;
       const a = event.accelerationIncludingGravity;
       if (!a || a.x == null || a.y == null || a.z == null) return;
-      // Subtract gravity: detector expects linear acceleration (~0 at rest, ~1-3 walking)
+      // Restar gravedad: el detector espera ~0 en reposo, ~1-5 caminando
       const rawMag = Math.sqrt(a.x * a.x + a.y * a.y + a.z * a.z);
       const linearMag = Math.abs(rawMag - 9.81);
       try {
@@ -538,25 +527,36 @@ body {
           state.session = D.addSteps(state.session, stepsAdded);
           state.lastStepCount = newCount;
         }
-      } catch (e) { /* ignore sample errors */ }
+      } catch (e) { /* ignore */ }
     };
     window.addEventListener('devicemotion', state.motionHandler);
 
-    // Weather (non-blocking — don't let it prevent session start)
-    fetchWeather().then(weather => {
-      if (weather && state.session) {
-        state.session = { ...state.session, weather };
-        renderWeather(weather, 'ses-weather');
-      }
-    }).catch(() => { /* weather optional */ });
-
-    // Start
+    // Show session screen first, then overlay on top
     wlPort.acquire();
     bgHandler.start();
     showScreen('screen-session');
     startTimer();
     playBeep();
     $('ses-dist').textContent = '0.00';
+
+    // Motivational overlay (non-blocking — shows on top of session screen)
+    const quote = Mot.selectQuote(window.QUOTES || [], state.config.recentQuoteIds);
+    if (quote) {
+      $('ov-quote').textContent = quote.text;
+      state.config.recentQuoteIds = Mot.updateRecentIds(state.config.recentQuoteIds, quote.id);
+      saveConfig({ recentQuoteIds: state.config.recentQuoteIds });
+      $('motivational-overlay').classList.add('active');
+      await new Promise(r => { setTimeout(r, 3000); $('motivational-overlay').addEventListener('click', r, { once: true }); });
+      $('motivational-overlay').classList.remove('active');
+    }
+
+    // Weather (non-blocking)
+    fetchWeather().then(weather => {
+      if (weather && state.session) {
+        state.session = { ...state.session, weather };
+        renderWeather(weather, 'ses-weather');
+      }
+    }).catch(() => { /* weather optional */ });
   });
 
   // ── Screen: Session ──
