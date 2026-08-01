@@ -1,0 +1,109 @@
+# generated: 2026-08-01
+# last_updated: 2026-08-01
+# project: walktracker
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: _bmad-output/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# Action Item Status:
+#   - open: Committed during a retrospective, not yet addressed
+#   - in-progress: Actively being worked on
+#   - done: Completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - Developer typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+# - Retrospective appends its action items to action_items; sprint-status surfaces open ones
+
+generated: 2026-08-01
+last_updated: 2026-08-01
+project: walktracker
+project_key: NOKEY
+tracking_system: file-system
+story_location: _bmad-output/implementation-artifacts
+
+development_status:
+  # Epic 1: Sesión y conteo de pasos nativo
+  epic-1: backlog
+  1-1-iniciar-sesion-de-caminata-con-cronometro-wall-clock: backlog
+  1-2-conteo-de-pasos-en-vivo-via-coprocesador-motionport: backlog
+  1-3-metricas-en-vivo-distancia-tiempo-ritmo-y-cadencia: backlog
+  1-4-pausar-reanudar-y-finalizar-sesion-controles: backlog
+  1-5-reconstruccion-de-intervalos-en-background-por-query-al-sistema: backlog
+  1-6-recuperacion-foreground-wall-clock-estimated-banner: backlog
+  epic-1-retrospective: optional
+
+  # Epic 2: Clima, motivación y calibración
+  epic-2: backlog
+  2-1-clima-snapshot-al-inicio-de-sesion-open-meteo: backlog
+  2-2-frase-motivacional-al-iniciar-sesion: backlog
+  2-3-recalibracion-de-zancada-en-ajustes: backlog
+  epic-2-retrospective: optional
+
+  # Epic 3: Metas, logros y motivación
+  epic-3: backlog
+  3-1-meta-semanal-configurable-con-anillo-de-progreso: backlog
+  3-2-evaluacion-de-logros-al-cierre-de-sesion-achievementengine: backlog
+  3-3-pantalla-de-logros-grid-locked-unlocked-con-progreso: backlog
+  3-4-celebracion-de-meta-y-logros-no-bloqueante: backlog
+  epic-3-retrospective: optional
+
+  # Epic 4: Feedback háptico y sonoro (mini-epic transversal)
+  epic-4: backlog
+  4-1-canal-de-feedback-puerto-y-disparo-de-eventos: backlog
+  4-2-haptica-nativa-corehaptics-y-sonido-respetuoso-con-musica: backlog
+  epic-4-retrospective: optional
+
+  # Epic 5: Historial, persistencia y respaldos
+  epic-5: backlog
+  5-1-persistencia-garantizada-en-sandbox-storageport: backlog
+  5-2-historial-lista-descendente-totales-semana-mes-tendencia: backlog
+  5-3-export-csv-json-re-import-share-sheet: backlog
+  5-4-eliminar-sesiones-individuales: backlog
+  epic-5-retrospective: optional
+
+  # Epic 6: Lo que Apple recibe — Salud y recordatorios
+  epic-6: backlog
+  6-1-escritura-de-workout-en-apple-salud-al-finalizar: backlog
+  6-2-recordatorio-semanal-de-meta-notificaciones-locales: backlog
+  epic-6-retrospective: optional
+
+  # Epic 7: Live Activity en pantalla de bloqueo
+  epic-7: backlog
+  7-1-bridge-activitykit-en-walktracker-kit-widget-extension: backlog
+  7-2-ciclo-de-vida-de-la-live-activity-crear-actualizar-cerrar: backlog
+  7-3-layout-de-pantalla-de-bloqueo-dynamic-island-compilando: backlog
+  epic-7-retrospective: optional
+
+  # Epic 8: Validación de la apuesta nativa (Fundaciones) — corre PRIMERO
+  epic-8: in-progress
+  8-1-montaje-capacitor-web-v3-en-webview-proyecto-xcode-plugin-scaffold: ready-for-dev
+  8-2-build-local-en-dispositivo-fisico-keep-awake-entorno-dev: backlog
+  8-3-distribucion-testflight-con-versionado-semver: backlog
+  8-4-gate-del-success-signal-validacion-de-performance-en-dispositivo-fisico: backlog
+  epic-8-retrospective: optional
