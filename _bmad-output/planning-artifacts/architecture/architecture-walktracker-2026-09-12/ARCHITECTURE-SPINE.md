@@ -379,7 +379,9 @@ Scripts/verify-domain.sh    # ejecuta ambos runtimes contra los vectores (AD-6)
 
 ## Preguntas abiertas
 
-| Pregunta | Por qué bloquea | Dueño |
-| --- | --- | --- |
-| **iOS 27 sale el 14 de septiembre** y el iPhone 14 de validación se actualizará. No hay fuente que confirme que Xcode 26.6 pueda depurar en un dispositivo con iOS 27, y el simulador no sirve para CAP-2/CAP-3 | Sin dispositivo depurable no hay validación de las dos capabilities centrales | Paul: retrasar la actualización del iPhone, o subir a Xcode 27 |
-| `SPEC.md` sigue declarando Capacitor como Constraint y "reescritura SwiftUI total" como Non-goal | El spine contradice su propia fuente mientras no se enmiende | `bmad-spec`, ciclo aparte (ver `DEROGACIONES.md`) |
+*(Ninguna. Las dos que había se resolvieron el 2026-09-12, el mismo día.)*
+
+| Resuelta | Cómo |
+| --- | --- |
+| iOS 27 sale el 14 de septiembre y el dispositivo de validación se actualizaría | **Paul: el iPhone 14 se congela en iOS 26** hasta terminar el desarrollo; toolchain fijo en Xcode 26.6 / Swift 6.3.3. Consecuencias aceptadas en `SPEC.md` OQ-5: sin parches nuevos durante el ciclo, y la primera sesión tras actualizar a iOS 27 es revalidación obligatoria de CAP-2 y CAP-3 |
+| `SPEC.md` seguía declarando Capacitor como Constraint y la reescritura SwiftUI como Non-goal | **Enmendado el 2026-09-12.** Constraints, Non-goals, A-2, Licencias y companions actualizados; `capabilities.md` y `platform-matrix.md` reescritos a mecanismos nativos. Inventario en `DEROGACIONES.md §2` y `§3` |

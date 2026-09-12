@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El extintor sin agua — Party #6</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#07080B; --glass:rgba(255,255,255,.055); --edge:rgba(255,255,255,.11);
+  --text:#EEF0F4; --dim:#8A8FA0; --faint:#4A4F5E;
+  --green:#34C759; --blue:#0A84FF; --red:#FF453A; --amber:#FF9F0A; --pink:#FF3D9A;
+  --mary:#CCFF00; --john:#FF7A29; --sally:#FF3D9A; --winston:#5AA9FF; --amelia:#00E5C0;
+  --vex:#B98CFF; --grum:#7A7A82;
+}
+html{scroll-behavior:smooth}
+body{
+  background:var(--ink); color:var(--text); line-height:1.55;
+  font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',Inter,Helvetica,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  background-image:
+    radial-gradient(1100px 620px at 8% -10%, rgba(10,132,255,.13), transparent 62%),
+    radial-gradient(760px 520px at 96% 2%, rgba(255,61,154,.09), transparent 60%),
+    radial-gradient(900px 700px at 50% 110%, rgba(52,199,89,.07), transparent 60%);
+  background-attachment:fixed;
+}
+.wrap{max-width:880px;margin:0 auto;padding:0 20px 110px}
+@keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@keyframes blip{0%,100%{opacity:1}50%{opacity:.2}}
+@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes drift{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.r{animation:rise .75s cubic-bezier(.2,.7,.3,1) both}
+.d1{animation-delay:.07s}.d2{animation-delay:.14s}.d3{animation-delay:.21s}
+.d4{animation-delay:.28s}.d5{animation-delay:.35s}.d6{animation-delay:.42s}
+
+/* glass primitive — guiño a Liquid Glass, que fue el hallazgo del día */
+.g{
+  background:var(--glass); border:1px solid var(--edge); border-radius:18px;
+  backdrop-filter:blur(22px) saturate(150%); -webkit-backdrop-filter:blur(22px) saturate(150%);
+  box-shadow:0 1px 0 rgba(255,255,255,.07) inset, 0 18px 44px rgba(0,0,0,.42);
+}
+
+header{padding:88px 0 46px;text-align:center}
+.eyebrow{
+  display:inline-flex;align-items:center;gap:9px;font-size:11px;letter-spacing:2.6px;
+  text-transform:uppercase;color:var(--green);border:1px solid rgba(52,199,89,.3);
+  border-radius:999px;padding:7px 15px;margin-bottom:28px;
+}
+.eyebrow i{width:6px;height:6px;border-radius:50%;background:var(--green);animation:blip 1.7s infinite}
+h1{
+  font-size:clamp(36px,8.5vw,66px);line-height:1;font-weight:800;letter-spacing:-2.2px;
+  background:linear-gradient(175deg,#fff 34%,#7F8596);-webkit-background-clip:text;
+  background-clip:text;color:transparent;
+}
+.kicker{color:var(--dim);margin-top:20px;font-size:15.5px}
+.kicker b{color:var(--text);font-weight:600}
+.attrib{margin-top:12px;font-size:13px;color:var(--faint);font-style:italic}
+
+.score{display:grid;grid-template-columns:repeat(3,1fr);gap:11px;margin:46px 0}
+.sc{padding:19px 12px;text-align:center;border-radius:16px}
+.sc .n{font-size:33px;font-weight:800;letter-spacing:-1.4px;line-height:1}
+.sc .l{font-size:10.5px;text-transform:uppercase;letter-spacing:1.5px;color:var(--dim);margin-top:7px}
+
+section{margin-top:70px}
+h2{font-size:11.5px;text-transform:uppercase;letter-spacing:2.8px;color:var(--dim);
+   padding-bottom:13px;border-bottom:1px solid var(--edge);margin-bottom:28px;font-weight:600}
+
+.cast{display:grid;grid-template-columns:repeat(auto-fit,minmax(232px,1fr));gap:11px}
+.p{padding:18px;position:relative;overflow:hidden;transition:transform .25s,border-color .25s;border-radius:16px}
+.p:hover{transform:translateY(-3px);border-color:var(--c)}
+.p::after{content:'';position:absolute;inset:0 auto 0 0;width:3px;background:var(--c);opacity:.75}
+.ph{display:flex;align-items:center;gap:11px;margin-bottom:11px}
+.ph svg{width:38px;height:38px;flex-shrink:0}
+.pn{font-size:15.5px;font-weight:700;letter-spacing:-.2px}
+.pt{font-size:10.5px;color:var(--dim);text-transform:uppercase;letter-spacing:1.1px}
+.pq{font-size:13.5px;color:#C3C7D2;font-style:italic;border-top:1px solid var(--edge);padding-top:11px}
+
+blockquote{border-radius:18px;padding:28px 26px;margin:0;border-left:3px solid var(--sally)}
+blockquote p{font-size:19.5px;line-height:1.45;font-weight:500;letter-spacing:-.35px}
+blockquote p+p{margin-top:14px}
+blockquote cite{display:block;margin-top:16px;font-style:normal;font-size:12.5px;color:var(--dim)}
+
+.bugs{display:grid;gap:11px}
+.bug{padding:17px 20px;border-radius:15px}
+.bt{font-size:14.5px;font-weight:600;margin-bottom:4px}
+.bw{font-size:11.5px;color:var(--faint);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;margin-bottom:11px}
+.ba{display:flex;align-items:center;gap:13px;flex-wrap:wrap;font-variant-numeric:tabular-nums}
+.was{font-size:19px;font-weight:700;color:var(--red);text-decoration:line-through;text-decoration-thickness:2px;opacity:.75}
+.arw{color:var(--faint);font-size:15px}
+.now{font-size:19px;font-weight:800;color:var(--green)}
+.unit{font-size:12px;color:var(--dim)}
+.bmeter{height:3px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden;margin-top:12px}
+.bmeter i{display:block;height:100%;background:linear-gradient(90deg,var(--red),var(--green));transform-origin:left;animation:grow 1.2s cubic-bezier(.2,.8,.2,1) both}
+
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:11px}
+.opt{padding:18px;border-radius:15px;text-align:center}
+.opt.win{border-color:rgba(52,199,89,.45);background:linear-gradient(180deg,rgba(52,199,89,.09),var(--glass))}
+.ok{font-size:11px;letter-spacing:1.6px;text-transform:uppercase;color:var(--dim)}
+.ov{font-size:30px;font-weight:800;letter-spacing:-1.2px;margin:7px 0 3px}
+.opt.win .ov{color:var(--green)}
+.od{font-size:12px;color:var(--dim);line-height:1.45}
+.badge{display:inline-block;margin-top:11px;font-size:10px;letter-spacing:1.4px;text-transform:uppercase;
+  color:var(--green);border:1px solid rgba(52,199,89,.4);border-radius:999px;padding:3px 10px}
+
+.tl{position:relative;padding-left:26px}
+.tl::before{content:'';position:absolute;left:6px;top:6px;bottom:6px;width:1px;
+  background:linear-gradient(180deg,var(--blue),var(--pink),var(--green))}
+.ev{position:relative;padding:0 0 24px}
+.ev::before{content:'';position:absolute;left:-23px;top:6px;width:9px;height:9px;border-radius:50%;
+  background:var(--ink);border:2px solid var(--c,#5AA9FF)}
+.evt{font-size:14.5px;font-weight:600}
+.evd{font-size:13px;color:var(--dim);margin-top:3px}
+
+.dated{display:grid;gap:11px}
+.dt{display:flex;gap:15px;align-items:flex-start;padding:17px 20px;border-radius:15px}
+.dt .cal{width:44px;flex-shrink:0;text-align:center;border-radius:11px;padding:6px 0;
+  background:rgba(255,159,10,.13);border:1px solid rgba(255,159,10,.3);animation:drift 4s ease-in-out infinite}
+.cal .m{font-size:9px;letter-spacing:1.4px;text-transform:uppercase;color:var(--amber)}
+.cal .d{font-size:19px;font-weight:800;line-height:1.1}
+.dtt{font-size:14.5px;font-weight:600}
+.dtd{font-size:12.5px;color:var(--dim);margin-top:3px}
+
+footer{margin-top:82px;padding-top:28px;border-top:1px solid var(--edge);text-align:center}
+.joke{font-size:13.5px;color:var(--grum);font-style:italic;line-height:1.7}
+.joke b{color:#A6ABBA;font-style:normal}
+.stamp{font-size:10.5px;color:#2E3340;margin-top:20px;letter-spacing:1.6px;text-transform:uppercase}
+@media(max-width:540px){header{padding:56px 0 34px}.score{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow r"><i></i>Party Mode · Sesión #6 · 12 sep 2026</div>
+  <h1>El extintor<br>sin agua</h1>
+  <p class="kicker r d2">El arquitecto vuelve con el estándar nativo cerrado<br>y la sala se lo desmonta entero. <b>WalkTracker iOS</b>.</p>
+  <p class="attrib r d3">“Un extintor sin agua. Precioso, eso sí.” — 😤 Grumbal, sobre AD-6</p>
+</header>
+
+<div class="score">
+  <div class="sc g r d2"><div class="n" style="color:var(--blue)">24</div><div class="l">ADs en el spine</div></div>
+  <div class="sc g r d3"><div class="n" style="color:var(--amber)">~40</div><div class="l">hallazgos de la puerta</div></div>
+  <div class="sc g r d4"><div class="n" style="color:var(--red)">14</div><div class="l">pares que no coexisten</div></div>
+</div>
+
+<section class="r">
+  <h2>La mesa</h2>
+  <div class="cast">
+
+    <div class="p g" style="--c:var(--winston)">
+      <div class="ph">
+        <svg viewBox="0 0 40 40"><rect x="1" y="1" width="38" height="38" rx="11" fill="none" stroke="#5AA9FF" stroke-opacity=".35"/><path d="M9 29V15l11-6 11 6v14" fill="none" stroke="#5AA9FF" stroke-width="2.2" stroke-linejoin="round"/><line x1="9" y1="22" x2="31" y2="22" stroke="#5AA9FF" stroke-width="1.6" opacity=".55"/><line x1="20" y1="22" x2="20" y2="29" stroke="#5AA9FF" stroke-width="1.6" opacity=".55"/></svg>
+        <div><div class="pn">🏗️ Winston</div><div class="pt">System Architect</div></div>
+      </div>
+      <div class="pq">“Mi mecanismo para prevenir el incidente Dart no cubría el incidente Dart.”</div>
+    </div>
+
+    <div class="p g" style="--c:var(--sally)">
+      <div class="ph">
+        <svg viewBox="0 0 40 40"><rect x="1" y="1" width="38" height="38" rx="11" fill="none" stroke="#FF3D9A" stroke-opacity=".35"/><path d="M20 9c6.1 0 11 4.4 11 9.9 0 3.4-2.6 5.4-5.6 5.4h-2.1c-1.5 0-2.6 1.1-2.6 2.5 0 .7.3 1.2.7 1.7.4.5.7 1 .7 1.6 0 1.4-1.1 2.4-2.6 2.4-6 0-10.5-4.9-10.5-11.6C9 13.7 13.9 9 20 9Z" fill="none" stroke="#FF3D9A" stroke-width="2"/><circle cx="15" cy="17" r="1.7" fill="#FF3D9A"/><circle cx="21" cy="14.5" r="1.7" fill="#FF3D9A"/></svg>
+        <div><div class="pn">🎨 Sally</div><div class="pt">UX Designer</div></div>
+      </div>
+      <div class="pq">“Gané la guerra del pivot y perdí los dibujos con los que la gané.”</div>
+    </div>
+
+    <div class="p g" style="--c:var(--amelia)">
+      <div class="ph">
+        <svg viewBox="0 0 40 40"><rect x="1" y="1" width="38" height="38" rx="11" fill="none" stroke="#00E5C0" stroke-opacity=".35"/><polyline points="15,15 10,20 15,25" fill="none" stroke="#00E5C0" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/><polyline points="25,15 30,20 25,25" fill="none" stroke="#00E5C0" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/><line x1="22" y1="12" x2="18" y2="28" stroke="#00E5C0" stroke-width="2.3" stroke-linecap="round"/></svg>
+        <div><div class="pn">💻 Amelia</div><div class="pt">Senior Engineer</div></div>
+      </div>
+      <div class="pq">“Hecho. Y me equivocaba.”</div>
+    </div>
+
+    <div class="p g" style="--c:var(--mary)">
+      <div class="ph">
+        <svg viewBox="0 0 40 40"><rect x="1" y="1" width="38" height="38" rx="11" fill="none" stroke="#CCFF00" stroke-opacity=".35"/><rect x="10" y="21" width="4.5" height="9" rx="1.5" fill="#CCFF00"/><rect x="17.7" y="14" width="4.5" height="16" rx="1.5" fill="#CCFF00" opacity=".8"/><rect x="25.4" y="9" width="4.5" height="21" rx="1.5" fill="#CCFF00" opacity=".55"/></svg>
+        <div><div class="pn">📊 Mary</div><div class="pt">Business Analyst</div></div>
+      </div>
+      <div class="pq">“No tenemos un problema de decisiones. Nada avisa cuando una decisión caduca.”</div>
+    </div>
+
+    <div class="p g" style="--c:var(--john)">
+      <div class="ph">
+        <svg viewBox="0 0 40 40"><rect x="1" y="1" width="38" height="38" rx="11" fill="none" stroke="#FF7A29" stroke-opacity=".35"/><circle cx="18" cy="18" r="7.5" fill="none" stroke="#FF7A29" stroke-width="2.4"/><line x1="23.5" y1="23.5" x2="30" y2="30" stroke="#FF7A29" stroke-width="2.4" stroke-linecap="round"/></svg>
+        <div><div class="pn">📋 John</div><div class="pt">Product Manager</div></div>
+      </div>
+      <div class="pq">“El 5,5 con el que Paul decidió no era el precio real.”</div>
+    </div>
+
+    <div class="p g" style="--c:var(--vex)">
+      <div class="ph">
+        <svg viewBox="0 0 40 40"><rect x="1" y="1" width="38" height="38" rx="11" fill="none" stroke="#B98CFF" stroke-opacity=".35"/><rect x="12" y="19" width="16" height="12" rx="2.6" fill="none" stroke="#B98CFF" stroke-width="2.2"/><path d="M16 19v-4a4 4 0 0 1 8 0v4" fill="none" stroke="#B98CFF" stroke-width="2.2"/><circle cx="20" cy="25" r="1.7" fill="#B98CFF"/></svg>
+        <div><div class="pn">🔒 Vex</div><div class="pt">Se asomó un minuto</div></div>
+      </div>
+      <div class="pq">“Es una decisión de seguridad y se ha tomado como una de calendario.”</div>
+    </div>
+
+  </div>
+</section>
+
+<section class="r">
+  <h2>El momento</h2>
+  <blockquote class="g">
+    <p>“A ver si lo he entendido. Paul camina. La app le dice un ritmo que no es el suyo. Y si encadena una semana buena a caballo entre dos meses, la app le dice que <strong>no</strong> ha hecho racha.”</p>
+    <p>“Llevamos meses fallando el criterio de <em>sentirse reconocido</em> <strong>por aritmética</strong>. Eso es la app llamando mentiroso a su único usuario.”</p>
+    <cite>🎨 Sally — y 💻 Amelia, que llevaba cinco sesiones sin darle la razón: <em>“…vale. Ese es el mejor argumento que has hecho tú, y esta vez ni siquiera es de UX.”</em></cite>
+  </blockquote>
+</section>
+
+<section class="r">
+  <h2>Tres bugs que llevaban meses mintiendo</h2>
+  <div class="bugs">
+    <div class="bug g">
+      <div class="bt">Cadencia — las pausas se restaban dos veces</div>
+      <div class="bw">domain.js:351-352 · finishV3</div>
+      <div class="ba"><span class="was">84.4</span><span class="arw">→</span><span class="now">80.3</span><span class="unit">spm</span></div>
+      <div class="bmeter"><i style="width:100%"></i></div>
+    </div>
+    <div class="bug g">
+      <div class="bt">Ritmo — el mismo defecto, otra fórmula</div>
+      <div class="bw">domain.js:351 · + el ritmo en vivo de index.html</div>
+      <div class="ba"><span class="was">1085</span><span class="arw">→</span><span class="now">1140</span><span class="unit">s/km</span></div>
+      <div class="bmeter"><i style="width:72%;animation-delay:.12s"></i></div>
+    </div>
+    <div class="bug g">
+      <div class="bt">Rachas — fechas comparadas como texto</div>
+      <div class="bw">motivation.js:155-158 · checkStreak</div>
+      <div class="ba"><span class="was">false</span><span class="arw">→</span><span class="now">true</span><span class="unit">racha real del 25-sep al 1-oct</span></div>
+      <div class="bmeter"><i style="width:58%;animation-delay:.24s"></i></div>
+    </div>
+  </div>
+  <p style="color:var(--dim);font-size:13.5px;margin-top:18px">
+    Y lo que de verdad escuece: <span style="color:var(--text)">antes del arreglo, las 438 aserciones también estaban en verde.</span>
+    La suite pasaba al 100 % porque los tests codificaban los defectos. Los valores correctos estaban escritos justo al lado… <strong>en un comentario</strong>.
+  </p>
+</section>
+
+<section class="r">
+  <h2>Los tres sustratos, costeados</h2>
+  <div class="opts">
+    <div class="opt g"><div class="ok">A · Capacitor</div><div class="ov">5,5</div><div class="od">Rediseñar la UI web dentro del WebView. Paga el rediseño antes de validar el gate</div></div>
+    <div class="opt g win"><div class="ok">B · SwiftUI</div><div class="ov">5,5</div><div class="od">Nativo sin matices. Tercera implementación del mismo dominio</div><div class="badge">Elegida</div></div>
+    <div class="opt g"><div class="ok">C · Flutter</div><div class="ov">4,0</div><div class="od">60 % ya construido, sin commitear, por alguien que nadie en la sala conocía</div></div>
+  </div>
+  <p style="color:var(--dim);font-size:13.5px;margin-top:18px">
+    Paul eligió B con un criterio de una línea: <strong style="color:var(--text)">“nativo significa literalmente Apple”</strong>.
+    Las 2.800 líneas de Flutter quedaron preservadas en <code style="font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--amelia)">feature/flutter-substrate</code> —
+    y sus 446 líneas de Swift, con HealthKit y Live Activity dentro, son el activo que sostiene el coste de la opción ganadora.
+  </p>
+</section>
+
+<section class="r">
+  <h2>El día, de arriba abajo</h2>
+  <div class="tl">
+    <div class="ev" style="--c:var(--pink)"><div class="evt">La validación de mockups</div><div class="evd">11 bloqueantes. “Restaurar compras” en una app sin tienda. 24.800 pasos que eran 18,6 km</div></div>
+    <div class="ev" style="--c:var(--blue)"><div class="evt">Aparece un tercer sustrato</div><div class="evd">Una app Flutter al 60 %, sin commitear, fechada el día anterior. A un <code>git clean</code> de no haber existido</div></div>
+    <div class="ev" style="--c:var(--green)"><div class="evt">Paul decide: SwiftUI</div><div class="evd">Tres opciones sobre la mesa, no dos. La condición que Winston había puesto se cumplió el mismo día</div></div>
+    <div class="ev" style="--c:var(--amber)"><div class="evt">La puerta de los seis revisores</div><div class="evd">AD-6 reescrito entero. El adversario construye 14 pares que obedecen los ADs y no pueden coexistir</div></div>
+    <div class="ev" style="--c:var(--red)"><div class="evt">Los bugs</div><div class="evd">Tres defectos vivos en producción, encontrados verificando la suite contra el modelo de dominio</div></div>
+    <div class="ev" style="--c:var(--amelia)"><div class="evt">Epic 8 y cuatro commits</div><div class="evd">8.1 estaba en <code>done</code> sobre un sustrato derogado. Árbol limpio por primera vez del ciclo</div></div>
+  </div>
+</section>
+
+<section class="r">
+  <h2>Lo que tiene fecha</h2>
+  <div class="dated">
+    <div class="dt g">
+      <div class="cal"><div class="m">Sep</div><div class="d">14</div></div>
+      <div><div class="dtt">Sale iOS 27</div><div class="dtd">El iPhone 14 se congela en iOS 26 hasta terminar. Desactivar las actualizaciones automáticas es la única tarea de hoy — y Vex dejó dicho que corta el caudal de parches</div></div>
+    </div>
+    <div class="dt g">
+      <div class="cal"><div class="m">Nov</div><div class="d">≈</div></div>
+      <div><div class="dtt">7,25 fines de semana</div><div class="dtd">Subió desde 5,5. Ninguna partida es “tardo más”: todas son trabajo que nadie había visto. Y el número supone que el regalo de Flutter funciona — nadie lo ha corrido nunca en un teléfono</div></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p class="joke">
+    Se cierra con el repositorio diciendo la verdad, tres bugs muertos<br>
+    y una app que sigue sin existir.<br><br>
+    <b>“Cuatro commits, ninguna app. Pero al menos el repositorio ya no miente.”</b>
+  </p>
+  <p class="stamp">WalkTracker · Party Mode #6 · 12 · 09 · 2026</p>
+</footer>
+
+</div>
+</body>
+</html>
