@@ -986,7 +986,7 @@ So that tenga la app instalada sin depender de cables ni de builds locales.
 
 **Given** que el toolchain está congelado durante el ciclo
 **When** se genera el build
-**Then** se compila con **Xcode 26.6 / Swift 6.3.3** contra el SDK de iOS 26, y el destino corre iOS 26 — no se sube a Xcode 27 mientras dure el desarrollo [AD-2, SPEC OQ-5]
+**Then** se compila con el toolchain fijado en el Stack del spine —**Xcode 26.3 / Swift 6.2.4 / SDK iOS 26.2**, verificado en la máquina— y el destino corre iOS 26; no se sube a Xcode 27 mientras dure el desarrollo [AD-2, SPEC OQ-5]
 
 **And** App Store está **fuera de scope**: TestFlight o build local es suficiente, no es requisito de éxito [SPEC Non-goals]
 

@@ -301,14 +301,21 @@ stateDiagram-v2
 
 | Name | Version |
 | --- | --- |
-| Swift | 6.3.3 *(el toolchain que trae Xcode 26.6)* |
-| Xcode | 26.6 (17F113) |
+| Swift | 6.2.4 *(el toolchain que trae Xcode 26.3)* |
+| Xcode | 26.3 (17C529) — **suelo verificado en la máquina de Paul**, no un techo |
+| iOS SDK | 26.2 |
 | iOS deployment target | 26.0 |
 | SwiftUI · Observation | SDK iOS 26 |
 | CoreMotion · CoreLocation · HealthKit · ActivityKit · CoreHaptics · UserNotifications | SDK iOS 26 |
 | Swift Testing | incluido en Xcode 26 |
 | Open-Meteo | API pública sin key, timeout 3 s, **CC-BY 4.0** (AD-24) |
 | Dependencias de terceros | **ninguna** |
+
+Estas versiones son las **instaladas y comprobadas** el 2026-09-12 (`xcodebuild -version`,
+`swift --version`), no las últimas publicadas — 26.6 / 6.3.3 existen y no están aquí. Subir dentro
+del ciclo 26 es seguro y no requiere tocar este spine: Swift 6.2 ya trae concurrencia estricta
+completa (AD-12) y el SDK 26.2 compila para un deployment target de 26.0 (AD-2). Lo que **no** se
+mueve durante el desarrollo es el dispositivo, congelado en iOS 26 por decisión de Paul (SPEC OQ-5).
 
 ## Structural Seed
 
