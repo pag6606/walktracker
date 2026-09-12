@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --green: #34C759;
+  --orange: #FF9500;
+  --blue: #007AFF;
+  --gray: #8E8E93;
+  --bg: #000000;
+  --card: #1C1C1E;
+  --card2: #2C2C2E;
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', Helvetica, sans-serif;
+  background: var(--bg);
+  color: #fff;
+  width: 291px;
+  height: 608px;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+.safe-top { height: 59px; }
+.safe-bottom { height: 34px; }
+
+.scroll-content {
+  position: absolute;
+  top: 59px; left: 0; right: 0; bottom: 100px;
+  overflow-y: auto; overflow-x: hidden;
+}
+.scroll-content::-webkit-scrollbar { display: none; }
+
+/* Success header */
+.success-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 16px 20px;
+}
+.check-circle {
+  width: 72px; height: 72px;
+  background: rgba(52,199,89,0.15);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 16px;
+}
+.check-icon {
+  font-size: 36px;
+}
+.success-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 4px;
+}
+.success-sub {
+  font-size: 14px;
+  color: var(--gray);
+}
+
+/* Main km */
+.main-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 16px 24px;
+}
+.km-value {
+  font-size: 72px;
+  font-weight: 800;
+  letter-spacing: -4px;
+  color: var(--green);
+  line-height: 1;
+}
+.km-unit {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--gray);
+  margin-top: 4px;
+}
+
+/* Summary card */
+.summary-card {
+  background: var(--card);
+  border-radius: 20px;
+  margin: 0 16px 16px;
+  overflow: hidden;
+}
+.summary-row {
+  display: flex;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 0.5px solid rgba(255,255,255,0.08);
+}
+.summary-row:last-child { border-bottom: none; }
+.summary-icon {
+  font-size: 20px;
+  margin-right: 14px;
+  width: 28px;
+  text-align: center;
+}
+.summary-label {
+  font-size: 15px;
+  color: var(--gray);
+  flex: 1;
+}
+.summary-value {
+  font-size: 17px;
+  font-weight: 600;
+  color: #fff;
+}
+
+/* HealthKit badge */
+.healthkit-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(0,122,255,0.12);
+  border-radius: 12px;
+  margin: 0 16px 16px;
+  padding: 10px 16px;
+}
+.healthkit-icon { font-size: 16px; }
+.healthkit-text {
+  font-size: 13px;
+  color: var(--blue);
+  font-weight: 500;
+}
+
+/* Achievements mini */
+.achievements-mini {
+  margin: 0 16px 16px;
+}
+.achievements-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray);
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.achievement-chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--card);
+  border-radius: 20px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #fff;
+}
+.chip-icon { font-size: 14px; }
+.chip.locked {
+  opacity: 0.4;
+}
+
+/* Actions */
+.actions {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  padding: 0 16px 40px;
+}
+.btn {
+  display: block;
+  width: 100%;
+  border: none;
+  border-radius: 14px;
+  padding: 16px;
+  font-size: 17px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  margin-bottom: 10px;
+}
+.btn-primary {
+  background: var(--green);
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(52,199,89,0.3);
+}
+.btn-secondary {
+  background: var(--card);
+  color: #fff;
+}
+.btn:active { opacity: 0.85; }
+</style>
+</head>
+<body>
+
+<div class="safe-top"></div>
+
+<div class="scroll-content">
+  <div class="success-header">
+    <div class="check-circle">
+      <span class="check-icon">✓</span>
+    </div>
+    <div class="success-title">¡Caminata completada!</div>
+    <div class="success-sub">Lunes, 11 de septiembre · 14:32</div>
+  </div>
+
+  <div class="main-result">
+    <div class="km-value">3.24</div>
+    <div class="km-unit">kilómetros</div>
+  </div>
+
+  <div class="healthkit-badge">
+    <span class="healthkit-icon">❤️</span>
+    <span class="healthkit-text">Guardado en Salud</span>
+  </div>
+
+  <div class="summary-card">
+    <div class="summary-row">
+      <span class="summary-icon">👟</span>
+      <span class="summary-label">Pasos</span>
+      <span class="summary-value">5,234</span>
+    </div>
+    <div class="summary-row">
+      <span class="summary-icon">⏱</span>
+      <span class="summary-label">Duración</span>
+      <span class="summary-value">42 min 18 s</span>
+    </div>
+    <div class="summary-row">
+      <span class="summary-icon">⚡</span>
+      <span class="summary-label">Ritmo medio</span>
+      <span class="summary-value">13:42 / km</span>
+    </div>
+    <div class="summary-row">
+      <span class="summary-icon">🔥</span>
+      <span class="summary-label">Calorías</span>
+      <span class="summary-value">218 kcal</span>
+    </div>
+  </div>
+
+  <div class="achievements-mini">
+    <div class="achievements-title">Logros desbloqueados</div>
+    <div class="achievement-chips">
+      <div class="chip">
+        <span class="chip-icon">🏅</span>
+        <span>Primer 5K</span>
+      </div>
+      <div class="chip">
+        <span class="chip-icon">🔥</span>
+        <span>Racha 3 días</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="actions">
+  <button class="btn btn-primary">🏃 Nueva caminata</button>
+  <button class="btn btn-secondary">Volver al inicio</button>
+</div>
+
+<div class="safe-bottom"></div>
+</body>
+</html>

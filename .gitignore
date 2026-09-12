@@ -7,3 +7,37 @@ test-results/
 playwright-report/
 playwright/.cache/
 *.lcov
+
+# Flutter / Dart (sustrato preservado en feature/flutter-substrate)
+.dart_tool/
+.flutter-plugins-dependencies
+*.iml
+
+# Build artifacts
+build/
+ios/DerivedData/
+DerivedData/
+**/xcuserdata/
+
+# El proyecto Xcode NO se versiona: la fuente de verdad es `project.yml` y el
+# proyecto se regenera con `xcodegen generate`. Nadie cambia un ajuste de build sin
+# que aparezca en el diff, y no hay `.pbxproj` que resolver en un merge.
+WalkTracker.xcodeproj/
+
+# IDE
+.idea/
+
+# Restos de Flutter en el árbol: el sustrato vive en feature/flutter-substrate,
+# no en esta rama (AD-23 — un solo árbol de producto). Estas reglas se conservan
+# a propósito: la historia 8.6 hace
+# `git checkout feature/flutter-substrate -- ios/Runner/AppDelegate.swift`
+# sobre este mismo árbol.
+ios/Flutter/
+ios/Runner/
+ios/Runner.xcodeproj/
+ios/Runner.xcworkspace/
+ios/RunnerTests/
+
+# Canvas sembrado: se regenera desde .design-v4/*.dc.html
+.design-v4/walktracker-ios-v4.html
+.design-v4/_*.py

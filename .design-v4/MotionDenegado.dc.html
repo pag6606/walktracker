@@ -1,0 +1,79 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{margin:0;font-family:-apple-system,"SF Pro Text","SF Pro Display",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+    a{color:#007AFF}a:hover{color:#0060DF}
+    .phone{width:390px;height:844px;position:relative;overflow:hidden;
+      --bg:#F2F2F7;--card:#FFFFFF;--card2:#FFFFFF;--label:#000;--sec:rgba(60,60,67,.6);--ter:rgba(60,60,67,.3);
+      --sep:rgba(60,60,67,.29);--fill:rgba(120,120,128,.12);--green:#34C759;--blue:#007AFF;--orange:#FF9500;
+      --red:#FF3B30;--purple:#AF52DE;--chrome:rgba(249,249,249,.78);--g-tint:rgba(52,199,89,.13);--b-tint:rgba(0,122,255,.13);--o-tint:rgba(255,149,0,.14);--r-tint:rgba(255,59,48,.12);--p-tint:rgba(175,82,222,.13);--gold:linear-gradient(160deg,rgba(255,204,0,.26),rgba(255,149,0,.14));--gold-hi:linear-gradient(160deg,rgba(255,204,0,.36),rgba(255,149,0,.2));--gold-edge:rgba(255,184,0,.32);--gold-edge-hi:rgba(255,184,0,.6);--gold-glow:rgba(255,184,0,.14);--glass:rgba(255,255,255,.6);
+      background:var(--bg);color:var(--label)}
+    .phone.dark{--bg:#000;--card:#1C1C1E;--card2:#2C2C2E;--label:#FFF;--sec:rgba(235,235,245,.6);--ter:rgba(235,235,245,.3);
+      --sep:rgba(84,84,88,.6);--fill:rgba(120,120,128,.24);--green:#30D158;--blue:#0A84FF;--orange:#FF9F0A;
+      --red:#FF453A;--purple:#BF5AF2;--chrome:rgba(28,28,30,.78);--g-tint:rgba(48,209,88,.18);--b-tint:rgba(10,132,255,.2);--o-tint:rgba(255,159,10,.2);--r-tint:rgba(255,69,58,.18);--p-tint:rgba(191,90,242,.2);--gold:linear-gradient(160deg,rgba(255,214,10,.24),rgba(255,159,10,.14));--gold-hi:linear-gradient(160deg,rgba(255,214,10,.34),rgba(255,159,10,.2));--gold-edge:rgba(255,214,10,.34);--gold-edge-hi:rgba(255,214,10,.62);--gold-glow:rgba(255,214,10,.16);--glass:rgba(60,60,67,.45)}
+    /* el sistema pinta esta franja: la dejamos vacía a propósito */
+    .safe-top{height:59px}
+    .scroll{position:absolute;top:59px;left:0;right:0;bottom:83px;overflow:hidden;padding:0 16px}
+    .ltitle{font-size:34px;font-weight:700;letter-spacing:-.6px;line-height:41px;padding-top:4px}
+    .sub{font-size:15px;color:var(--sec);margin-top:2px}
+    .navbar{height:44px;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:600}
+    .card{background:var(--card);border-radius:14px;padding:16px}
+    .row{display:flex;align-items:center;gap:12px}
+    .col{display:flex;flex-direction:column}
+    .hd{font-size:13px;font-weight:400;color:var(--sec);letter-spacing:-.1px;font-weight:500;padding:0 4px 7px}
+    .cta{display:flex;align-items:center;justify-content:center;gap:8px;height:52px;border-radius:14px;
+      background:var(--green);color:#fff;font-size:17px;font-weight:600;letter-spacing:-.2px}
+    .btn{display:flex;align-items:center;justify-content:center;height:50px;border-radius:14px;font-size:17px;font-weight:600}
+    .tint{background:var(--fill);color:var(--label)}
+    .lrow{display:flex;align-items:center;gap:12px;min-height:44px;padding:11px 0}
+    .lrow+.lrow{border-top:.5px solid var(--sep)}
+    .icn{width:29px;height:29px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex:0 0 29px}
+    .val{font-size:17px;color:var(--sec);margin-left:auto}
+    .chev{color:var(--ter);flex:0 0 auto}
+    .est{color:var(--orange)}
+    /* tab bar — indicativo: el material real lo pone el SDK */
+    .tabs{position:absolute;left:0;right:0;bottom:0;height:83px;padding:8px 0 0;background:var(--chrome);
+      border-top:.5px solid var(--sep);display:flex;justify-content:space-around;align-items:flex-start;
+      -webkit-backdrop-filter:blur(30px) saturate(180%);backdrop-filter:blur(30px) saturate(180%)}
+    .tab{display:flex;flex-direction:column;align-items:center;gap:3px;width:76px;color:var(--sec)}
+    .tab.on{color:var(--green)}
+    .tab span{font-size:10px;font-weight:500;letter-spacing:-.1px}
+    .note{position:absolute;left:16px;right:16px;bottom:95px;font-size:10px;color:var(--ter);text-align:center}
+</style>
+</helmet>
+<div class="phone {{theme}}">
+  <div class="safe-top"></div>
+  <div class="scroll" style="bottom:34px;display:flex;flex-direction:column;justify-content:center;padding:0 28px">
+    <div style="width:70px;height:70px;border-radius:50%;background:var(--fill);display:flex;align-items:center;justify-content:center;margin-bottom:26px">
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--sec)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13 4.5a1.6 1.6 0 1 0 0-3.2 1.6 1.6 0 0 0 0 3.2z" fill="var(--sec)" stroke="none"/><path d="M9.5 22l2-6.5-2.2-2 .8-4.5L8 10.5 6.5 14M14.5 22l-1.2-5.5-1.8-3 .5-4 3 1.8 1.5 3.2"/><path d="M3 3l18 18" stroke="var(--red)"/></svg>
+    </div>
+    <div style="font-size:28px;font-weight:700;letter-spacing:-.5px;line-height:34px;text-wrap:pretty">WalkTracker necesita acceso a Movimiento</div>
+    <div style="font-size:17px;color:var(--sec);line-height:24px;margin-top:16px;text-wrap:pretty">
+      El coprocesador de movimiento es lo que cuenta tus pasos con el teléfono en el bolsillo, la pantalla bloqueada y la música sonando.
+    </div>
+    <div style="font-size:17px;color:var(--sec);line-height:24px;margin-top:14px">
+      Sin ese permiso no hay nada que contar.
+    </div>
+    <div style="height:34px"></div>
+    <div class="btn" style="background:var(--green);color:#fff">Abrir Ajustes</div>
+    <div style="text-align:center;font-size:15px;color:var(--sec);padding-top:18px">Movimiento y estado físico → activar</div>
+  </div>
+
+<div class="note">Única degradación bloqueante de la tabla de AD-11 · explica el porqué, no culpa al usuario</div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return { theme: this.props.dark ? 'dark' : '' }; }
+}
+</script>
+</body>
+</html>

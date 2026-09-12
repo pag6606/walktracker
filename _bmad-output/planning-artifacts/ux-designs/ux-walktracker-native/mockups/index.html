@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WalkTracker — Native iOS Mockups</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --system-green: #34C759;
+    --system-orange: #FF9500;
+    --system-red: #FF3B30;
+    --system-blue: #007AFF;
+    --system-gray: #8E8E93;
+    --system-gray2: #AEAEB2;
+    --system-gray5: #E5E5EA;
+    --system-gray6: #F2F2F7;
+    --system-bg: #000000;
+    --system-grouped-bg: #F2F2F7;
+    --system-card: #1C1C1E;
+    --system-card-light: #2C2C2E;
+    --text-primary: #FFFFFF;
+    --text-secondary: #8E8E93;
+    --text-tertiary: #48484A;
+    --dynamic-island: #000000;
+    --safe-top: 59px;
+    --safe-bottom: 34px;
+    --tab-height: 49px;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', Helvetica, Arial, sans-serif;
+    background: #111113;
+    color: #fff;
+    min-height: 100vh;
+    padding: 40px 20px;
+  }
+
+  h1 {
+    text-align: center;
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    letter-spacing: -0.5px;
+  }
+  .subtitle {
+    text-align: center;
+    color: var(--system-gray);
+    font-size: 15px;
+    margin-bottom: 40px;
+  }
+
+  .screens-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 32px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .phone-frame {
+    width: 291px;
+    height: 608px;
+    background: #000;
+    border-radius: 47px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 0 0 12px #1C1C1E, 0 0 0 14px #38383A, 0 32px 80px rgba(0,0,0,0.7);
+    margin: 0 auto;
+    flex-shrink: 0;
+  }
+
+  .phone-frame::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 126px;
+    height: 37px;
+    background: #000;
+    border-radius: 0 0 24px 24px;
+    z-index: 10;
+  }
+
+  .screen-wrapper {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    position: relative;
+    background: #000;
+  }
+
+  iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    transform-origin: top left;
+    transform: scale(0.355);
+    height: calc(100% / 0.355);
+  }
+
+  .screen-card {
+    background: #1C1C1E;
+    border-radius: 20px;
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+  }
+  .screen-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  .screen-label {
+    padding: 16px 20px 20px;
+    text-align: center;
+  }
+  .screen-name {
+    font-size: 17px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .screen-desc {
+    font-size: 13px;
+    color: var(--system-gray);
+  }
+
+  .mock-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 40px;
+    justify-content: center;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .column-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--system-gray);
+    margin: 32px 0 16px;
+    max-width: 390px;
+    border-bottom: 1px solid #333;
+    padding-bottom: 8px;
+  }
+</style>
+</head>
+<body>
+
+<h1>WalkTracker — Native iOS (v3)</h1>
+<p class="subtitle">Rediseño v3 · iOS 17 · <strong style="color:#FF9500">EXPLORATORIO — no apto para build</strong> · ver VALIDATION-mockups-v3-2026-09-12.md</p>
+
+<div class="mock-container">
+
+  <div>
+    <p class="column-label">Flujo Principal</p>
+    <div class="screens-grid" style="max-width: 900px;">
+
+      <!-- HOME -->
+      <div>
+        <div class="screen-card">
+          <div class="phone-frame">
+            <div class="screen-wrapper">
+              <iframe src="mock-01-home.html"></iframe>
+            </div>
+          </div>
+          <div class="screen-label">
+            <div class="screen-name">Inicio</div>
+            <div class="screen-desc">Anillo de meta semanal · Botón Iniciar</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SESSION ACTIVE -->
+      <div>
+        <div class="screen-card">
+          <div class="phone-frame">
+            <div class="screen-wrapper">
+              <iframe src="mock-02-session-active.html"></iframe>
+            </div>
+          </div>
+          <div class="screen-label">
+            <div class="screen-name">Caminata Activa</div>
+            <div class="screen-desc">Métricas en vivo · Pausar · Finalizar</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SESSION PAUSED -->
+      <div>
+        <div class="screen-card">
+          <div class="phone-frame">
+            <div class="screen-wrapper">
+              <iframe src="mock-03-session-paused.html"></iframe>
+            </div>
+          </div>
+          <div class="screen-label">
+            <div class="screen-name">Caminata Pausada</div>
+            <div class="screen-desc">Estado de pausa · Reanudar</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SESSION FINISHED -->
+      <div>
+        <div class="screen-card">
+          <div class="phone-frame">
+            <div class="screen-wrapper">
+              <iframe src="mock-04-session-finished.html"></iframe>
+            </div>
+          </div>
+          <div class="screen-label">
+            <div class="screen-name">Resumen</div>
+            <div class="screen-desc">Summary · Guardado en Salud</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div>
+    <p class="column-label">Navegación</p>
+    <div class="screens-grid" style="max-width: 600px;">
+
+      <!-- HISTORY -->
+      <div>
+        <div class="screen-card">
+          <div class="phone-frame">
+            <div class="screen-wrapper">
+              <iframe src="mock-05-history.html"></iframe>
+            </div>
+          </div>
+          <div class="screen-label">
+            <div class="screen-name">Historial</div>
+            <div class="screen-desc">Lista de sesiones · Eliminar</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACHIEVEMENTS -->
+      <div>
+        <div class="screen-card">
+          <div class="phone-frame">
+            <div class="screen-wrapper">
+              <iframe src="mock-06-achievements.html"></iframe>
+            </div>
+          </div>
+          <div class="screen-label">
+            <div class="screen-name">Logros</div>
+            <div class="screen-desc">Insignias · Bloqueados / Desbloqueados</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div>
+        <div class="screen-card">
+          <div class="phone-frame">
+            <div class="screen-wrapper">
+              <iframe src="mock-07-settings.html"></iframe>
+            </div>
+          </div>
+          <div class="screen-label">
+            <div class="screen-name">Ajustes</div>
+            <div class="screen-desc">Zancada · Meta semanal · Sonido</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<p style="text-align:center; color: #444; font-size: 12px; margin-top: 60px;">
+  WalkTracker · Native iOS UI Kit · iOS 17 Human Interface Guidelines
+</p>
+
+</body>
+</html>

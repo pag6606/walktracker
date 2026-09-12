@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>es</string>
+	<key>CFBundleDisplayName</key>
+	<string>WalkTracker</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>UILaunchScreen</key>
+	<dict/>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+	<!-- Usage strings obligatorias (spine, Envoltura operativa). Sin ellas el
+	     sistema mata la app al pedir el permiso. -->
+	<key>NSMotionUsageDescription</key>
+	<string>WalkTracker usa el podómetro para contar tus pasos y estimar la distancia de cada caminata. Sin este permiso no hay producto.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>WalkTracker guarda tus caminatas en Apple Salud como entrenamientos. Si no lo permites, la sesión se guarda igual en el dispositivo.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>WalkTracker usa tu ubicación aproximada solo para mostrar el clima de la caminata. Las coordenadas se redondean antes de salir del dispositivo.</string>
+	<!-- AD-15: sin esta clave el sistema no permite Live Activities. -->
+	<key>NSSupportsLiveActivities</key>
+	<true/>
+	<!-- AD-13: `UIDesignRequiresCompatibility` está PROHIBIDA. Liquid Glass se
+	     hereda del SDK de iOS 26; no se declara nada para desactivarlo. -->
+</dict>
+</plist>

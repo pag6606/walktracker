@@ -1,0 +1,86 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{margin:0;font-family:-apple-system,"SF Pro Text","SF Pro Display",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+    a{color:#007AFF}a:hover{color:#0060DF}
+    .phone{width:390px;height:844px;position:relative;overflow:hidden;
+      --bg:#F2F2F7;--card:#FFFFFF;--card2:#FFFFFF;--label:#000;--sec:rgba(60,60,67,.6);--ter:rgba(60,60,67,.3);
+      --sep:rgba(60,60,67,.29);--fill:rgba(120,120,128,.12);--green:#34C759;--blue:#007AFF;--orange:#FF9500;
+      --red:#FF3B30;--purple:#AF52DE;--chrome:rgba(249,249,249,.78);--g-tint:rgba(52,199,89,.13);--b-tint:rgba(0,122,255,.13);--o-tint:rgba(255,149,0,.14);--r-tint:rgba(255,59,48,.12);--p-tint:rgba(175,82,222,.13);--gold:linear-gradient(160deg,rgba(255,204,0,.26),rgba(255,149,0,.14));--gold-hi:linear-gradient(160deg,rgba(255,204,0,.36),rgba(255,149,0,.2));--gold-edge:rgba(255,184,0,.32);--gold-edge-hi:rgba(255,184,0,.6);--gold-glow:rgba(255,184,0,.14);--glass:rgba(255,255,255,.6);
+      background:var(--bg);color:var(--label)}
+    .phone.dark{--bg:#000;--card:#1C1C1E;--card2:#2C2C2E;--label:#FFF;--sec:rgba(235,235,245,.6);--ter:rgba(235,235,245,.3);
+      --sep:rgba(84,84,88,.6);--fill:rgba(120,120,128,.24);--green:#30D158;--blue:#0A84FF;--orange:#FF9F0A;
+      --red:#FF453A;--purple:#BF5AF2;--chrome:rgba(28,28,30,.78);--g-tint:rgba(48,209,88,.18);--b-tint:rgba(10,132,255,.2);--o-tint:rgba(255,159,10,.2);--r-tint:rgba(255,69,58,.18);--p-tint:rgba(191,90,242,.2);--gold:linear-gradient(160deg,rgba(255,214,10,.24),rgba(255,159,10,.14));--gold-hi:linear-gradient(160deg,rgba(255,214,10,.34),rgba(255,159,10,.2));--gold-edge:rgba(255,214,10,.34);--gold-edge-hi:rgba(255,214,10,.62);--gold-glow:rgba(255,214,10,.16);--glass:rgba(60,60,67,.45)}
+    /* el sistema pinta esta franja: la dejamos vacía a propósito */
+    .safe-top{height:59px}
+    .scroll{position:absolute;top:59px;left:0;right:0;bottom:83px;overflow:hidden;padding:0 16px}
+    .ltitle{font-size:34px;font-weight:700;letter-spacing:-.6px;line-height:41px;padding-top:4px}
+    .sub{font-size:15px;color:var(--sec);margin-top:2px}
+    .navbar{height:44px;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:600}
+    .card{background:var(--card);border-radius:14px;padding:16px}
+    .row{display:flex;align-items:center;gap:12px}
+    .col{display:flex;flex-direction:column}
+    .hd{font-size:13px;font-weight:400;color:var(--sec);letter-spacing:-.1px;font-weight:500;padding:0 4px 7px}
+    .cta{display:flex;align-items:center;justify-content:center;gap:8px;height:52px;border-radius:14px;
+      background:var(--green);color:#fff;font-size:17px;font-weight:600;letter-spacing:-.2px}
+    .btn{display:flex;align-items:center;justify-content:center;height:50px;border-radius:14px;font-size:17px;font-weight:600}
+    .tint{background:var(--fill);color:var(--label)}
+    .lrow{display:flex;align-items:center;gap:12px;min-height:44px;padding:11px 0}
+    .lrow+.lrow{border-top:.5px solid var(--sep)}
+    .icn{width:29px;height:29px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex:0 0 29px}
+    .val{font-size:17px;color:var(--sec);margin-left:auto}
+    .chev{color:var(--ter);flex:0 0 auto}
+    .est{color:var(--orange)}
+    /* tab bar — indicativo: el material real lo pone el SDK */
+    .tabs{position:absolute;left:0;right:0;bottom:0;height:83px;padding:8px 0 0;background:var(--chrome);
+      border-top:.5px solid var(--sep);display:flex;justify-content:space-around;align-items:flex-start;
+      -webkit-backdrop-filter:blur(30px) saturate(180%);backdrop-filter:blur(30px) saturate(180%)}
+    .tab{display:flex;flex-direction:column;align-items:center;gap:3px;width:76px;color:var(--sec)}
+    .tab.on{color:var(--green)}
+    .tab span{font-size:10px;font-weight:500;letter-spacing:-.1px}
+    .note{position:absolute;left:16px;right:16px;bottom:95px;font-size:10px;color:var(--ter);text-align:center}
+</style>
+</helmet>
+<div class="phone {{theme}}">
+  <div class="safe-top"></div>
+  <div class="navbar">Logros</div>
+  <div class="scroll" style="top:103px">
+    <div class="card" style="margin-bottom:16px;display:flex;align-items:center;gap:14px">
+      <div style="position:relative;flex:0 0 auto"><svg width="58" height="58" viewBox="0 0 120 120">
+  <circle cx="60" cy="60" r="52" fill="none" stroke="var(--fill)" stroke-width="7"/>
+  <circle cx="60" cy="60" r="52" fill="none" stroke="var(--green)" stroke-width="7" stroke-linecap="round"
+          stroke-dasharray="326.7" stroke-dashoffset="140.0" transform="rotate(-90 60 60)"/>
+</svg>
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700">8</div></div>
+      <div class="col" style="gap:3px;flex:1">
+        <div style="font-size:15px;font-weight:600">8 de 14 desbloqueados</div>
+        <div style="font-size:13px;color:var(--sec)">Siguiente: <b style="color:var(--label)">Diez kilómetros</b> — tu mejor sesión son 6,15 km</div>
+        <div style="height:5px;background:var(--fill);border-radius:3px;overflow:hidden;margin-top:4px">
+          <div style="height:100%;width:61.5%;background:var(--green);border-radius:3px"></div></div>
+      </div>
+    </div>
+    <div class="hd">Desbloqueados</div>
+    <div style="display:grid;grid-template-columns:repeat(3, minmax(0, 1fr));gap:18px 10px"><div style="display:flex;flex-direction:column;align-items:center;gap:7px;text-align:center"><div style="position:relative;width:64px;height:64px;border-radius:17px;background:var(--gold);border:.5px solid var(--gold-edge);display:flex;align-items:center;justify-content:center;font-size:30px">🚶</div><div style="font-size:12px;font-weight:600;line-height:14px">Primera caminata</div><div style="font-size:10px;color:var(--sec);line-height:12px">Completa tu primera sesión</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:7px;text-align:center"><div style="position:relative;width:64px;height:64px;border-radius:17px;background:var(--gold);border:.5px solid var(--gold-edge);display:flex;align-items:center;justify-content:center;font-size:30px">🏅</div><div style="font-size:12px;font-weight:600;line-height:14px">Tu primer kilómetro</div><div style="font-size:10px;color:var(--sec);line-height:12px">Completa 1 km en una sesión</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:7px;text-align:center"><div style="position:relative;width:64px;height:64px;border-radius:17px;background:var(--gold);border:.5px solid var(--gold-edge);display:flex;align-items:center;justify-content:center;font-size:30px">🥉</div><div style="font-size:12px;font-weight:600;line-height:14px">Cinco kilómetros</div><div style="font-size:10px;color:var(--sec);line-height:12px">Completa 5 km en una sesión</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:7px;text-align:center"><div style="position:relative;width:64px;height:64px;border-radius:17px;background:var(--gold);border:.5px solid var(--gold-edge);display:flex;align-items:center;justify-content:center;font-size:30px">🏆</div><div style="font-size:12px;font-weight:600;line-height:14px">Meta semanal cumplida</div><div style="font-size:10px;color:var(--sec);line-height:12px">Cumple tu meta de la semana</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:7px;text-align:center"><div style="position:relative;width:64px;height:64px;border-radius:17px;background:var(--gold);border:.5px solid var(--gold-edge);display:flex;align-items:center;justify-content:center;font-size:30px">🌧️</div><div style="font-size:12px;font-weight:600;line-height:14px">Caminata bajo la lluvia</div><div style="font-size:10px;color:var(--sec);line-height:12px">Camina con clima lluvioso</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:7px;text-align:center"><div style="position:relative;width:64px;height:64px;border-radius:17px;background:var(--gold);border:.5px solid var(--gold-edge);display:flex;align-items:center;justify-content:center;font-size:30px">🏃</div><div style="font-size:12px;font-weight:600;line-height:14px">Maratonista</div><div style="font-size:10px;color:var(--sec);line-height:12px">Acumula 42 km en total</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:7px;text-align:center"><div style="position:relative;width:64px;height:64px;border-radius:17px;background:var(--gold);border:.5px solid var(--gold-edge);display:flex;align-items:center;justify-content:center;font-size:30px">🌅</div><div style="font-size:12px;font-weight:600;line-height:14px">Madrugador</div><div style="font-size:10px;color:var(--sec);line-height:12px">Camina antes de las 7:00</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:7px;text-align:center"><div style="position:relative;width:64px;height:64px;border-radius:17px;background:var(--gold);border:.5px solid var(--gold-edge);display:flex;align-items:center;justify-content:center;font-size:30px">💪</div><div style="font-size:12px;font-weight:600;line-height:14px">Constancia</div><div style="font-size:10px;color:var(--sec);line-height:12px">Acumula 30 sesiones en total</div></div></div>
+    <div style="height:22px"></div>
+    <div class="hd">Bloqueados</div>
+    <div style="display:grid;grid-template-columns:repeat(3, minmax(0, 1fr));gap:18px 10px"><div style="opacity:.42;display:flex;flex-direction:column;align-items:center;gap:7px;text-align:center"><div style="position:relative;width:64px;height:64px;border-radius:17px;background:var(--fill);border:.5px solid transparent;display:flex;align-items:center;justify-content:center;font-size:30px">🥈<div style="position:absolute;top:5px;right:5px;width:17px;height:17px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--sec)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div></div><div style="font-size:12px;font-weight:600;line-height:14px">Diez kilómetros</div><div style="font-size:10px;color:var(--sec);line-height:12px">Completa 10 km en una sesión</div></div><div style="opacity:.42;display:flex;flex-direction:column;align-items:center;gap:7px;text-align:center"><div style="position:relative;width:64px;height:64px;border-radius:17px;background:var(--fill);border:.5px solid transparent;display:flex;align-items:center;justify-content:center;font-size:30px">🔥<div style="position:absolute;top:5px;right:5px;width:17px;height:17px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--sec)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div></div><div style="font-size:12px;font-weight:600;line-height:14px">7 días consecutivos</div><div style="font-size:10px;color:var(--sec);line-height:12px">Camina 7 días seguidos</div></div><div style="opacity:.42;display:flex;flex-direction:column;align-items:center;gap:7px;text-align:center"><div style="position:relative;width:64px;height:64px;border-radius:17px;background:var(--fill);border:.5px solid transparent;display:flex;align-items:center;justify-content:center;font-size:30px">⚡<div style="position:absolute;top:5px;right:5px;width:17px;height:17px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--sec)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div></div><div style="font-size:12px;font-weight:600;line-height:14px">Caminante rápido</div><div style="font-size:10px;color:var(--sec);line-height:12px">Ritmo menor a 8:00 /km</div></div><div style="opacity:.42;display:flex;flex-direction:column;align-items:center;gap:7px;text-align:center"><div style="position:relative;width:64px;height:64px;border-radius:17px;background:var(--fill);border:.5px solid transparent;display:flex;align-items:center;justify-content:center;font-size:30px">🌙<div style="position:absolute;top:5px;right:5px;width:17px;height:17px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--sec)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div></div><div style="font-size:12px;font-weight:600;line-height:14px">Caminante nocturno</div><div style="font-size:10px;color:var(--sec);line-height:12px">Camina después de las 21:00</div></div><div style="opacity:.42;display:flex;flex-direction:column;align-items:center;gap:7px;text-align:center"><div style="position:relative;width:64px;height:64px;border-radius:17px;background:var(--fill);border:.5px solid transparent;display:flex;align-items:center;justify-content:center;font-size:30px">☀️<div style="position:absolute;top:5px;right:5px;width:17px;height:17px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--sec)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div></div><div style="font-size:12px;font-weight:600;line-height:14px">Caminante del sol</div><div style="font-size:10px;color:var(--sec);line-height:12px">Camina con temperatura &gt;30 °C</div></div><div style="opacity:.42;display:flex;flex-direction:column;align-items:center;gap:7px;text-align:center"><div style="position:relative;width:64px;height:64px;border-radius:17px;background:var(--fill);border:.5px solid transparent;display:flex;align-items:center;justify-content:center;font-size:30px">❄️<div style="position:absolute;top:5px;right:5px;width:17px;height:17px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--sec)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div></div><div style="font-size:12px;font-weight:600;line-height:14px">Caminante del frío</div><div style="font-size:10px;color:var(--sec);line-height:12px">Camina con temperatura &lt;5 °C</div></div></div>
+  </div>
+<div class="tabs"><div class="tab"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.2 12 3l9 7.2V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>Inicio</span></div><div class="tab"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v15a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="M4 9h16M8 3v4M16 3v4"/></svg><span>Historial</span></div><div class="tab on"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 5H4v2a3 3 0 0 0 3 3M17 5h3v2a3 3 0 0 1-3 3M9 20h6M12 14v6"/></svg><span>Logros</span></div><div class="tab"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M21.5 12h-3M5.5 12h-3M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1M18.7 18.7l-2.1-2.1M7.4 7.4 5.3 5.3"/></svg><span>Ajustes</span></div></div>
+<div class="note">Los 14 canónicos de achievements.md · el emoji es dato del catálogo, no decoración · sin sistema de puntos</div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return { theme: this.props.dark ? 'dark' : '' }; }
+}
+</script>
+</body>
+</html>
