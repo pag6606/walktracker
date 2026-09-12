@@ -66,14 +66,15 @@ const Domain = (() => {
    * Calcula segundos transcurridos desde startedAt, restando pausas.
    * @returns {number} segundos (float, puede truncarse a entero)
    */
-  function elapsedS(startedAtMs, totalPausesMs, nowMs) {
+  function elapsedS(startedAtMs, totalPausesMs, nowMs, pausedAtMs) {
     if (!Number.isFinite(startedAtMs) || !Number.isFinite(nowMs)) {
       throw new TypeError(
         'elapsedS: startedAtMs y nowMs deben ser números finitos'
       );
     }
     const tp = totalPausesMs || 0;
-    return (nowMs - startedAtMs - tp) / 1000;
+    const currentPauseMs = (pausedAtMs && pausedAtMs > startedAtMs) ? (nowMs - pausedAtMs) : 0;
+    return (nowMs - startedAtMs - tp - currentPauseMs) / 1000;
   }
 
   // ═══════════════════════════════════════════════════════
@@ -556,6 +557,31 @@ const Domain = (() => {
   }
 
   // ═══════════════════════════════════════════════════════
+  //  FeedbackPort — transverse channel (Epic 4)
+  //  Fires haptic+audio events; adapters live in the edge.
+  // ═══════════════════════════════════════════════════════
+  const FEEDBACK_EVENTS = Object.freeze({
+    SESSION_START: 'session_start',
+    KM: 'km',
+    GOAL: 'goal',
+    ACHIEVEMENT: 'achievement'
+  });
+
+  const FeedbackPort = Object.freeze({
+    events: FEEDBACK_EVENTS,
+    fire: function(type) {
+      if (typeof _feedbackAdapter !== 'undefined' && _feedbackAdapter && typeof _feedbackAdapter.fire === 'function') {
+        _feedbackAdapter.fire(type);
+      }
+    }
+  });
+
+  let _feedbackAdapter = null;
+  function registerFeedbackAdapter(adapter) {
+    _feedbackAdapter = adapter;
+  }
+
+  // ═══════════════════════════════════════════════════════
   //  Public API
   // ═══════════════════════════════════════════════════════
 
@@ -588,6 +614,9 @@ const Domain = (() => {
     estimateSteps,
     calculateCadence,
     SESSION_STATUS,
+    // Feedback (Epic 4)
+    FeedbackPort,
+    registerFeedbackAdapter,
   };
 })();
 

@@ -1,6 +1,7 @@
 .DS_Store
 node_modules/
-www/          # copia que genera Capacitor desde la raíz
+# copia que genera Capacitor desde la raíz
+www/
 _opencode_scratch/
 *.log
 coverage/
@@ -23,3 +24,11 @@ ios/App/build/
 
 # IDE
 .idea/
+
+# Restos de Flutter en el árbol: el sustrato vive en feature/flutter-substrate,
+# no en esta rama (AD-23 — un solo árbol de producto).
+ios/Flutter/
+ios/Runner/
+ios/Runner.xcodeproj/
+ios/Runner.xcworkspace/
+ios/RunnerTests/

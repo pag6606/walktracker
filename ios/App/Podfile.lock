@@ -1,0 +1,46 @@
+PODS:
+  - Capacitor (8.4.2):
+    - CapacitorCordova
+  - CapacitorCommunityKeepAwake (8.0.1):
+    - Capacitor
+  - CapacitorCordova (8.4.2)
+  - CapacitorLocalNotifications (8.2.1):
+    - Capacitor
+  - CapacitorPreferences (8.0.1):
+    - Capacitor
+  - WalktrackerKit (0.0.1):
+    - Capacitor
+
+DEPENDENCIES:
+  - "Capacitor (from `../../node_modules/.pnpm/@capacitor+ios@8.4.2_@capacitor+core@8.4.2/node_modules/@capacitor/ios`)"
+  - "CapacitorCommunityKeepAwake (from `../../node_modules/.pnpm/@capacitor-community+keep-awake@8.0.1_@capacitor+core@8.4.2/node_modules/@capacitor-community/keep-awake`)"
+  - "CapacitorCordova (from `../../node_modules/.pnpm/@capacitor+ios@8.4.2_@capacitor+core@8.4.2/node_modules/@capacitor/ios`)"
+  - "CapacitorLocalNotifications (from `../../node_modules/.pnpm/@capacitor+local-notifications@8.2.1_@capacitor+core@8.4.2/node_modules/@capacitor/local-notifications`)"
+  - "CapacitorPreferences (from `../../node_modules/.pnpm/@capacitor+preferences@8.0.1_@capacitor+core@8.4.2/node_modules/@capacitor/preferences`)"
+  - "WalktrackerKit (from `../../node_modules/.pnpm/walktracker-kit@file+walktracker-kit_@capacitor+core@8.4.2/node_modules/walktracker-kit`)"
+
+EXTERNAL SOURCES:
+  Capacitor:
+    :path: "../../node_modules/.pnpm/@capacitor+ios@8.4.2_@capacitor+core@8.4.2/node_modules/@capacitor/ios"
+  CapacitorCommunityKeepAwake:
+    :path: "../../node_modules/.pnpm/@capacitor-community+keep-awake@8.0.1_@capacitor+core@8.4.2/node_modules/@capacitor-community/keep-awake"
+  CapacitorCordova:
+    :path: "../../node_modules/.pnpm/@capacitor+ios@8.4.2_@capacitor+core@8.4.2/node_modules/@capacitor/ios"
+  CapacitorLocalNotifications:
+    :path: "../../node_modules/.pnpm/@capacitor+local-notifications@8.2.1_@capacitor+core@8.4.2/node_modules/@capacitor/local-notifications"
+  CapacitorPreferences:
+    :path: "../../node_modules/.pnpm/@capacitor+preferences@8.0.1_@capacitor+core@8.4.2/node_modules/@capacitor/preferences"
+  WalktrackerKit:
+    :path: "../../node_modules/.pnpm/walktracker-kit@file+walktracker-kit_@capacitor+core@8.4.2/node_modules/walktracker-kit"
+
+SPEC CHECKSUMS:
+  Capacitor: 7a1ef4c3b846b5f32437a2b3e11803c1c702a6c5
+  CapacitorCommunityKeepAwake: 4eaeafc83573f2520fac18e136254ef34694f75b
+  CapacitorCordova: 345eacdc4c8282415446aea4acd8c77d82480bd4
+  CapacitorLocalNotifications: 993064cd1f50d821021f92d8922875fa2029bee2
+  CapacitorPreferences: 0fa33b3affebf12d96358b491ed7c2b39bec3270
+  WalktrackerKit: ab17fd4d60178de3f3308705e786001ede8a4c7c
+
+PODFILE CHECKSUM: 0ed5f282615177832719d21b74db53dd8453fb09
+
+COCOAPODS: 1.16.2

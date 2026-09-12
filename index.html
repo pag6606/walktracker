@@ -37,7 +37,7 @@ body {
   overscroll-behavior: none;
   user-select: none; -webkit-user-select: none;
 }
-.screen { display: none; flex-direction: column; padding: 16px; min-height: 100dvh; }
+.screen { display: none; flex-direction: column; padding: 16px; padding-top: calc(16px + env(safe-area-inset-top)); padding-bottom: calc(16px + env(safe-area-inset-bottom)); min-height: 100dvh; height: 100dvh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .screen.active { display: flex; }
 /* Typography tokens */
 .h-hero { font-size: 64px; font-weight: 900; line-height: 1; letter-spacing: -0.03em; }
@@ -50,7 +50,7 @@ body {
 .btn-s { padding: 12px 16px; background: var(--surface); color: var(--muted); font-size: 14px; font-weight: 600; border: 1px solid var(--border); border-radius: var(--rd-md); cursor: pointer; text-align: center; }
 .btn-d { padding: 12px 16px; background: var(--danger); color: var(--dtext); font-size: 14px; font-weight: 600; border: none; border-radius: var(--rd-md); cursor: pointer; text-align: center; }
 .btn-g { padding: 12px 16px; background: var(--success); color: var(--dtext); font-size: 14px; font-weight: 600; border: none; border-radius: var(--rd-md); cursor: pointer; text-align: center; }
-.header { display: flex; justify-content: space-between; align-items: center; padding: 8px 0 16px; }
+.header { display: flex; justify-content: space-between; align-items: center; padding: 8px 0 16px; padding-top: calc(8px + env(safe-area-inset-top)); position: sticky; top: 0; background: var(--bg); z-index: 10; }
 .header-t { font-size: 17px; font-weight: 700; }
 .header-r { display: flex; gap: 16px; }
 .header-r span { font-size: 20px; cursor: pointer; padding: 8px; }
@@ -69,7 +69,7 @@ body {
 .ctrl { display: flex; gap: 12px; margin-top: auto; padding-bottom: 32px; }
 .ctrl button { flex: 1; }
 .ring-wrap { display: flex; flex-direction: column; align-items: center; margin: 24px 0; }
-.ring { width: 300px; height: 300px; border-radius: 50%; position: relative; display: flex; align-items: center; justify-content: center; flex-direction: column; }
+.ring { width: min(300px, 80vw); height: min(300px, 80vw); border-radius: 50%; position: relative; display: flex; align-items: center; justify-content: center; flex-direction: column; }
 .ring svg { position: absolute; top: 0; left: 0; transform: rotate(-90deg); }
 .ring-v { font-size: 36px; font-weight: 900; color: var(--accent); letter-spacing: -0.02em; }
 .ring-l { font-size: 14px; font-weight: 600; color: var(--muted); margin-top: 4px; }
@@ -144,6 +144,7 @@ body {
   <div class="card" id="home-weather" style="display:none"></div>
   <div style="flex:1"></div>
   <button class="btn-p" id="btn-start" data-testid="btn-start">Iniciar caminata</button>
+  <button class="btn-p" id="btn-test-feedback" data-testid="btn-test-feedback" style="margin-top:8px;background:var(--surface);color:var(--text)">Test Feedback</button>
   <div style="height:32px"></div>
 </div>
 
@@ -206,7 +207,7 @@ body {
 
 <!-- ═══ HISTORY ═══ -->
 <div id="screen-history" class="screen" data-testid="history-screen">
-  <div class="header"><div class="header-t">Historial</div><span id="btn-history-back" data-testid="btn-history-back" style="cursor:pointer;font-size:20px">←</span></div>
+  <div class="header"><div class="header-t">Historial</div><button id="btn-history-back" data-testid="btn-history-back" style="background:none;border:none;font-size:20px;color:var(--accent)">←</button></div>
   <div class="totals" id="hist-totals" data-testid="hist-totals"></div>
   <div class="label" style="margin-bottom:8px">Tendencia</div>
   <div class="trend" id="trend-chart" data-testid="trend-chart"></div>
@@ -217,7 +218,7 @@ body {
 
 <!-- ═══ SETTINGS ═══ -->
 <div id="screen-settings" class="screen" data-testid="settings-screen">
-  <div class="header"><div class="header-t">Ajustes</div><span id="btn-settings-back" data-testid="btn-settings-back" style="cursor:pointer;font-size:20px">←</span></div>
+  <div class="header"><div class="header-t">Ajustes</div><button id="btn-settings-back" data-testid="btn-settings-back" style="background:none;border:none;font-size:20px;color:var(--accent)">←</button></div>
   <div id="backup-warning" class="banner-wl" style="display:none" data-testid="backup-warning"></div>
   <div class="s-field"><div class="body">Zancada (metros)</div><input class="s-input" id="input-stride" data-testid="input-stride" type="number" value="0.655" step="0.001"></div>
   <div class="s-field"><div class="body">Meta semanal (km)</div><input class="s-input" id="input-goal" data-testid="input-goal" type="number" value="10.0" step="0.5"></div>
@@ -234,7 +235,7 @@ body {
 
 <!-- ═══ ACHIEVEMENTS ═══ -->
 <div id="screen-achievements" class="screen" data-testid="achievements-screen">
-  <div class="header"><div class="header-t">Logros</div><span id="btn-ach-back" data-testid="btn-ach-back" style="cursor:pointer;font-size:20px">←</span></div>
+  <div class="header"><div class="header-t">Logros</div><button id="btn-ach-back" data-testid="btn-ach-back" style="background:none;border:none;font-size:20px;color:var(--accent)">←</button></div>
   <div class="ach-grid" id="ach-grid" data-testid="ach-grid"></div>
 </div>
 
@@ -260,6 +261,10 @@ body {
 <script src="./climate.js"></script>
 <script src="./motivation.js"></script>
 <script src="./runtime.js"></script>
+<script src="./adapters/capacitor-keep-awake-adapter.js"></script>
+<script src="./plugin.js"></script>
+<script src="./adapters/capacitor-motion-adapter.js"></script>
+<script src="./adapters/capacitor-feedback-adapter-v2.js"></script>
 <script src="./quotes.json" id="quotes-json"></script>
 <script>
 // ═══════════════════════════════════════════════════════
@@ -287,15 +292,40 @@ body {
     achievements: [],
     gapSeconds: 0,
     wasRecovered: false,
+    lastKmTracked: 0,
+    lastWeeklyKmChecked: 0,
   };
 
   // ── Storage ──
   const storage = S.createStoragePort({ useIndexedDB: true });
 
+  // ── Detección de plataforma (AD-C1, story 8-1 Task 5) ──
+  // La web corre dentro del WebView de la app iOS vía Capacitor.
+  // En navegador (PWA, canal secundario) `Capacitor` no existe.
+  const isNative = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform();
+  // Plugin KeepAwake inyectado por Capacitor como global en el WebView (solo en nativo)
+  const isNativeKeepAwake = isNative && typeof KeepAwake !== 'undefined' && typeof KeepAwake.keepAwake === 'function';
+
   // ── Wake Lock ──
-  const wlPort = R.createWakeLockPort();
+  // En nativo: CapacitorKeepAwakeAdapter (plugin @capacitor-community/keep-awake, AR-10).
+  // En PWA: WakeLockPort de runtime.js (navigator.wakeLock, heredado v3, AR-12).
+  const wlPort = isNativeKeepAwake
+    ? WT.CapacitorKeepAwake.createAdapter({ keepAwakePlugin: KeepAwake })
+    : R.createWakeLockPort();
   wlPort.onLost(() => showEl('wl-banner'));
   wlPort.onAcquired(() => hideEl('wl-banner'));
+
+  // ── Motion Port ──
+  // En nativo: CapacitorMotionAdapter (walktracker-kit/CMPedometer, AR-10).
+  // En PWA: DeviceMotion listener con StepDetector de domain.js.
+  const isNativeMotion = isNative && (
+    typeof WalktrackerKit !== 'undefined' ||
+    (typeof Capacitor !== 'undefined' && Capacitor.Plugins && Capacitor.Plugins.WalktrackerKit) ||
+    (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.WalktrackerKit)
+  );
+  const motionPort = isNativeMotion
+    ? WT.CapacitorMotionAdapter.createAdapter({ plugin: WalktrackerKit || Capacitor.Plugins.WalktrackerKit || (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.WalktrackerKit) })
+    : null;
 
   // ── Background Handler ──
   let lastActiveAt = Date.now();
@@ -322,8 +352,39 @@ body {
     if (state.session && state.session.status === 'active') {
       wlPort.acquire();
     }
-    // Check estimated steps gap
-    if (state.session && state.session.status === 'active') {
+    // Reconstruct steps from background using CMPedometer query (Story 1.5)
+    if (state.session && state.session.status === 'active' && isNativeMotion && motionPort) {
+      const gapS = (now - lastActiveAt) / 1000;
+      if (gapS > 5) {
+        // Try to get actual steps from CMPedometer
+        motionPort.query(lastActiveAt, now).then(result => {
+          if (result && result.steps > 0 && state.session && state.session.status === 'active') {
+            // We got actual steps from the system — use them
+            const stepsToAdd = result.steps - state.lastStepCount;
+            if (stepsToAdd > 0) {
+              state.session = D.addSteps(state.session, stepsToAdd);
+              state.lastStepCount = result.steps;
+              checkKmCrossing();
+            }
+          } else if (gapS > 5 && state.session && state.session.status === 'active' && state.session.stepsMeasured > 0) {
+            // Fallback: estimate by cadence (GapEstimator)
+            const durS = (now - state.session.startedAt - state.session.totalPausesMs) / 1000;
+            const activeMin = (durS - state.session.pausesS) / 60;
+            const cadence = activeMin > 0 ? state.session.stepsMeasured / activeMin : 0;
+            const estimated = D.estimateSteps(cadence, gapS);
+            if (estimated > 0) {
+              state.gapSeconds = gapS;
+              state.session = D.addEstimatedSteps(state.session, estimated);
+              showEl('est-banner');
+              document.getElementById('est-count').textContent = estimated;
+            }
+          }
+        }).catch(() => {
+          // Query failed, ignore
+        });
+      }
+    } else if (state.session && state.session.status === 'active') {
+      // PWA fallback: use GapEstimator
       const gapS = (now - lastActiveAt) / 1000;
       if (gapS > 5 && state.session.stepsMeasured > 0) {
         const durS = (now - state.session.startedAt - state.session.totalPausesMs) / 1000;
@@ -392,6 +453,15 @@ body {
       osc.start();
       osc.stop(ctx.currentTime + 0.08);
     } catch {}
+  }
+
+  function checkKmCrossing() {
+    if (!state.session || state.session.status !== 'active') return;
+    const distKm = Math.floor((state.session.distanceM || 0) / 1000);
+    if (distKm > state.lastKmTracked) {
+      state.lastKmTracked = distKm;
+      D.FeedbackPort.fire(D.FeedbackPort.events.KM);
+    }
   }
 
   // ── Config ──
@@ -477,7 +547,7 @@ body {
   function updateSessionDisplay() {
     if (!state.session) return;
     const now = Date.now();
-    const dur = D.elapsedS(state.session.startedAt, state.session.totalPausesMs, now);
+    const dur = D.elapsedS(state.session.startedAt, state.session.totalPausesMs, now, state.session.pausedAtMs);
     const dist = state.session.distanceM;
     const p = dist >= 100 ? D.pace(dur, 0, dist) : null; // dur ya es neto de pausas
 
@@ -485,8 +555,8 @@ body {
     $('ses-steps').textContent = (state.session.stepsMeasured || 0) + (state.session.stepsEstimated > 0 ? ` (~${state.session.stepsEstimated})` : '');
     $('ses-time').textContent = formatTime(dur);
     $('ses-pace').textContent = formatPace(p);
-    const activeMin = (state.session.status === 'active' ? dur : (dur || 1)) / 60;
-    const cad = activeMin > 0 && state.session.stepsMeasured > 0 ? +(state.session.stepsMeasured / activeMin).toFixed(1) : 0;
+    // Cadencia: solo sobre pasos medidos y tiempo activo (excluye pausas)
+    const cad = D.calculateCadence(state.session.stepsMeasured, dur);
     $('ses-cad').textContent = cad;
 
     // === DEBUG PANEL ===
@@ -511,8 +581,17 @@ body {
 
   // ── Screen: Home ──
   $('btn-start').addEventListener('click', async () => {
-    // Check motion permission (iOS 13+)
-    if (typeof DeviceMotionEvent !== 'undefined' && DeviceMotionEvent.requestPermission) {
+    const dbgPerm = $('dbg-perm');
+
+    // Check motion permission — nativo usa CMPedometer via motionPort; PWA usa DeviceMotion
+    if (isNativeMotion && motionPort) {
+      const permStatus = await motionPort.requestPermission();
+      if (permStatus !== 'granted') {
+        showScreen('screen-motion-denied');
+        return;
+      }
+      if (dbgPerm) dbgPerm.textContent = 'perm: nativo (CMPedometer)';
+    } else if (typeof DeviceMotionEvent !== 'undefined' && DeviceMotionEvent.requestPermission) {
       try {
         const perm = await DeviceMotionEvent.requestPermission();
         if (perm !== 'granted') {
@@ -520,6 +599,7 @@ body {
           return;
         }
       } catch { /* iOS < 13 */ }
+      if (dbgPerm) dbgPerm.textContent = 'perm: web DeviceMotion';
     }
 
     // Create session immediately
@@ -531,48 +611,76 @@ body {
     hideEl('est-banner');
     hideEl('wl-banner');
 
-    // StepDetector — create and attach devicemotion listener INMEDIATAMENTE
-    state.stepDetector = D.createStepDetector({ alpha: 0.2, refractoryMs: 300, calibrationSamples: 60 });
     state.lastStepCount = 0;
     state._debug = { evtCount: 0, errCount: 0, lastRaw: 0, lastLin: 0, perm: '?' };
-    // Actualizar panel debug con estado de permiso
-    const dbgPerm = $('dbg-perm');
-    if (dbgPerm) dbgPerm.textContent = 'perm: solicitando...';
 
-    state.motionHandler = (event) => {
-      if (!state.session || state.session.status !== 'active') return;
-      state._debug.evtCount++;
-      const a = event.accelerationIncludingGravity;
-      if (!a || a.x == null || a.y == null || a.z == null) {
-        state._debug.errCount++;
-        return;
+    // Native: usar CMPedometer via motionPort
+    if (isNativeMotion && motionPort) {
+      if (dbgPerm) dbgPerm.textContent = 'perm: iniciando CMPedometer...';
+      const started = await motionPort.start();
+      if (!started) {
+        if (dbgPerm) dbgPerm.textContent = 'perm: CMPedometer falló';
+      } else {
+        if (dbgPerm) dbgPerm.textContent = 'perm: CMPedometer activo';
       }
-      // Restar gravedad: el detector espera ~0 en reposo, ~1-5 caminando
-      const rawMag = Math.sqrt(a.x * a.x + a.y * a.y + a.z * a.z);
-      const linearMag = Math.abs(rawMag - 9.81);
-      state._debug.lastRaw = rawMag;
-      state._debug.lastLin = linearMag;
-      try {
-        state.stepDetector.sample(linearMag, Date.now());
-        const newCount = state.stepDetector.getCount();
-        if (newCount > state.lastStepCount) {
-          const stepsAdded = newCount - state.lastStepCount;
-          state.session = D.addSteps(state.session, stepsAdded);
-          state.lastStepCount = newCount;
+      // CMPedometer reporta pasos acumulados — mantener delta desde lastStepCount
+      motionPort.onSteps((cumulativeSteps, distanceM) => {
+        if (!state.session || state.session.status !== 'active') return;
+        if (cumulativeSteps > state.lastStepCount) {
+          const stepsAdded = cumulativeSteps - state.lastStepCount;
+          try {
+            state.session = D.addSteps(state.session, stepsAdded);
+            state.lastStepCount = cumulativeSteps;
+            // Usar distancia del sistema si está disponible
+            if (distanceM && distanceM > 0) {
+              state.session = { ...state.session, distanceM: distanceM };
+            }
+            checkKmCrossing();
+          } catch (e) {
+            // Sesión pausada — ignorar pasos durante la pausa
+          }
         }
-      } catch (e) {
-        state._debug.errCount++;
-      }
-    };
-    window.addEventListener('devicemotion', state.motionHandler);
-    if (dbgPerm) dbgPerm.textContent = 'perm: listener conectado';
+      });
+    } else {
+      // PWA/web: StepDetector con DeviceMotion
+      state.stepDetector = D.createStepDetector({ alpha: 0.2, refractoryMs: 300, calibrationSamples: 60 });
+      state.motionHandler = (event) => {
+        if (!state.session || state.session.status !== 'active') return;
+        state._debug.evtCount++;
+        const a = event.accelerationIncludingGravity;
+        if (!a || a.x == null || a.y == null || a.z == null) {
+          state._debug.errCount++;
+          return;
+        }
+        const rawMag = Math.sqrt(a.x * a.x + a.y * a.y + a.z * a.z);
+        const linearMag = Math.abs(rawMag - 9.81);
+        state._debug.lastRaw = rawMag;
+        state._debug.lastLin = linearMag;
+        try {
+          state.stepDetector.sample(linearMag, Date.now());
+          const newCount = state.stepDetector.getCount();
+          if (newCount > state.lastStepCount) {
+            const stepsAdded = newCount - state.lastStepCount;
+            state.session = D.addSteps(state.session, stepsAdded);
+            state.lastStepCount = newCount;
+            checkKmCrossing();
+          }
+        } catch (e) {
+          state._debug.errCount++;
+        }
+      };
+      window.addEventListener('devicemotion', state.motionHandler);
+      if (dbgPerm) dbgPerm.textContent = 'perm: listener DeviceMotion conectado';
+    }
 
     // Show session screen first, then overlay on top
     wlPort.acquire();
     bgHandler.start();
     showScreen('screen-session');
     startTimer();
-    playBeep();
+    console.log('[WalkTracker] Starting session, feedback adapter:', !!state.feedbackAdapter, 'port:', !!D.FeedbackPort);
+    D.FeedbackPort.fire(D.FeedbackPort.events.SESSION_START);
+    console.log('[WalkTracker] FeedbackPort.fire() called');
     $('ses-dist').textContent = '0.00';
 
     // Motivational overlay (non-blocking — shows on top of session screen)
@@ -595,13 +703,29 @@ body {
     }).catch(() => { /* weather optional */ });
   });
 
+  // Test button for feedback
+  $('btn-test-feedback') && $('btn-test-feedback').addEventListener('click', () => {
+    console.log('[WalkTracker] Test feedback clicked');
+    console.log('[WalkTracker] WalktrackerKit type:', typeof WalktrackerKit);
+    console.log('[WalkTracker] Capacitor:', !!window.Capacitor, 'Plugins:', window.Capacitor && window.Capacitor.Plugins ? JSON.stringify(Object.keys(window.Capacitor.Plugins)) : 'none');
+    // Direct Capacitor.Plugins access
+    const nativePlugin = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.WalktrackerKit;
+    if (nativePlugin) {
+      console.log('[WalkTracker] Found native plugin, calling fireFeedback...');
+      nativePlugin.fireFeedback({ type: 'session_start' }).then(r => console.log('[WalkTracker] fireFeedback result:', r)).catch(e => console.log('[WalkTracker] fireFeedback error:', e));
+    } else {
+      console.log('[WalkTracker] NO native plugin at Capacitor.Plugins.WalktrackerKit');
+    }
+  });
+
   // ── Screen: Session ──
   $('btn-pause').addEventListener('click', () => {
     if (!state.session) return;
+    const now = Date.now();
     if (state.session.status === 'active') {
-      state.session = D.pause(state.session, Date.now());
+      state.session = D.pause(state.session, now);
     } else if (state.session.status === 'paused') {
-      state.session = D.resume(state.session, Date.now());
+      state.session = D.resume(state.session, now);
     }
     updateSessionDisplay();
   });
@@ -611,7 +735,11 @@ body {
     stopTimer();
     wlPort.release();
     bgHandler.stop();
-    // Remove devicemotion listener
+    // Stop native motion tracking
+    if (isNativeMotion && motionPort) {
+      motionPort.stop();
+    }
+    // Remove devicemotion listener (PWA)
     if (state.motionHandler) {
       window.removeEventListener('devicemotion', state.motionHandler);
       state.motionHandler = null;
@@ -623,15 +751,29 @@ body {
     storage.saveSession(state.session);
     loadSessions();
 
+    // Check if weekly goal was crossed (Epic 4)
+    const progress = Mot.getWeeklyProgress(state.allSessions, state.config.weeklyGoalKm);
+    if (progress.completedKm >= state.config.weeklyGoalKm && state.lastWeeklyKmChecked < state.config.weeklyGoalKm) {
+      D.FeedbackPort.fire(D.FeedbackPort.events.GOAL);
+    }
+    state.lastWeeklyKmChecked = progress.completedKm;
+
     // Evaluate achievements
     const newlyUnlocked = Mot.evaluateAchievements(state.session, state.allSessions, state.achievements);
     for (const a of newlyUnlocked) {
       storage.saveAchievement({ key: a.key, unlockedAt: new Date().toISOString(), progress: 1.0 });
       showToast(`🎉 ${a.name}`);
-      playBeep();
+      D.FeedbackPort.fire(D.FeedbackPort.events.ACHIEVEMENT);
     }
 
-    // Show summary
+    // Show summary with newly unlocked achievements
+    if (newlyUnlocked.length > 0) {
+      $('sum-achievements').innerHTML = newlyUnlocked.map(a =>
+        `<div class="ach-card" style="display:inline-block;width:auto;margin:4px;padding:8px 12px;background:var(--surface)"><span style="font-size:20px">${a.icon}</span> ${a.name}</div>`
+      ).join('');
+    } else {
+      $('sum-achievements').innerHTML = '';
+    }
     showSummary();
     showScreen('screen-summary');
   });
@@ -731,6 +873,26 @@ body {
     const on = !tog.classList.contains('on');
     tog.classList.toggle('on', on);
     saveConfig({ soundEnabled: on });
+    if (state.feedbackAdapter) state.feedbackAdapter.setSoundEnabled(on);
+  });
+  $('input-stride').addEventListener('change', () => {
+    const val = parseFloat($('input-stride').value);
+    if (isNaN(val) || val <= 0) {
+      $('input-stride').value = state.config.strideM;
+      return;
+    }
+    state.config.strideM = val;
+    saveConfig({ strideM: val });
+  });
+  $('input-goal').addEventListener('change', () => {
+    const val = parseFloat($('input-goal').value);
+    if (isNaN(val) || val <= 0) {
+      $('input-goal').value = state.config.weeklyGoalKm;
+      return;
+    }
+    state.config.weeklyGoalKm = val;
+    saveConfig({ weeklyGoalKm: val });
+    updateGoalRing();
   });
   $('btn-export').addEventListener('click', async () => {
     const sessions = await storage.getSessions();
@@ -808,6 +970,10 @@ body {
 
   // ── Init ──
   function init() {
+    // Nota: hoy el SW NO se registra en ninguna plataforma. Cuando se
+    // reintroduzca el registro del service worker, hacerlo SOLO si
+    // `!isNative` (el SW de la PWA no aplica dentro del WebView; AD-C7).
+    // isNative se define en la sección de detección de plataforma (Wakelock / Composition Root).
     // Run migration if needed
     const raw = localStorage.getItem('wt:sessions');
     if (raw && !storage.isMigrated()) {
@@ -819,20 +985,49 @@ body {
     }
     loadConfig();
     loadSessions();
-    // Try auto-recovery
+
+    // Feedback Port (Epic 4)
+    const feedbackAdapter = WT.CapacitorFeedbackAdapterV2 ? WT.CapacitorFeedbackAdapterV2.createAdapter({
+      plugin: window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.WalktrackerKit
+    }) : null;
+    D.registerFeedbackAdapter(feedbackAdapter);
+    state.feedbackAdapter = feedbackAdapter;
+    if (state.config.soundEnabled === false) {
+      feedbackAdapter.setSoundEnabled(false);
+    }
+    // Init weekly km tracking for goal detection
+    const initProgress = Mot.getWeeklyProgress(state.allSessions, state.config.weeklyGoalKm);
+    state.lastWeeklyKmChecked = initProgress.completedKm;
+
+    // Try auto-recovery (Story 1.6)
     const rec = R.checkRecovery(storage, Date.now());
     if (rec.hasActiveSession) {
       const snap = rec.snapshot;
       state.session = D.restoreV3Session(snap);
       state.wasRecovered = true;
+      state.lastStepCount = snap.stepsMeasured || 0;
       if (rec.gapS > 5) {
         state.gapSeconds = rec.gapS;
         showEl('recovery-banner');
+        setTimeout(() => { hideEl('recovery-banner'); }, 3000);
       }
       showScreen('screen-session');
       startTimer();
       wlPort.acquire();
       bgHandler.start();
+      // Query CMPedometer to fill gap since app was closed
+      if (isNativeMotion && motionPort && snap.lastActiveAtMs) {
+        motionPort.query(snap.lastActiveAtMs, Date.now()).then(result => {
+          if (result && result.steps > 0 && state.session) {
+            const stepsToAdd = result.steps - state.lastStepCount;
+            if (stepsToAdd > 0) {
+              state.session = D.addSteps(state.session, stepsToAdd);
+              state.lastStepCount = result.steps;
+              checkKmCrossing();
+            }
+          }
+        }).catch(() => {});
+      }
     }
     // Dark/light mode
     if (window.matchMedia) {
