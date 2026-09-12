@@ -1,0 +1,78 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{margin:0;font-family:-apple-system,"SF Pro Text","SF Pro Display",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+    a{color:#007AFF}a:hover{color:#0060DF}
+    .phone{width:390px;height:844px;position:relative;overflow:hidden;
+      --bg:#F2F2F7;--card:#FFFFFF;--card2:#FFFFFF;--label:#000;--sec:rgba(60,60,67,.6);--ter:rgba(60,60,67,.3);
+      --sep:rgba(60,60,67,.29);--fill:rgba(120,120,128,.12);--green:#34C759;--blue:#007AFF;--orange:#FF9500;
+      --red:#FF3B30;--purple:#AF52DE;--chrome:rgba(249,249,249,.78);--glass:rgba(255,255,255,.6);
+      background:var(--bg);color:var(--label)}
+    .phone.dark{--bg:#000;--card:#1C1C1E;--card2:#2C2C2E;--label:#FFF;--sec:rgba(235,235,245,.6);--ter:rgba(235,235,245,.3);
+      --sep:rgba(84,84,88,.6);--fill:rgba(120,120,128,.24);--green:#30D158;--blue:#0A84FF;--orange:#FF9F0A;
+      --red:#FF453A;--purple:#BF5AF2;--chrome:rgba(28,28,30,.78);--glass:rgba(60,60,67,.45)}
+    /* el sistema pinta esta franja: la dejamos vacía a propósito */
+    .safe-top{height:59px}
+    .scroll{position:absolute;top:59px;left:0;right:0;bottom:83px;overflow:hidden;padding:0 16px}
+    .ltitle{font-size:34px;font-weight:700;letter-spacing:-.6px;line-height:41px;padding-top:4px}
+    .sub{font-size:15px;color:var(--sec);margin-top:2px}
+    .navbar{height:44px;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:600}
+    .card{background:var(--card);border-radius:14px;padding:16px}
+    .row{display:flex;align-items:center;gap:12px}
+    .col{display:flex;flex-direction:column}
+    .hd{font-size:13px;font-weight:400;color:var(--sec);text-transform:uppercase;letter-spacing:.4px;padding:0 4px 7px}
+    .cta{display:flex;align-items:center;justify-content:center;gap:8px;height:52px;border-radius:14px;
+      background:var(--green);color:#fff;font-size:17px;font-weight:600;letter-spacing:-.2px}
+    .btn{display:flex;align-items:center;justify-content:center;height:50px;border-radius:14px;font-size:17px;font-weight:600}
+    .tint{background:var(--fill);color:var(--label)}
+    .lrow{display:flex;align-items:center;gap:12px;min-height:44px;padding:11px 0}
+    .lrow+.lrow{border-top:.5px solid var(--sep)}
+    .icn{width:29px;height:29px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex:0 0 29px}
+    .val{font-size:17px;color:var(--sec);margin-left:auto}
+    .chev{color:var(--ter);flex:0 0 auto}
+    .est{color:var(--orange)}
+    /* tab bar — indicativo: el material real lo pone el SDK */
+    .tabs{position:absolute;left:0;right:0;bottom:0;height:83px;padding:8px 0 0;background:var(--chrome);
+      border-top:.5px solid var(--sep);display:flex;justify-content:space-around;align-items:flex-start;
+      -webkit-backdrop-filter:blur(30px) saturate(180%);backdrop-filter:blur(30px) saturate(180%)}
+    .tab{display:flex;flex-direction:column;align-items:center;gap:3px;width:76px;color:var(--sec)}
+    .tab.on{color:var(--green)}
+    .tab span{font-size:10px;font-weight:500;letter-spacing:-.1px}
+    .note{position:absolute;left:16px;right:16px;bottom:95px;font-size:10px;color:var(--ter);text-align:center}
+</style>
+</helmet>
+<div class="phone {{theme}}">
+  <div class="safe-top"></div>
+  <div style="position:absolute;inset:0;background:var(--bg)"></div>
+  <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 34px;text-align:center">
+    <div style="width:44px;height:44px;border-radius:50%;background:rgba(52,199,89,.15);display:flex;align-items:center;justify-content:center;margin-bottom:28px">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M21 12h-3M6 12H3M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1M18.4 18.4l-2.1-2.1M7.7 7.7 5.6 5.6"/><circle cx="12" cy="12" r="3.4"/></svg>
+    </div>
+    <div style="font-size:30px;font-weight:600;line-height:38px;letter-spacing:-.6px;text-wrap:pretty">
+      No tiene que ser rápido.<br>Solo tiene que ser hoy.
+    </div>
+    <div style="font-size:15px;color:var(--sec);margin-top:26px">Frase 34 de 100</div>
+  </div>
+  <div style="position:absolute;left:0;right:0;bottom:52px;text-align:center;font-size:13px;color:var(--ter)">
+    Toca para empezar
+  </div>
+  <div style="position:absolute;left:50%;transform:translateX(-50%);bottom:34px;width:110px;height:4px;border-radius:2px;background:var(--fill)"></div>
+
+<div class="note">3–4 s, saltable con un tap · banco de 100 sin repetir en las últimas 20 · CAP-6</div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return { theme: this.props.dark ? 'dark' : '' }; }
+}
+</script>
+</body>
+</html>

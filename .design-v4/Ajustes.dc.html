@@ -1,0 +1,101 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{margin:0;font-family:-apple-system,"SF Pro Text","SF Pro Display",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+    a{color:#007AFF}a:hover{color:#0060DF}
+    .phone{width:390px;height:844px;position:relative;overflow:hidden;
+      --bg:#F2F2F7;--card:#FFFFFF;--card2:#FFFFFF;--label:#000;--sec:rgba(60,60,67,.6);--ter:rgba(60,60,67,.3);
+      --sep:rgba(60,60,67,.29);--fill:rgba(120,120,128,.12);--green:#34C759;--blue:#007AFF;--orange:#FF9500;
+      --red:#FF3B30;--purple:#AF52DE;--chrome:rgba(249,249,249,.78);--glass:rgba(255,255,255,.6);
+      background:var(--bg);color:var(--label)}
+    .phone.dark{--bg:#000;--card:#1C1C1E;--card2:#2C2C2E;--label:#FFF;--sec:rgba(235,235,245,.6);--ter:rgba(235,235,245,.3);
+      --sep:rgba(84,84,88,.6);--fill:rgba(120,120,128,.24);--green:#30D158;--blue:#0A84FF;--orange:#FF9F0A;
+      --red:#FF453A;--purple:#BF5AF2;--chrome:rgba(28,28,30,.78);--glass:rgba(60,60,67,.45)}
+    /* el sistema pinta esta franja: la dejamos vacía a propósito */
+    .safe-top{height:59px}
+    .scroll{position:absolute;top:59px;left:0;right:0;bottom:83px;overflow:hidden;padding:0 16px}
+    .ltitle{font-size:34px;font-weight:700;letter-spacing:-.6px;line-height:41px;padding-top:4px}
+    .sub{font-size:15px;color:var(--sec);margin-top:2px}
+    .navbar{height:44px;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:600}
+    .card{background:var(--card);border-radius:14px;padding:16px}
+    .row{display:flex;align-items:center;gap:12px}
+    .col{display:flex;flex-direction:column}
+    .hd{font-size:13px;font-weight:400;color:var(--sec);text-transform:uppercase;letter-spacing:.4px;padding:0 4px 7px}
+    .cta{display:flex;align-items:center;justify-content:center;gap:8px;height:52px;border-radius:14px;
+      background:var(--green);color:#fff;font-size:17px;font-weight:600;letter-spacing:-.2px}
+    .btn{display:flex;align-items:center;justify-content:center;height:50px;border-radius:14px;font-size:17px;font-weight:600}
+    .tint{background:var(--fill);color:var(--label)}
+    .lrow{display:flex;align-items:center;gap:12px;min-height:44px;padding:11px 0}
+    .lrow+.lrow{border-top:.5px solid var(--sep)}
+    .icn{width:29px;height:29px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex:0 0 29px}
+    .val{font-size:17px;color:var(--sec);margin-left:auto}
+    .chev{color:var(--ter);flex:0 0 auto}
+    .est{color:var(--orange)}
+    /* tab bar — indicativo: el material real lo pone el SDK */
+    .tabs{position:absolute;left:0;right:0;bottom:0;height:83px;padding:8px 0 0;background:var(--chrome);
+      border-top:.5px solid var(--sep);display:flex;justify-content:space-around;align-items:flex-start;
+      -webkit-backdrop-filter:blur(30px) saturate(180%);backdrop-filter:blur(30px) saturate(180%)}
+    .tab{display:flex;flex-direction:column;align-items:center;gap:3px;width:76px;color:var(--sec)}
+    .tab.on{color:var(--green)}
+    .tab span{font-size:10px;font-weight:500;letter-spacing:-.1px}
+    .note{position:absolute;left:16px;right:16px;bottom:95px;font-size:10px;color:var(--ter);text-align:center}
+</style>
+</helmet>
+<div class="phone {{theme}}">
+  <div class="safe-top"></div>
+  <div class="navbar">Ajustes</div>
+  <div class="scroll" style="top:103px">
+    <div class="hd">Medición</div>
+    <div class="card" style="padding:2px 16px;margin-bottom:18px">
+      <div class="lrow"><div class="icn" style="background:rgba(52,199,89,.15)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14h18M6 14V9M12 14V6M18 14v-5M4 19h16"/></svg></div><div class="col" style="gap:1px"><div style="font-size:17px;color:var(--label)">Zancada</div></div><div class="val">0,75 m</div><div class="chev"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div></div>
+      <div class="lrow"><div class="icn" style="background:rgba(0,122,255,.15)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.2"/></svg></div><div class="col" style="gap:1px"><div style="font-size:17px;color:var(--label)">Meta semanal</div></div><div class="val">10 km</div><div class="chev"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div></div>
+    </div>
+
+    <div class="hd">Feedback</div>
+    <div class="card" style="padding:2px 16px;margin-bottom:18px">
+      <div class="lrow"><div class="icn" style="background:rgba(255,149,0,.15)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M16 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12"/></svg></div><div class="col" style="gap:1px"><div style="font-size:17px;color:var(--label)">Sonido</div><div style="font-size:12px;color:var(--sec)">Al iniciar, cada km, meta y logro</div></div><div style="margin-left:auto;width:51px;height:31px;border-radius:16px;background:var(--green);position:relative;flex:0 0 auto"><div style="position:absolute;top:2px;right:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 5px rgba(0,0,0,.2)"></div></div></div>
+      <div class="lrow"><div class="icn" style="background:rgba(175,82,222,.15)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M12 18h.01"/></svg></div><div class="col" style="gap:1px"><div style="font-size:17px;color:var(--label)">Vibración</div><div style="font-size:12px;color:var(--sec)">Háptica en los mismos eventos</div></div><div style="margin-left:auto;width:51px;height:31px;border-radius:16px;background:var(--green);position:relative;flex:0 0 auto"><div style="position:absolute;top:2px;right:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 5px rgba(0,0,0,.2)"></div></div></div>
+    </div>
+
+    <div class="hd">Sistema</div>
+    <div class="card" style="padding:2px 16px;margin-bottom:18px">
+      <div class="lrow"><div class="icn" style="background:rgba(255,59,48,.15)"><svg width="17" height="17" viewBox="0 0 24 24" fill="var(--red)" stroke="var(--red)" stroke-width="0" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 5.6a5 5 0 0 0-7.1 0L12 7.3l-1.7-1.7a5 5 0 1 0-7.1 7.1L12 21.4l8.8-8.7a5 5 0 0 0 0-7.1z"/></svg></div><div class="col" style="gap:1px"><div style="font-size:17px;color:var(--label)">Apple Salud</div></div><div class="val">Activado</div><div class="chev"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div></div>
+      <div class="lrow"><div class="icn" style="background:rgba(0,122,255,.15)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M9 6h6"/></svg></div><div class="col" style="gap:1px"><div style="font-size:17px;color:var(--label)">Live Activity</div><div style="font-size:12px;color:var(--sec)">Métricas en pantalla de bloqueo</div></div><div class="val">Activada</div><div class="chev"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div></div>
+      <div class="lrow"><div class="icn" style="background:rgba(255,149,0,.15)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.5 21a2 2 0 0 0 3 0"/></svg></div><div class="col" style="gap:1px"><div style="font-size:17px;color:var(--label)">Recordatorio semanal</div></div><div class="val">Domingo 18:00</div><div class="chev"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div></div>
+      <div class="lrow"><div class="icn" style="background:rgba(52,199,89,.15)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="3"/><path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11z"/></svg></div><div class="col" style="gap:1px"><div style="font-size:17px;color:var(--label)">Ubicación para el clima</div><div style="font-size:12px;color:var(--sec)">Coordenadas redondeadas a 2 decimales</div></div><div class="val">Al usar la app</div><div class="chev"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div></div>
+    </div>
+
+    <div class="hd">Datos</div>
+    <div class="card" style="padding:2px 16px;margin-bottom:18px">
+      <div class="lrow"><div class="icn" style="background:rgba(0,122,255,.15)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M12 4 8 8M12 4l4 4"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg></div><div class="col" style="gap:1px"><div style="font-size:17px;color:var(--label)">Exportar historial</div><div style="font-size:12px;color:var(--sec)">JSON y CSV · se abre el share sheet</div></div><div class="chev"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div></div>
+      <div class="lrow"><div class="icn" style="background:rgba(52,199,89,.15)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12M12 16l-4-4M12 16l4-4"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg></div><div class="col" style="gap:1px"><div style="font-size:17px;color:var(--label)">Importar respaldo</div><div style="font-size:12px;color:var(--sec)">Solo JSON</div></div><div class="chev"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div></div>
+      <div class="lrow"><div class="icn" style="background:rgba(255,59,48,.15)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 15h10l1-15"/></svg></div><div class="col" style="gap:1px"><div style="font-size:17px;color:var(--red)">Borrar todos los datos</div></div></div>
+    </div>
+
+    <div class="hd">Acerca de</div>
+    <div class="card" style="padding:2px 16px">
+      <div class="lrow"><div class="icn" style="background:var(--fill)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--sec)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-5M12 8h.01"/></svg></div><div class="col" style="gap:1px"><div style="font-size:17px;color:var(--label)">WalkTracker</div></div><div class="val">1.0.0</div><div class="chev"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div></div>
+    </div>
+    <div style="font-size:11px;color:var(--ter);text-align:center;padding:14px 20px 0;line-height:15px">
+      Datos meteorológicos de Open-Meteo · CC BY 4.0
+    </div>
+  </div>
+<div class="tabs"><div class="tab"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.2 12 3l9 7.2V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>Inicio</span></div><div class="tab"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v15a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="M4 9h16M8 3v4M16 3v4"/></svg><span>Historial</span></div><div class="tab"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 5H4v2a3 3 0 0 0 3 3M17 5h3v2a3 3 0 0 1-3 3M9 20h6M12 14v6"/></svg><span>Logros</span></div><div class="tab on"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M21.5 12h-3M5.5 12h-3M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1M18.7 18.7l-2.1-2.1M7.4 7.4 5.3 5.3"/></svg><span>Ajustes</span></div></div>
+<div class="note">Export/import recuperados (faltaban en la v3) · sin «Restaurar compras» · atribución CC-BY obligatoria · AD-24</div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return { theme: this.props.dark ? 'dark' : '' }; }
+}
+</script>
+</body>
+</html>

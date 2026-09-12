@@ -1,0 +1,81 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{margin:0;font-family:-apple-system,"SF Pro Text","SF Pro Display",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+    a{color:#007AFF}a:hover{color:#0060DF}
+    .phone{width:390px;height:844px;position:relative;overflow:hidden;
+      --bg:#F2F2F7;--card:#FFFFFF;--card2:#FFFFFF;--label:#000;--sec:rgba(60,60,67,.6);--ter:rgba(60,60,67,.3);
+      --sep:rgba(60,60,67,.29);--fill:rgba(120,120,128,.12);--green:#34C759;--blue:#007AFF;--orange:#FF9500;
+      --red:#FF3B30;--purple:#AF52DE;--chrome:rgba(249,249,249,.78);--glass:rgba(255,255,255,.6);
+      background:var(--bg);color:var(--label)}
+    .phone.dark{--bg:#000;--card:#1C1C1E;--card2:#2C2C2E;--label:#FFF;--sec:rgba(235,235,245,.6);--ter:rgba(235,235,245,.3);
+      --sep:rgba(84,84,88,.6);--fill:rgba(120,120,128,.24);--green:#30D158;--blue:#0A84FF;--orange:#FF9F0A;
+      --red:#FF453A;--purple:#BF5AF2;--chrome:rgba(28,28,30,.78);--glass:rgba(60,60,67,.45)}
+    /* el sistema pinta esta franja: la dejamos vacía a propósito */
+    .safe-top{height:59px}
+    .scroll{position:absolute;top:59px;left:0;right:0;bottom:83px;overflow:hidden;padding:0 16px}
+    .ltitle{font-size:34px;font-weight:700;letter-spacing:-.6px;line-height:41px;padding-top:4px}
+    .sub{font-size:15px;color:var(--sec);margin-top:2px}
+    .navbar{height:44px;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:600}
+    .card{background:var(--card);border-radius:14px;padding:16px}
+    .row{display:flex;align-items:center;gap:12px}
+    .col{display:flex;flex-direction:column}
+    .hd{font-size:13px;font-weight:400;color:var(--sec);text-transform:uppercase;letter-spacing:.4px;padding:0 4px 7px}
+    .cta{display:flex;align-items:center;justify-content:center;gap:8px;height:52px;border-radius:14px;
+      background:var(--green);color:#fff;font-size:17px;font-weight:600;letter-spacing:-.2px}
+    .btn{display:flex;align-items:center;justify-content:center;height:50px;border-radius:14px;font-size:17px;font-weight:600}
+    .tint{background:var(--fill);color:var(--label)}
+    .lrow{display:flex;align-items:center;gap:12px;min-height:44px;padding:11px 0}
+    .lrow+.lrow{border-top:.5px solid var(--sep)}
+    .icn{width:29px;height:29px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex:0 0 29px}
+    .val{font-size:17px;color:var(--sec);margin-left:auto}
+    .chev{color:var(--ter);flex:0 0 auto}
+    .est{color:var(--orange)}
+    /* tab bar — indicativo: el material real lo pone el SDK */
+    .tabs{position:absolute;left:0;right:0;bottom:0;height:83px;padding:8px 0 0;background:var(--chrome);
+      border-top:.5px solid var(--sep);display:flex;justify-content:space-around;align-items:flex-start;
+      -webkit-backdrop-filter:blur(30px) saturate(180%);backdrop-filter:blur(30px) saturate(180%)}
+    .tab{display:flex;flex-direction:column;align-items:center;gap:3px;width:76px;color:var(--sec)}
+    .tab.on{color:var(--green)}
+    .tab span{font-size:10px;font-weight:500;letter-spacing:-.1px}
+    .note{position:absolute;left:16px;right:16px;bottom:95px;font-size:10px;color:var(--ter);text-align:center}
+
+    .sheet{width:1180px;height:820px;position:relative;overflow:hidden;background:var(--bg);color:var(--label)}</style>
+</helmet>
+<div class="phone {{theme}}" style="width:1180px;height:820px">
+  <div style="padding:0 34px 34px;position:absolute;top:0;left:0;right:0;bottom:0;overflow:hidden">
+    <div style="padding:30px 0 6px">
+      <div style="font-size:32px;font-weight:700;letter-spacing:-.8px">Las tres piezas dibujadas</div>
+      <div style="font-size:14px;color:var(--sec);margin-top:6px;max-width:720px;line-height:20px">
+        Todo lo demás —barras, listas, hojas, controles— lo pinta el SDK con Liquid Glass y no se dibuja a mano (AD-13).
+        Estas tres son las únicas que sí, y por eso son las únicas que hay que decidir aquí.
+      </div>
+    </div>
+    <div style="height:26px"></div>
+    <div style="display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:22px">
+      <div style="background:var(--card);border-radius:18px;padding:26px 28px 28px"><div style="font-size:19px;font-weight:600;letter-spacing:-.3px">Anillo de meta semanal</div><div style="font-size:12.5px;color:var(--sec);margin-top:5px;line-height:17px">Semana ISO, lunes a domingo. Sin porcentaje redondeado por debajo de 1 %. Al superar el 100 % no se recorta: se celebra.</div><div style="height:26px"></div><div style="display:flex;gap:34px;justify-content:space-around"><div style="display:flex;flex-direction:column;align-items:center;gap:12px"><div style="position:relative"><svg width="132" height="132" viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" fill="none" stroke="var(--fill)" stroke-width="13"/><circle cx="60" cy="60" r="52" fill="none" stroke="var(--ter)" stroke-width="13" stroke-linecap="round" stroke-dasharray="326.7" stroke-dashoffset="326.7" transform="rotate(-90 60 60)"/></svg><div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center"><div style="font-size:31px;font-weight:700;letter-spacing:-.8px;color:var(--ter)">0<span style="font-size:18px">%</span></div></div></div><div style="text-align:center"><div style="font-size:14px;font-weight:600">Semana recién empezada</div><div style="font-size:12px;color:var(--sec);margin-top:2px">0 de 10 km</div></div></div><div style="display:flex;flex-direction:column;align-items:center;gap:12px"><div style="position:relative"><svg width="132" height="132" viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" fill="none" stroke="var(--fill)" stroke-width="13"/><circle cx="60" cy="60" r="52" fill="none" stroke="var(--green)" stroke-width="13" stroke-linecap="round" stroke-dasharray="326.7" stroke-dashoffset="156.8" transform="rotate(-90 60 60)"/></svg><div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center"><div style="font-size:31px;font-weight:700;letter-spacing:-.8px;color:var(--green)">52<span style="font-size:18px">%</span></div></div></div><div style="text-align:center"><div style="font-size:14px;font-weight:600">En curso</div><div style="font-size:12px;color:var(--sec);margin-top:2px">5,2 de 10 km</div></div></div><div style="display:flex;flex-direction:column;align-items:center;gap:12px"><div style="position:relative"><svg width="132" height="132" viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" fill="none" stroke="var(--fill)" stroke-width="13"/><circle cx="60" cy="60" r="52" fill="none" stroke="var(--green)" stroke-width="13" stroke-linecap="round" stroke-dasharray="326.7" stroke-dashoffset="0.0" transform="rotate(-90 60 60)"/></svg><div style="position:absolute;top:-4px;right:-4px;width:30px;height:30px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 9.8 17 19 7.5"/></svg></div><div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center"><div style="font-size:31px;font-weight:700;letter-spacing:-.8px;color:var(--green)">100<span style="font-size:18px">%</span></div></div></div><div style="text-align:center"><div style="font-size:14px;font-weight:600">Cumplida</div><div style="font-size:12px;color:var(--sec);margin-top:2px">10,4 de 10 km</div></div></div></div></div>
+      <div style="background:var(--card);border-radius:18px;padding:26px 28px 28px"><div style="font-size:19px;font-weight:600;letter-spacing:-.3px">Insignia de logro</div><div style="font-size:12.5px;color:var(--sec);margin-top:5px;line-height:17px">El emoji viene del catálogo (achievements.md), es dato y no decoración. Bloqueado = 42 % de opacidad más candado, nunca oculto: los 14 siempre visibles.</div><div style="height:26px"></div><div style="display:flex;gap:26px;justify-content:space-around;align-items:flex-start"><div style="display:flex;flex-direction:column;align-items:center;gap:9px"><div style="position:relative;width:82px;height:82px;border-radius:21px;background:linear-gradient(160deg,rgba(255,214,10,.34),rgba(255,149,0,.2));border:1px solid rgba(255,180,0,.55);box-shadow:0 0 0 6px rgba(255,180,0,.13);display:flex;align-items:center;justify-content:center;font-size:39px">🥉</div><div style="font-size:12px;font-weight:600;text-align:center;max-width:96px;line-height:15px">Cinco kilómetros</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:9px"><div style="position:relative;width:82px;height:82px;border-radius:21px;background:linear-gradient(160deg,rgba(255,214,10,.26),rgba(255,149,0,.14));border:.5px solid rgba(255,180,0,.3);display:flex;align-items:center;justify-content:center;font-size:39px">🏆</div><div style="font-size:12px;font-weight:600;text-align:center;max-width:96px;line-height:15px">Meta semanal</div></div><div style="opacity:.42;display:flex;flex-direction:column;align-items:center;gap:9px"><div style="position:relative;width:82px;height:82px;border-radius:21px;background:var(--fill);border:.5px solid transparent;display:flex;align-items:center;justify-content:center;font-size:39px">🔥<div style="position:absolute;top:6px;right:6px;width:20px;height:20px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--sec)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div></div><div style="font-size:12px;font-weight:600;text-align:center;max-width:96px;line-height:15px">7 días consecutivos</div></div></div><div style="display:flex;gap:26px;justify-content:space-around;margin-top:16px;font-size:11px;color:var(--sec);text-align:center"><div style="flex:1">recién desbloqueado</div><div style="flex:1">desbloqueado</div><div style="flex:1">bloqueado</div></div></div>
+    </div>
+    <div style="height:22px"></div>
+    <div style="display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:22px">
+      <div style="background:var(--card);border-radius:18px;padding:26px 28px 28px"><div style="font-size:19px;font-weight:600;letter-spacing:-.3px">Gráfico de tendencia</div><div style="font-size:12.5px;color:var(--sec);margin-top:5px;line-height:17px">Cuatro semanas ISO. La barra en curso va en color; las cerradas en gris. La línea discontinua es la meta — el único elemento que explica si una semana fue buena.</div><div style="height:26px"></div><div style="position:relative"><div style="position:absolute;left:0;right:0;top:5px;border-top:1px dashed var(--ter)"></div><div style="position:absolute;right:0;top:-10px;font-size:10px;color:var(--ter)">meta 10 km</div><div style="display:flex;gap:12px;align-items:flex-end"><div style="display:flex;flex-direction:column;align-items:center;gap:7px;flex:1"><div style="width:100%;height:96px;display:flex;align-items:flex-end"><div style="width:100%;height:71px;background:var(--fill);border-radius:6px 6px 3px 3px"></div></div><div style="font-size:11px;color:var(--sec);font-weight:400">S-3</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:7px;flex:1"><div style="width:100%;height:96px;display:flex;align-items:flex-end"><div style="width:100%;height:37px;background:var(--fill);border-radius:6px 6px 3px 3px"></div></div><div style="font-size:11px;color:var(--sec);font-weight:400">S-2</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:7px;flex:1"><div style="width:100%;height:96px;display:flex;align-items:flex-end"><div style="width:100%;height:88px;background:var(--fill);border-radius:6px 6px 3px 3px"></div></div><div style="font-size:11px;color:var(--sec);font-weight:400">S-1</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:7px;flex:1"><div style="width:100%;height:96px;display:flex;align-items:flex-end"><div style="width:100%;height:48px;background:var(--green);border-radius:6px 6px 3px 3px"></div></div><div style="font-size:11px;color:var(--green);font-weight:600">Esta</div></div></div></div></div>
+      <div style="background:var(--card);border-radius:18px;padding:26px 28px 28px"><div style="font-size:19px;font-weight:600;letter-spacing:-.3px">Tendencia · sin datos</div><div style="font-size:12.5px;color:var(--sec);margin-top:5px;line-height:17px">Con historial vacío no se dibuja un gráfico plano: se dice que no hay nada. Un cero dibujado parece un fracaso; una frase es un comienzo.</div><div style="height:26px"></div><div style="height:96px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:var(--fill)"><div style="font-size:13px;color:var(--sec)">Aún no hay caminatas registradas</div></div><div style="height:28px"></div></div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"$preview":{"width":1180,"height":820}}'>
+class Component extends DCLogic {
+  renderVals() { return { theme: this.props.dark ? 'dark' : '' }; }
+}
+</script>
+</body>
+</html>

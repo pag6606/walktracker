@@ -1,0 +1,121 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "SesionActiva.dc.html",
+      "x": 470,
+      "y": 0,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "SesionPausada.dc.html",
+      "x": 940,
+      "y": 0,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "SesionReconciliando.dc.html",
+      "x": 1410,
+      "y": 0,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "Resumen.dc.html",
+      "x": 1880,
+      "y": 0,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "Historial.dc.html",
+      "x": 0,
+      "y": 974,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "Logros.dc.html",
+      "x": 470,
+      "y": 974,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "Ajustes.dc.html",
+      "x": 940,
+      "y": 974,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "Overlay.dc.html",
+      "x": 1410,
+      "y": 974,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "MotionDenegado.dc.html",
+      "x": 1880,
+      "y": 974,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "Piezas.dc.html",
+      "x": 0,
+      "y": 1948,
+      "w": 1180,
+      "h": 820
+    }
+  ],
+  "annotations": [
+    {
+      "id": "n-flujo",
+      "x": 0,
+      "y": -104,
+      "w": 420,
+      "text": "FLUJO PRINCIPAL\nInicio → sesión → resumen. La sesión es un fullScreenCover, no una quinta pestaña (AD-14): por eso estas tres pantallas no llevan tab bar."
+    },
+    {
+      "id": "n-chrome",
+      "x": 940,
+      "y": -104,
+      "w": 460,
+      "text": "Lo dibujado es COMPOSICIÓN Y JERARQUÍA, no material.\nLiquid Glass es un efecto de runtime del SDK: barras, listas y hojas se representan de forma indicativa. Cada artboard tiene un interruptor claro/oscuro arriba."
+    },
+    {
+      "id": "n-nav",
+      "x": 0,
+      "y": 870,
+      "w": 420,
+      "text": "NAVEGACIÓN Y ESTADOS\nLas cuatro pestañas más las dos degradaciones que la v3 no tenía dibujadas: el overlay motivacional y el permiso de movimiento denegado."
+    },
+    {
+      "id": "n-datos",
+      "x": 940,
+      "y": 870,
+      "w": 460,
+      "text": "TODOS LOS NÚMEROS CUADRAN.\nUna sola sesión maestra: 4.100 medidos + 236 estimados × 0,75 m = 3,25 km en 42:18 → ritmo 13:00 /km, cadencia 102 spm sobre los 40 min medidos. Semana ISO 5,21 de 10 = 52 %. Mes 12,07 km en 5 caminatas, ritmo medio 12:53. La v3 falló esto en las siete pantallas."
+    },
+    {
+      "id": "n-piezas",
+      "x": 0,
+      "y": 1844,
+      "w": 520,
+      "text": "LO ÚNICO QUE HAY QUE DECIDIR\nTodo lo demás lo hereda del SDK. Estas tres piezas no las pone Apple."
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}
