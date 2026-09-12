@@ -28,10 +28,10 @@ WalkTracker.xcodeproj/
 .idea/
 
 # Restos de Flutter en el árbol: el sustrato vive en feature/flutter-substrate,
-# no en esta rama (AD-23 — un solo árbol de producto). Estas reglas se conservan
-# a propósito: la historia 8.6 hace
-# `git checkout feature/flutter-substrate -- ios/Runner/AppDelegate.swift`
-# sobre este mismo árbol.
+# no en esta rama (AD-23 — un solo árbol de producto). La historia 8.6 ya extrajo
+# `ios/Runner/AppDelegate.swift` a los adapters de `WalkTracker/Adapters/` y lo
+# retiró; estas reglas se quedan porque siguen ignorando los restos locales de
+# Flutter que quedan en disco.
 ios/Flutter/
 ios/Runner/
 ios/Runner.xcodeproj/

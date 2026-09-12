@@ -8,7 +8,19 @@ struct WalkTrackerApp: App {
 
     var body: some Scene {
         WindowGroup {
+            #if DEBUG
+            RootView(clock: root.clock) {
+                NativeLayerDiagnosticsView(
+                    clock: root.clock,
+                    motion: root.motion,
+                    feedback: root.feedback,
+                    health: root.health,
+                    liveActivity: root.liveActivity
+                )
+            }
+            #else
             RootView(clock: root.clock)
+            #endif
         }
     }
 }
