@@ -44,13 +44,17 @@ This document provides the complete epic and story breakdown for WalkTracker iOS
 
 ### NonFunctional Requirements
 
-- **NFR-1**: Capacitor como capa nativa — web app v3 en WKWebView; plugins como adapters en el borde; el dominio no conoce Capacitor; viabilidad condicionada a performance 60 min en dispositivo físico.
+- **NFR-1**: **SwiftUI nativo como sustrato** — app iOS contra el SDK de iOS 26, sin WebView y sin capa híbrida; el dominio se porta a Swift idiomático y las capacidades del sistema se consumen por adapters detrás de puertos; deployment target 26.0, sin `if #available` hacia atrás.
+  - > ⛔ **REESCRITO el 2026-09-12.** Decía *"Capacitor como capa nativa — web app v3 en WKWebView"*. OQ-1 se reabrió y se resolvió de nuevo: no hay Capacitor. La condición de viabilidad ligada al rendimiento del WebView **desaparece** — ese riesgo no existe sin WebView; lo que queda es NFR-8. Gobernado por **AD-1 y AD-2**. [`DEROGACIONES.md §2`]
 - **NFR-2**: No-backend — todo on-device; única llamada de red = clima; sin auth/cuentas/sync cloud/servidor propio.
 - **NFR-3**: Usuario único (Paul) — sin multi-cuenta, perfiles ni UX de identidad.
 - **NFR-4**: Privacidad — datos en dispositivo; sin analítica/telemetría; coordenadas clima a 2 decimales.
+  - > ℹ️ El redondeo a 2 decimales tiene dueño desde el 2026-09-12: **`LocationPort` (AD-10)**, el único punto donde la restricción es verificable.
 - **NFR-5**: Dominio preservado — invariantes v3 (wall-clock, pausa explícita, sesión finalizada inmutable, zancada congelada al cierre, validación en frontera, cadencia solo sobre tramos medidos, pasos estimados siempre desglosados).
+  - > ⚠️ **PRECISADO el 2026-09-12** → se preservan los invariantes, **no los defectos**. Cuatro divergencias obligatorias respecto al código v3, declaradas en **AD-6**: hora local en vez de UTC, código WMO en vez de regex, las pausas restadas una sola vez y las rachas comparadas como fechas. Las dos últimas eran bugs vivos, corregidos en la referencia el mismo día. [`DEROGACIONES.md §6`]
 - **NFR-6**: Arquitectura hexagonal — dominio puro sin frameworks de plataforma/UI; puertos en dominio, adapters en borde.
 - **NFR-7**: Licencias — solo Apache-2.0/MIT; copyleft fuerte bloqueante.
+  - > ⚠️ **ENMENDADO el 2026-09-12** → Apache-2.0/MIT en **código**; en **fuentes de datos** se admite CC-BY 4.0 con atribución visible. Open-Meteo es CC-BY, no MIT (**AD-24**). Copyleft fuerte sigue bloqueante.
 - **NFR-8**: Batería — sesión de 60 min con conteo continuo sin degradación notoria.
 - **NFR-9**: UX — targets ≥44 pt, claro/oscuro, "celebrar nunca culpar", números grandes, overlay 3–4 s saltable, UI en español.
 
@@ -78,6 +82,7 @@ This document provides the complete epic and story breakdown for WalkTracker iOS
   - > ⛔ **PARCIAL el 2026-09-12** → heredero: **envoltura operativa del spine**. Dev en dispositivo físico sobrevive; el canal PWA a GitHub Pages no. [`DEROGACIONES.md §5`]
 - **AR-12 (Inherited v3)**: AD-1 hexagonal, AD-4 Session aggregate (stepsMeasured/Estimated, strideM), AD-5 strideM congelada, AD-6 wall-clock, AD-7 validación frontera, AD-8 autosave+recuperación silenciosa, AD-14 Open-Meteo timeout 3s, AD-17 geolocation 2dp, AD-18 quotes.json — todos vigentes, read-only.
 - **AR-13 (Deferred)**: protocolo de performance a nivel epic/story; canal háptico (CoreHaptics en walktracker-kit vs web) se resuelve como adapter tras puerto; contenido/formato de Live Activity a nivel story; sync PWA↔app fuera (arranque limpio); calibración interactiva futura; cache-busting SW PWA heredado.
+  - > ⛔ **DEROGADO el 2026-09-12** → heredero: **sección Deferred del spine**. El protocolo de performance lo fija **AD-21**; el canal háptico deja de ser una duda (`CoreHaptics` vía `FeedbackPort`, AD-10) y el sync PWA↔app no aplica sin PWA. [`DEROGACIONES.md §5`]
 
 ### UX Design Requirements
 
@@ -148,7 +153,7 @@ So that el tiempo de mi caminata sea exacto incluso si cambio de app o bloqueo e
 **When** `strideM` del perfil de calibración es ≤ 0 o no finito
 **Then** la creación se rechaza en la frontera con error de dominio específico (input inválido), sin materializar el aggregate [fuente: domain-model.md#51]
 
-**And** el dominio (module `domain`) no importa UI ni framework: el `now` llega por un `ClockPort` y la creación de sesión es una función pura del dominio [fuente: domain-model.md#3, ARCHITECTURE-SPINE.md AD-C1]
+**And** el dominio (module `domain`) no importa UI ni framework: el `now` llega por un `ClockPort` y la creación de sesión es una función pura del dominio [fuente: domain-model.md#3; **AD-3**, **AD-10** — el dominio no llama a `Date()`: el reloj es un puerto]
 
 ### Story 1.2: Conteo de pasos en vivo vía coprocesador (MotionPort)
 
@@ -174,7 +179,9 @@ So that el conteo funcione con pantalla bloqueada, en el bolsillo y con música 
 **When** intento iniciar una sesión
 **Then** se muestra la pantalla Motion Denied con explicación y acceso a Ajustes, y la app no inicia su núcleo de conteo — es la única degradación **bloqueante** de la tabla [fuente: SPEC.md#CAP-2; AD-11, UX-DR5 (inventario de superficies, vigente)]
 
-**And** el flujo de pasos entra al dominio por el puerto `MotionPort` (`onSteps(cumulativeCount, distanceM?)`), con un adapter `CapacitorMotionAdapter` que es el único punto que conoce `walktracker-kit`/CMPedometer [fuente: ARCHITECTURE-SPINE.md AR-2, AR-10]
+**And** el flujo de pasos entra al dominio por el puerto `MotionPort`, con un `MotionAdapter` que es el **único** punto del código que conoce `CMPedometer`; ninguna vista importa CoreMotion [**AD-10**]
+
+**And** el handler de CoreMotion corre en su propia cola serie y **`CMPedometerData` no conforma a `Sendable`** —ni sus `NSNumber`—: el adapter extrae los valores a un `struct` `Sendable` propio **dentro del handler**, y solo ese DTO cruza al main actor. Pasar el objeto de CoreMotion es un error de compilación bajo concurrencia estricta, no una preferencia de estilo [**AD-7**, **AD-12**]
 
 **And** el `StepDetector` de la PWA (pipeline propio 60 Hz, α=0.2, ventana refractaria 300 ms) queda retirado en nativo: la detección la hace el SO [fuente: domain-model.md#9]
 
@@ -200,7 +207,9 @@ So that pueda entender cómo va mi caminata sin esperar a terminarla.
 
 **Given** una sesión activa con menos de 100 m recorridos
 **When** la UI muestra el ritmo
-**Then** muestra "—" (ritmo `null`, `paceSecPerKm` no se computa) [fuente: domain-model.md#47, capabilities.md#CAP-4]
+**Then** muestra "—". El ritmo es un **opcional del dominio** (`nil`), no un `0` ni un `-1`: una métrica ausente se representa como ausente [fuente: domain-model.md#47, capabilities.md#CAP-4; **AD-4**, **AD-22**]
+
+**And** la pantalla **solo muestra magnitudes que el dominio produce**. Añadir una métrica nueva a la UI exige antes un cálculo en `Domain/` con su vector de AD-6 — es la regla que impide repetir las calorías sin peso corporal y los puntos sin economía que la validación de mockups encontró inventados [**AD-22**]
 
 **Given** una sesión activa
 **When** la UI muestra la cadencia
@@ -323,7 +332,7 @@ So that la sesión quede asociada a las condiciones en las que caminé, sin que 
 
 **Given** que el clima llega con condición lluviosa (código WMO de lluvia)
 **When** se guarda el snapshot
-**Then** la condición se mapea por código WMO → categoría interna `rain` (no por regex sobre strings localizados) [fuente: AR-1, ARCHITECTURE-SPINE.md AD-C1]
+**Then** la condición se mapea por código WMO → categoría interna `rain` (no por regex sobre strings localizados) [fuente: achievements.md; **AD-6** — es una de las **divergencias declaradas** frente a `domain.js`, que usa regex sobre string localizado: aquí el vector lleva el valor corregido y el JS falla a propósito]
 
 **And** las coordenadas de geolocalización se redondean a **2 decimales** antes de la llamada y el timeout de Open-Meteo es de **3 s** [fuente: AR-12, capabilities.md#CAP-5]
 
@@ -441,7 +450,9 @@ So que vaya desbloqueando reconocimientos a medida que progreso.
 
 **Given** que un logro fue desbloqueado por una sesión
 **When** esa sesión se elimina del historial (CAP-15)
-**Then** el logro **no se revoca** — permanece desbloqueado [fuente: achievements.md#3]
+**Then** el logro **no se revoca** — permanece desbloqueado, ni siquiera al borrar la sesión que lo desbloqueó (CAP-15 recalcula totales y el progreso de los **no** desbloqueados, y deja intactos los ya conseguidos) [fuente: achievements.md#3; **AD-17**]
+
+**And** la evaluación ocurre en **un único punto** —al finalizar la sesión, dentro de la misma transacción que la persiste— y nunca al abrir el historial ni al pintar el grid. `achievements.json` tiene **un solo escritor**, `AchievementsStore`; cualquier otro lo lee a través de él, nunca del disco [**AD-17**, **AD-16**]
 
 **Given** una sesión con `weather` = null (sin clima)
 **When** se evalúan los logros climáticos (`rain_walker`, `hot_walker`, `cold_walker`)
@@ -598,7 +609,7 @@ So que mi historial sobreviva a reinicios sin que yo tenga que hacer respaldos m
 **When** se guarda
 **Then** queda como registro **inmutable** en el store `sessions` (`{id, startedAt, endedAt, stepsMeasured, stepsEstimated, strideM, ...}`) [fuente: domain-model.md#101, capabilities.md#CAP-9]
 
-**And** el storage se accede por el `StoragePort`; `@capacitor/preferences` es refuerzo detrás del puerto si se necesita (decisión interna, el dominio no lo conoce) [fuente: capabilities.md#CAP-9, AR-10]
+**And** el storage se accede por el `StoragePort`. La forma concreta la fija **AD-9**: ficheros JSON `Codable` en Application Support con **escritura atómica** (temp + rename), uno por preocupación —`sessions.json`, `achievements.json`, `settings.json`, `activeSession.json`— cada uno con `schemaVersion`. **AD-16**: cada fichero tiene exactamente un tipo que lo escribe; los demás lo leen a través de su dueño, nunca del disco. `activeSession.json` se autoguarda cada 10 s y es lo que hace posible la recuperación tras force-quit; `domain-model.md §8` lo define en milisegundos y la conversión a segundos ocurre en el adapter, nunca dentro del dominio [AD-9, AD-16]
 
 **And** la sesión activa se autoguarda al cambiar de estado (inicio, pausa, reanudación) para que el force-quit siempre tenga un snapshot fresco [fuente: AR-12 (AD-8)]
 
@@ -646,11 +657,13 @@ So que tenga un respaldo voluntario de mis datos que pueda abrir en Numbers/Exce
 
 **Given** que exporto el historial en CSV
 **When** abro el archivo en Numbers o Excel
-**Then** se lee correctamente (columnas de fecha, distancia, duración, ritmo, pasos) [fuente: capabilities.md#CAP-14]
+**Then** se lee sin pelear, con el contrato exacto que fija **AD-9** — columnas en este orden `fecha;hora;duracion_s;pasos_medidos;pasos_estimados;distancia_m;ritmo_s_km;fuente`, **separador de campo `;` y decimal `,`** (la UI está en español y la coma decimal rompe el CSV separado por comas), cabecera siempre presente, UTF-8 con BOM [fuente: capabilities.md#CAP-14; **AD-9**]
+
+**And** el **JSON** de export **no tiene serializador propio**: reutiliza la serialización de `sessions.json`, para que no haya dos formas de escribir el mismo dato divergiendo en silencio. El **CSV sí es un segundo serializador**, y por eso su contrato está fijado arriba en vez de dejarse a la historia [**AD-9**]
 
 **Given** que exporté un JSON del historial
 **When** importo ese JSON de vuelta en la app
-**Then** el historial se **restaura íntegro** (prueba de respaldo/restauración) [fuente: capabilities.md#CAP-14]
+**Then** el historial se **restaura íntegro** (prueba de respaldo/restauración). El **import acepta solo JSON, nunca CSV**: el CSV es un formato de salida hacia hojas de cálculo, no un formato de entrada [fuente: capabilities.md#CAP-14; **AD-9**]
 
 **Given** que tengo datos actuales en la app e importo un JSON de respaldo
 **When** el import completa
@@ -704,7 +717,9 @@ So que mis datos estén en el ecosistema Apple sin hacer nada manual (adiós CSV
 
 **Given** que la sesión se finaliza
 **When** se intenta escribir el workout
-**Then** el write ocurre **una sola vez** al finalizar (dato inmutable completo), nunca por partes ni retries duplicados [fuente: AR-7, ARCHITECTURE-SPINE.md AD-C8]
+**Then** el write ocurre **una sola vez** al finalizar (dato inmutable completo), nunca por partes ni retries duplicados, y la petición de permiso va precedida de pre-pantalla explicativa [**AD-11**]
+
+**And** si HealthKit está denegado o la escritura falla, **la sesión se guarda local igual** y el resumen muestra "no sincronizado" — nunca un error: es la fila de HealthKit de la tabla única de degradación [**AD-11**]
 
 **Given** que la app pide permiso de Salud por primera vez
 **When** se solicita el permiso
@@ -732,7 +747,7 @@ So que sepa cuánto me falta sin abrir la app.
 
 **Given** que el recordatorio ya está programado (p. ej. de la última sesión)
 **When** se reprograma al finalizar una sesión o al abrir la app
-**Then** se hace **cancel → schedule** (idempotente: nunca hay dos recordatorios duplicados) [fuente: AR-7, ARCHITECTURE-SPINE.md AD-C8]
+**Then** se hace **cancel → schedule** (idempotente: nunca hay dos recordatorios duplicados), y el cálculo de "esta semana" usa el **`AppCalendar` único** —ISO-8601, lunes como primer día, zona horaria del dispositivo—: nadie construye su propio `Calendar` y `Calendar.current` está prohibido [**AD-19**, **AD-11**]
 
 **Given** que el recordatorio fue programado
 **When** la app está cerrada y llega el momento
@@ -745,88 +760,103 @@ So que sepa cuánto me falta sin abrir la app.
 **And** el programador pasa por el `NotificationPort` (`rescheduleWeeklyReminder` idempotente), disparado desde el `GoalEngine` al finalizar sesión y al abrir la app [fuente: AR-7, AR-10]
 
 ### Epic 7: Live Activity en pantalla de bloqueo
-Paul cierra la app y su caminata sigue viva en la pantalla de bloqueo: métricas en vivo alimentadas por eventos nativos, que se cierran al finalizar. Es la escena más poderosa del producto. **El dispositivo de Paul no tiene Dynamic Island** (confirmado por Paul, sesión party mode 2026-08-01): la isla queda como historia de mantenimiento mínimo (que compile), y la estrella del epic es el layout de pantalla de bloqueo.
+
+*(Reescrito el 2026-09-12. El epic entero estaba escrito para Capacitor: un bridge dentro de
+`walktracker-kit` alimentado desde el WebView. Nada de eso existe ya — y `walktracker-kit` lo borra
+del árbol la historia 8.5.)*
+
+Paul ve las métricas de su caminata en la pantalla de bloqueo, sin desbloquear el teléfono.
+
 **FRs covered:** FR-17
 **NFRs:** NFR-1, NFR-8
-**ARs:** AR-2, AR-5, AR-8, AR-10, AR-11
-**UX:** UX-DR4 (Live Activity layout), UX-DR5
-**Riesgo:** medio-bajo — Dynamic Island es solo "que compile" (sin hardware de Paul para validar); ActivityKit disponible en runtime (iOS 16.1+); alimentada por callbacks nativos CMPedometer, NO por WebView (AR-5). El riesgo real está en el layout compacto de pantalla de bloqueo y el ciclo de vida del Activity.
+**ADs:** AD-15 (la extensión no tiene dominio), AD-21 (presupuesto de energía), AD-11 (degradación), AD-13 (Liquid Glass)
+**UX:** UX-DR4 — **con la salvedad de abajo**
+**Riesgo:** medio-bajo. El iPhone 14 no tiene Dynamic Island: se valida el layout de pantalla de bloqueo y la isla se limita a compilar. `Activity.request`/`update`/`end` ya están escritos en la capa nativa que rescata la historia 8.6 — pero **nunca se han ejecutado en un dispositivo**.
 
-### Story 7.1: Bridge ActivityKit en `walktracker-kit` (Widget Extension)
+> ⚠️ **Encargo pendiente para UX.** `UX-DR4` documenta un layout de Live Activity diseñado como
+> tarjeta plana de iOS 17. Desde iOS 26 la Live Activity de pantalla de bloqueo **también hereda
+> Liquid Glass**. El layout hay que rehacerlo antes de implementar 7.3; implementarlo tal como está
+> documentado sería construir el mockup viejo con la bendición aparente de UX.
+
+### Story 7.1: Widget Extension y contrato de `ContentState`
 
 As a caminante (usuario único),
-I want que la app pueda crear una Live Activity nativa,
-So que mis métricas puedan mostrarse en la pantalla de bloqueo sin que la app esté en primer plano.
+I want que la app pueda publicar una Live Activity,
+So that mis métricas puedan llegar a la pantalla de bloqueo.
 
 **Acceptance Criteria:**
 
-**Given** que se construye el soporte de Live Activity
-**When** se configura el proyecto
-**Then** existe una **Widget Extension en Swift con ActivityKit** dentro de `walktracker-kit` (paquete local con podspec propio) y la app compila para iOS 16.1+ [fuente: capabilities.md#CAP-18, AR-2]
+**Given** el proyecto SwiftUI de la historia 8.5
+**When** se añade el soporte de Live Activity
+**Then** existe un target **Widget Extension** (`WalkTrackerActivity`) y un target **`Shared`** con el tipo de `ContentState`; el `Info.plist` de la app declara **`NSSupportsLiveActivities`**, sin la cual la Live Activity no arranca [AD-15]
 
-**Given** que la Live Activity está soportada en runtime
-**When** se expone el puerto
-**Then** el `LiveActivityPort` ofrece `start / updateState / stop` [fuente: AR-10]
+**Given** el contrato entre app y extensión
+**When** se define el `ContentState`
+**Then** lleva **valores ya formateados** más `startedAt`, cabe en el **presupuesto de 4 KB** de ActivityKit, y viaja por `request`/`update` — **no por App Group ni por disco** [AD-15]
 
-**Given** que la app inicia una Live Activity
-**When** el WebView pide iniciarla
-**Then** el bridge la crea con las métricas iniciales de la sesión (pasos, distancia, tiempo) [fuente: capabilities.md#CAP-18]
+**Given** la extensión
+**When** se revisa qué puede importar
+**Then** importa **solo `Shared`**: no calcula, no lee ficheros y **no importa `Domain`**. Su único cálculo permitido es animar el cronómetro con `Text(timerInterval:)`, y existe para no gastar actualizaciones en refrescar un reloj [AD-15, AD-21]
 
-**Given** que la extension falla o el SO la rechaza
-**When** se intenta crear la Live Activity
-**Then** la app funciona **completa sin ella** — degradación limpia, la sesión y el conteo siguen al 100 % [fuente: capabilities.md#CAP-18]
+**And** el `LiveActivityPort` ofrece `start / updateState / stop` y es el único camino por el que la app habla con ActivityKit [AD-10]
 
-**And** la Live Activity se alimenta por **callbacks nativos** (CMPedometer en `walktracker-kit`), NO por el WebView — el WebView solo ordena estado mayor vía el puerto [fuente: AR-5]
-
-### Story 7.2: Ciclo de vida de la Live Activity (crear, actualizar, cerrar)
+### Story 7.2: Ciclo de vida, alimentado por eventos
 
 As a caminante (usuario único),
-I want que la Live Activity siga el ciclo de vida de mi sesión,
-So que refleje el estado real de mi caminata y no quede huérfana al terminar.
+I want que la tarjeta de la pantalla de bloqueo siga mi caminata de principio a fin,
+So that no tenga que desbloquear el teléfono para saber cómo voy.
 
 **Acceptance Criteria:**
 
 **Given** que inicio una sesión
 **When** la sesión arranca
-**Then** se crea la Live Activity con las métricas iniciales [fuente: capabilities.md#CAP-18]
+**Then** `SessionStore` —único escritor— pide al `LiveActivityPort` que la cree con las métricas iniciales [CAP-18, AD-7]
 
-**Given** que la sesión está activa con el teléfono bloqueado
-**When** el coprocesador reporta nuevos pasos
-**Then** la Live Activity actualiza sus métricas en vivo (pasos, distancia, tiempo) vía callbacks nativos — sin depender del WebView [fuente: capabilities.md#CAP-18, AR-5]
+**Given** una sesión activa con el teléfono bloqueado
+**When** cambian las métricas
+**Then** la Live Activity se actualiza **por evento** —cambio de kilómetro, pausa, reanudación, fin— y **nunca de forma periódica**; el reloj lo anima la extensión, con coste cero de actualizaciones [AD-21]
 
 **Given** que pauso la sesión
 **When** la pausa se registra
-**Then** la Live Activity muestra un **estado visible de pausa** (no se cierra, solo cambia su estado) [fuente: capabilities.md#CAP-18]
+**Then** la tarjeta muestra un estado visible de pausa: no se cierra, cambia de estado [CAP-18]
 
 **Given** que finalizo la sesión
 **When** la sesión se cierra
-**Then** la Live Activity **se cierra** [fuente: capabilities.md#CAP-18]
+**Then** la Live Activity se cierra [CAP-18]
 
-**Given** que la app está en foreground y la sesión activa
-**When** se compara la UI con la Live Activity
-**Then** ambas muestran el mismo contenido (pasos, distancia, tiempo) — mismo contenido que la pantalla Sesión, en formato glanceable [fuente: capabilities.md#CAP-18]
+**Given** que la extensión falla, el sistema la rechaza o el usuario tiene las Live Activities desactivadas
+**When** se intenta crear
+**Then** **se omite y no es un fallo de sesión**: el conteo y la sesión siguen al 100 % — es la fila "Live Activity no disponible" de la tabla de degradación [AD-11]
 
-### Story 7.3: Layout de pantalla de bloqueo + Dynamic Island compilando
+**And** app y tarjeta muestran **el mismo número** porque hay **una sola fuente**: el `ContentState` que publica `SessionStore`. La extensión no recalcula nada [AD-15, AD-22]
+
+### Story 7.3: Layout de pantalla de bloqueo (y la isla, que solo compila)
 
 As a caminante (usuario único),
-I want que la Live Activity se vea clara y glanceable en la pantalla de bloqueo,
-So que pueda leer mis métricas de un vistazo sin desbloquear el teléfono.
+I want que la tarjeta se lea de un vistazo,
+So that mirar el teléfono un segundo me baste.
 
 **Acceptance Criteria:**
 
-**Given** que hay una Live Activity activa en pantalla de bloqueo
-**When** se renderiza el layout
-**Then** muestra pasos, distancia y tiempo en formato **glanceable** (mismo contenido que la pantalla Sesión, legible de un vistazo) [fuente: capabilities.md#CAP-18]
+> **Bloqueada hasta que UX entregue el layout con Liquid Glass** (ver el encargo en la cabecera del epic).
 
-**Given** que el iPhone de Paul no tiene Dynamic Island
-**When** se compila el layout de la isla
-**Then** la Dynamic Island compila correctamente pero no se muestra en hardware sin isla — el lock screen funciona igual [fuente: capabilities.md#CAP-18]
-
-**Given** que el layout de la Live Activity usa tipografía de métrica
+**Given** una Live Activity activa en pantalla de bloqueo
 **When** se renderiza
-**Then** usa los estilos de texto del sistema en tamaño compacto, dentro del presupuesto de 4 KB del `ContentState`, y **solo renderiza**: el cronómetro lo anima con `Text(timerInterval:)`, único cálculo permitido a la extensión [fuente: UX-DR4; AD-15, AD-21]
+**Then** muestra pasos, distancia y tiempo en formato glanceable, legible de un vistazo y sin desbloquear [CAP-18]
 
-**And** el layout sigue UX-DR4 (Live Activity layout) y mantiene la isla como mantenimiento mínimo "que compile" — sin validación en hardware real (Paul no la tiene) [fuente: epics.md#Epic 7]
+**Given** que se compila contra el SDK de iOS 26
+**When** se construye el layout
+**Then** usa controles y estilos de texto del sistema y **hereda Liquid Glass**; no se dibujan materiales ni cristales a mano [AD-13]
+
+**Given** que el iPhone 14 no tiene Dynamic Island
+**When** se compila el layout de la isla
+**Then** **compila y ahí acaba el criterio**: no hay hardware para validarla y no se invierte más esfuerzo en ella. El layout de pantalla de bloqueo sí se valida en dispositivo [CAP-18]
+
+**Given** el contenido de la tarjeta
+**When** se decide qué se muestra
+**Then** solo magnitudes que el dominio produce; una métrica ausente se representa como tal, nunca como `0` [AD-22]
+
+**And** accesibilidad: etiquetas explícitas que digan la magnitud completa ("3,2 kilómetros"), y los pasos estimados anunciados **como estimados** [UX-DR6 traducido, AD-6]
 
 ### Epic 8: Fundaciones del sustrato SwiftUI
 
