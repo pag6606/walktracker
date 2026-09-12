@@ -57,28 +57,42 @@ This document provides the complete epic and story breakdown for WalkTracker iOS
 ### Additional Requirements
 
 - **AR-1 (AD-C1)**: Capacitor como capa nativa; web app v3 empaquetada intacta en bundle local; código web solo toca Capacitor en adapters `Capacitor*` y composition root. Excepción deliberada: `domain.js` admite 2 correcciones de portación — logros temporales en hora local del dispositivo (no UTC) y mapeo de condición climática por código WMO → categoría interna `rain` (no regex sobre strings localizados).
+  - > ⛔ **DEROGADO el 2026-09-12** → heredero: **AD-1, AD-3**. Capacitor y la web app intacta desaparecen. Las dos "correcciones de portación" que autorizaba (hora local, mapeo WMO) se promueven a divergencias obligatorias en AD-6 y AD-19. [`DEROGACIONES.md §5`]
 - **AR-2 (AD-C2)**: Un solo plugin custom `walktracker-kit` (paquete local `./walktracker-kit`, podspec propio, referencia `file:` en package.json) envuelve CMPedometer (live + query), HKWorkout y bridge ActivityKit. Adapters JS `CapacitorMotionAdapter`, `CapacitorHealthKitAdapter`, `CapacitorLiveActivityAdapter` hablan solo con él. Keep-awake y local-notifications en plugins comunitarios verificados (MIT).
+  - > ⛔ **DEROGADO el 2026-09-12** → heredero: **AD-10, AD-23**. No hay plugin `walktracker-kit`: cada capacidad de sistema se consume por su puerto desde un adapter. [`DEROGACIONES.md §5`]
 - **AR-3 (AD-C4)**: Reconstrucción background por `queryPedometerData` como camino primario; `GapEstimator` solo si query falla/vacía (reglas heredadas: muestra ≥120 s, desglosado, "~", descartable); en web el GapEstimator sigue siendo el camino principal.
 - **AR-4 (AD-C5)**: Distribución = builds locales Xcode (`pnpm cap run ios`) para iterar + TestFlight como canal duradero. Gate de promoción = prueba de performance del Success signal (60 min background, ≤10 % vs Salud, sin degradación batería). App Store fuera de scope. PWA se despliega por GitFlow a Pages.
+  - > ⛔ **PARCIAL el 2026-09-12** → heredero: **Story 8.3**. TestFlight sobrevive; el mecanismo `pnpm cap run ios` no. [`DEROGACIONES.md §5`]
 - **AR-5 (AD-C6)**: Live Activity alimentada por eventos nativos (callbacks CMPedometer en `walktracker-kit`), NO por WebView; el WebView solo ordena estado mayor (inicio/pausa/fin) vía `LiveActivityPort`.
+  - > ⛔ **DEROGADO el 2026-09-12** → heredero: **AD-15**. No hay WebView que ordene el estado: la app alimenta la Live Activity directamente. [`DEROGACIONES.md §5`]
 - **AR-6 (AD-C7)**: Bundle local únicamente; prohibido `server.url` en producción; actualizaciones vía build/TestFlight; única red = Open-Meteo.
+  - > ⛔ **DEROGADO el 2026-09-12** → heredero: **—**. Sin WebView no hay `server.url` ni bundle local que gobernar. [`DEROGACIONES.md §5`]
 - **AR-7 (AD-C8)**: HealthKit write una vez al finalizar (dato inmutable completo); toda petición de permiso con pre-pantalla; recordatorios de meta idempotentes (cancel→schedule) desde GoalEngine al finalizar sesión y al abrir la app.
 - **AR-8 (Stack verificado)**: @capacitor/core/cli/ios 8.4.2, @capacitor/local-notifications 8.2.1, @capacitor-community/keep-awake 8.0.1, @capacitor/preferences 8.0.1 (todos MIT); iOS deployment target 16.1; Xcode 26+; Node ≥22; gestión con pnpm.
+  - > ⛔ **DEROGADO el 2026-09-12** → heredero: **AD-2 + Stack**. Stack Capacitor y target 16.1 sustituidos por Swift 6.3.3 / Xcode 26.6 / iOS 26.0. [`DEROGACIONES.md §5`]
 - **AR-9 (Structural Seed)**: Repo único GitFlow; `walktracker-kit/` plugin local con podspec; `ios/` proyecto Xcode commiteado; `capacitor.config.json` sin `server.url`, `webDir` local; adapters nuevos `Capacitor*Adapter` en la capa web.
+  - > ⛔ **DEROGADO el 2026-09-12** → heredero: **AD-23**. El seed estructural es el árbol SwiftUI, no el repo Capacitor. [`DEROGACIONES.md §5`]
 - **AR-10 (Port contracts)**: MotionPort nativo (`onSteps(cumulativeCount, distanceM?)`, `query→{steps,distanceM}|null`) y web (`onSample` @60 Hz); HealthKitPort (`writeWorkout` una vez); LiveActivityPort (`start/updateState/stop`); NotificationPort (`rescheduleWeeklyReminder` idempotente); KeepAwakePort (`acquire/release` en foreground).
+  - > ⛔ **DEROGADO el 2026-09-12** → heredero: **AD-10**. Los contratos de puerto se redefinen: 11 puertos, entre ellos LocationPort, WakeLockPort y RandomPort que AR-10 no tenía. [`DEROGACIONES.md §5`]
 - **AR-11 (Entornos)**: dev = builds locales Xcode en iPhone físico (simulator sin acelerómetro real) + `http://localhost`; prod = TestFlight (app principal) + GitHub Pages (PWA secundaria); sin backend, sin CI de servidor.
+  - > ⛔ **PARCIAL el 2026-09-12** → heredero: **envoltura operativa del spine**. Dev en dispositivo físico sobrevive; el canal PWA a GitHub Pages no. [`DEROGACIONES.md §5`]
 - **AR-12 (Inherited v3)**: AD-1 hexagonal, AD-4 Session aggregate (stepsMeasured/Estimated, strideM), AD-5 strideM congelada, AD-6 wall-clock, AD-7 validación frontera, AD-8 autosave+recuperación silenciosa, AD-14 Open-Meteo timeout 3s, AD-17 geolocation 2dp, AD-18 quotes.json — todos vigentes, read-only.
 - **AR-13 (Deferred)**: protocolo de performance a nivel epic/story; canal háptico (CoreHaptics en walktracker-kit vs web) se resuelve como adapter tras puerto; contenido/formato de Live Activity a nivel story; sync PWA↔app fuera (arranque limpio); calibración interactiva futura; cache-busting SW PWA heredado.
 
 ### UX Design Requirements
 
 - **UX-DR1**: Design tokens Volt — canvas `#1A1A1A`/`#F5F5F7`, surface `#2A2A2A`/`#FFFFFF`, accent `#CCFF00`/`#CC9900`, secondary `#FF6600`, danger `#FF453A`, success `#30D158`, estimated `#FFB347`/`#CC7A00`, text `#FFFFFF`/`#1D1D1F`, muted `#999999`/`#666666`, border `#555555`/`#8E8E93`; dark-mode-first con light igual; sin gradientes (solo overlay), máx 2 colores cromáticos por pantalla.
+  - > ⛔ **DEROGADO el 2026-09-12** → heredero: **AD-13**. Los tokens Volt (`#CCFF00`, `#1A1A1A`…) se sustituyen por colores del sistema y Liquid Glass heredado del SDK de iOS 26. Cablear hexadecimales pelea con la plataforma. [`DEROGACIONES.md §4`]
 - **UX-DR2**: Tipografía system-fonts (`-apple-system`); tokens: `metric-hero` 64px (48px mobile) 900, `metric-sub` 16px 700, `label` 11px 400, `body` 15px 400, `button-primary` 24px 900, `button-secondary` 14px 600, `header-title` 17px 700, `status-badge` 12px 600, `quote-hero` 28px (22px mobile) 700, `ring-value` 36px 900, `ring-label` 14px 600; Dynamic Type obligatorio con `clamp()` (hero ≤80px, quote ≤36px a 200%).
+  - > ⛔ **PARCIAL el 2026-09-12** → heredero: **AD-13 + convención de accesibilidad**. `px`, `clamp()` y los tamaños fijos son conceptos de CSS y **no aplican**: en SwiftUI se usan estilos de texto del sistema y Dynamic Type. Lo que sobrevive es la intención — jerarquía con números grandes y escalado accesible sin recortes. [`DEROGACIONES.md §4`]
 - **UX-DR3**: Espaciado/Layout — escala 4/8/12/16/24/32 px; márgenes 16 px; card padding 20 px; goal ring 300 px diámetro centrado; touch targets ≥44 pt; safe areas `env(safe-area-inset-bottom)`; single-column siempre; modal máx 1 nivel.
 - **UX-DR4**: Componentes visuales (DESIGN.md) — Goal Ring, Metric Card, Weather Card, Session Controls (Pausar/Reanudar/Finalizar, 44 px min, danger/success), Estimated Steps Banner, Wake Lock Banner, Recovery Indicator, Motivational Overlay, Achievement Badge, Celebration Toast, Summary Screen, History Row (delete 44×44 pt + confirm), Settings Field, Motion Denied Screen, Status Badge, Toggle Switch (hit 48×44 px).
 - **UX-DR5**: Arquitectura de información — 9 superficies (Home, Session, Motivational Overlay, Summary, Settings, History, Achievements, Motion Denied); navegación iconos top-right (⚙📋🏆) sin tab bar; screen replacements no modales; overlay transitorio; estados: cold open, active, paused, background→foreground (wall-clock + estimated banner), finished (Summary forward-only), goal completed, achievement unlocked, wake lock failed, no network, motion denied, empty history/achievements, backup overdue, recovery from purge.
+  - > ⛔ **PARCIAL el 2026-09-12** → heredero: **AD-14**. La navegación con **iconos arriba a la derecha y sin tab bar** queda derogada: `TabView` de cuatro pestañas con la sesión como `fullScreenCover`. Lo que sobrevive es el inventario de superficies y la lista de estados (cold open, motion denied, empty history, recuperación…), que sigue siendo vinculante. [`DEROGACIONES.md §4`]
 - **UX-DR6**: Accesibilidad WCAG AA — VoiceOver completo (distance "3.2 kilómetros", steps con estimated, aria-labels en nav icons, overlay `role=dialog aria-modal`, toast `role=status aria-live=polite`, achievement locked aria-label); Dynamic Type con clamp; Reduce Motion (overlay sin fade, toast sin animación, ring instant); contraste verificado (accent-dark 15.4:1, estimated 7.2:1/4.6:1, muted 4.9:1/5.0:1); focus ring accent 2px; Escape dismiss; Tab order visual.
+  - > ⚠️ **TRADUCIDO el 2026-09-12** → la *intención* sigue vinculante (WCAG AA, VoiceOver completo, Dynamic Type sin recortes, Reduce Motion, contraste verificado), pero **sus mecanismos son de la web y no aplican**: `aria-label` → `.accessibilityLabel`, `role=dialog aria-modal` → presentación modal nativa, `role=status aria-live` → `.accessibilityAddTraits(.updatesFrequently)`, `focus ring`/`Tab order`/`Escape` → foco y descarte del sistema, `clamp()` → Dynamic Type. Los ratios de contraste se recalculan contra colores del sistema, no contra los tokens Volt de UX-DR1, que está derogado. Las tres piezas dibujadas de AD-13 necesitan etiqueta explícita: un `Canvas` no la trae. [`DEROGACIONES.md §4`]
 - **UX-DR7**: Interacciones — tap-to-act (sin long-press/swipe); "Iniciar caminata" primary grande; beep feedback primario (inicio, km, meta, logro) volumen respetuoso; goal ring anchor 300 px; prohibidos: carousels, hero animations, badge counts, streaks, pull-to-refresh, swipe-to-delete; nuevos: overlay tap-skip, estimated banner dismissable, celebration toast non-blocking.
+  - > ⛔ **PARCIAL el 2026-09-12** → heredero: **AD-20**. La **prohibición de swipe-to-delete queda derogada**: en iOS el swipe *es* el gesto de borrado y el icono en la fila es el antipatrón (B-11 de la validación). Sobrevive todo lo demás: tap-to-act, beep primario a volumen respetuoso, y las prohibiciones de carousels, hero animations, badge counts y pull-to-refresh. [`DEROGACIONES.md §4`]
 - **UX-DR8**: Flujos clave — 6 flows documentados (walk+progreso, meta cumplida, tendencia historial, logros, recalibración, motion denied).
 
 ### FR Coverage Map
@@ -158,7 +172,7 @@ So that el conteo funcione con pantalla bloqueada, en el bolsillo y con música 
 
 **Given** que el usuario denegó el permiso de movimiento
 **When** intento iniciar una sesión
-**Then** se muestra la pantalla Motion Denied con explicación y la app no inicia su núcleo de conteo [fuente: SPEC.md#CAP-2, UX-DR5]
+**Then** se muestra la pantalla Motion Denied con explicación y acceso a Ajustes, y la app no inicia su núcleo de conteo — es la única degradación **bloqueante** de la tabla [fuente: SPEC.md#CAP-2; AD-11, UX-DR5 (inventario de superficies, vigente)]
 
 **And** el flujo de pasos entra al dominio por el puerto `MotionPort` (`onSteps(cumulativeCount, distanceM?)`), con un adapter `CapacitorMotionAdapter` que es el único punto que conoce `walktracker-kit`/CMPedometer [fuente: ARCHITECTURE-SPINE.md AR-2, AR-10]
 
@@ -174,7 +188,7 @@ So that pueda entender cómo va mi caminata sin esperar a terminarla.
 
 **Given** una sesión activa con datos del coprocesador fluyendo
 **When** la UI se refresca
-**Then** muestra pasos, distancia, tiempo (wall-clock), ritmo (min/km) y cadencia (spm) en vivo, con los tokens tipográficos de métrica de UX-DR2 (hero 64px, sub 16px) [fuente: capabilities.md#CAP-4, UX-DR2]
+**Then** muestra pasos, distancia, tiempo (wall-clock), ritmo (min/km) y cadencia (spm) en vivo, con la métrica principal en jerarquía dominante mediante estilos de texto del sistema y Dynamic Type — **sin tamaños fijos en px** [fuente: capabilities.md#CAP-4; AD-13, deroga los tokens en px de UX-DR2]
 
 **Given** una sesión activa y el sistema provee distancia (CMPedometer)
 **When** la UI muestra la distancia
@@ -339,7 +353,7 @@ So that tenga un empujón mental antes de salir.
 **When** el usuario hace tap sobre él
 **Then** el overlay se descarta antes de los 4 s y la sesión ya está corriendo [fuente: capabilities.md#CAP-6]
 
-**And** el overlay usa la tipografía `quote-hero` (28px, 22px en mobile, clamp ≤36px a 200% Dynamic Type) y es accesible: `role=dialog aria-modal`, focus ring accent 2px, Escape lo descarta, Reduce Motion sin fade [fuente: UX-DR2, UX-DR6]
+**And** el overlay se presenta como hoja modal nativa con la frase en jerarquía dominante y Dynamic Type sin recortes; accesible por VoiceOver como contenido modal, descartable con un tap, y respetando Reduce Motion. **Los conceptos `role=dialog`, `aria-modal`, `focus ring` y `clamp()` son de la web y no aplican** [fuente: UX-DR6; AD-13, deroga los tokens en px de UX-DR2]
 
 **And** el `quoteId` mostrado se guarda en la sesión y se registra en `recentQuoteIds` [fuente: domain-model.md#27]
 
@@ -403,7 +417,7 @@ So que sepa cómo voy hacia mi objetivo cada semana.
 
 **And** el GoalEngine evalúa el logro `weekly_goal` al cumplirse la meta (no en el loop de cierre de sesión) [fuente: achievements.md#11]
 
-**And** el anillo sigue UX-DR4 (Goal Ring, 300 px de diámetro, centrado) con los tokens `ring-value` 36px/900 y `ring-label` 14px/600 de UX-DR2 [fuente: UX-DR2, UX-DR4]
+**And** el anillo es una de las **tres únicas piezas dibujadas a mano** que AD-13 autoriza (junto al gráfico de tendencia y la insignia): centrado, dominante en la pantalla, con su etiqueta accesible explícita — un `Canvas` no la trae. Sin diámetro ni tamaños fijos en px [fuente: UX-DR4; AD-13]
 
 ### Story 3.2: Evaluación de logros al cierre de sesión (AchievementEngine)
 
@@ -666,7 +680,7 @@ So que pueda depurar registros que no quiero conservar.
 
 **Given** que quiero eliminar una sesión
 **When** intento deslizar la fila (swipe)
-**Then** no funciona: la eliminación es solo por tap en el botón con confirmación (swipe-to-delete prohibido por UX-DR7) [fuente: UX-DR7]
+**Then** se revela la acción destructiva nativa de iOS y borra tras confirmación explícita — el **swipe ES el gesto**, y el icono de papelera embebido en la fila queda prohibido (era el antipatrón B-11 de la validación de mockups). El objetivo táctil mide ≥ 44 pt, verificable [AD-20; deroga la prohibición de swipe de UX-DR7]
 
 ### Epic 6: Lo que Apple recibe — Salud y recordatorios
 Al finalizar una sesión, Paul sabe que su caminata queda escrita en Apple Salud como workout de caminata (distancia y pasos) y que su recordatorio semanal de meta está reprogramado — dos writes deterministas, idempotentes, sin pantalla nueva, que integran el producto con el ecosistema Apple.
@@ -810,7 +824,7 @@ So que pueda leer mis métricas de un vistazo sin desbloquear el teléfono.
 
 **Given** que el layout de la Live Activity usa tipografía de métrica
 **When** se renderiza
-**Then** usa tokens coherentes con UX-DR2 en tamaño compacto (sin dynamic type obligatorio — es una extensión del sistema con sus propias restricciones) [fuente: UX-DR2, UX-DR4]
+**Then** usa los estilos de texto del sistema en tamaño compacto, dentro del presupuesto de 4 KB del `ContentState`, y **solo renderiza**: el cronómetro lo anima con `Text(timerInterval:)`, único cálculo permitido a la extensión [fuente: UX-DR4; AD-15, AD-21]
 
 **And** el layout sigue UX-DR4 (Live Activity layout) y mantiene la isla como mantenimiento mínimo "que compile" — sin validación en hardware real (Paul no la tiene) [fuente: epics.md#Epic 7]
 
@@ -829,18 +843,22 @@ producción. Sin esto, cada epic posterior improvisa su propia versión de la ve
 **ADs:** AD-1, AD-2, AD-3, AD-4, AD-5, AD-6, AD-12, AD-23, AD-24
 **Deroga:** AR-1, AR-2, AR-6, AR-8, AR-9 (ver `DEROGACIONES.md §5`)
 
-#### Historias anuladas
-
-| ID | Título | Por qué |
-|---|---|---|
-| ~~8.1~~ | Montaje Capacitor — web v3 en WebView + plugin scaffold | **VOID.** Figuraba como `done` sobre un sustrato derogado por AD-1 |
-| ~~8.2~~ | Build local en dispositivo + keep-awake | **VOID.** Su mecanismo (`cap run ios`) desaparece. El wake lock sobrevive como `WakeLockPort` (AD-10) dentro de Epic 1 |
-
-Los IDs 8.1 y 8.2 **no se reutilizan**. Los ficheros de historia se conservan con banner de anulación.
-
 #### Orden de ejecución
 
 `8.5 → 8.6 → 8.7 → 8.3 → 8.4`. Los números ya no son el orden: es el precio de no reciclar IDs.
+#### Historias anuladas — fuera del tracking
+
+| ID | Título | Por qué |
+|---|---|---|
+| ~~8.1~~ | Montaje Capacitor — web v3 en WebView + plugin scaffold | Figuraba como `done` sobre un sustrato que **AD-1 derogó**. El trabajo equivalente vive en 8.5, 8.6 y 8.7 |
+| ~~8.2~~ | Build local en dispositivo + keep-awake | Su mecanismo (`pnpm cap run ios`) desaparece con Capacitor. El wake lock sobrevive como `WakeLockPort` (AD-10) en Epic 1; el build local a dispositivo es la envoltura operativa del spine |
+
+**Los IDs 8.1 y 8.2 no se reutilizan.** No aparecen en `sprint-status.yaml`: el vocabulario del
+generador es `backlog · ready-for-dev · in-progress · review · done` y ninguno significa "anulada",
+así que el tracking sigue la regla de listar solo trabajo vivo. El registro de la anulación vive
+aquí y en los propios ficheros de historia, que se conservan con banner. [`DEROGACIONES.md §1`]
+
+
 
 ### Story 8.5: Proyecto SwiftUI y limpieza del árbol
 
@@ -919,3 +937,58 @@ So that "idiomático" no sea una coartada para cambiar comportamiento sin que na
 **Given** `Resources/achievements.json`
 **When** arranca la app
 **Then** valida 14 entradas, claves únicas, todas las de `achievements.md` y `metric` dentro del enum cerrado; **falla ruidosamente** si no cuadra, nunca degrada [AD-5]
+
+### Story 8.3: Distribución TestFlight con versionado SemVer
+
+As a desarrollador del producto (Paul),
+I want instalar la app de forma duradera en mi iPhone vía TestFlight,
+So that tenga la app instalada sin depender de cables ni de builds locales.
+
+**Acceptance Criteria:**
+
+**Given** la cuenta Apple Developer activa y el proyecto SwiftUI de la historia 8.5
+**When** se configura TestFlight
+**Then** la app se sube como build y queda instalable en el iPhone 14 de Paul, con bundle id `com.walktracker.app` [AD-1]
+
+**Given** que se sube un build
+**When** se etiqueta el release
+**Then** sigue versionado SemVer
+
+**Given** que el toolchain está congelado durante el ciclo
+**When** se genera el build
+**Then** se compila con **Xcode 26.6 / Swift 6.3.3** contra el SDK de iOS 26, y el destino corre iOS 26 — no se sube a Xcode 27 mientras dure el desarrollo [AD-2, SPEC OQ-5]
+
+**And** App Store está **fuera de scope**: TestFlight o build local es suficiente, no es requisito de éxito [SPEC Non-goals]
+
+**And** *(derogado)* la PWA ya no se despliega como canal secundario: con el sustrato nativo no hay doble canal que mantener [DEROGACIONES.md §5, AR-11]
+
+### Story 8.4: Gate del Success signal — batería y precisión en dispositivo físico
+
+As a desarrollador del producto (Paul),
+I want validar en mi iPhone que una caminata completa de 60 minutos se registra con precisión y sin castigar la batería,
+So that el criterio de éxito del SPEC quede demostrado en hardware y no en un documento.
+
+*(Esta historia cambia de significado con el pivot. Ya no valida "si el WebView aguanta" — ese riesgo
+desaparece con el sustrato nativo. Ahora valida NFR-8 y la precisión de CAP-2/CAP-3.)*
+
+**Acceptance Criteria:**
+
+**Given** la app nativa instalada en el iPhone 14
+**When** Paul sale a caminar 60 min con el teléfono en el bolsillo, auriculares con música y pantalla bloqueada
+**Then** al terminar, los pasos y la distancia difieren **≤ 10 %** de los que reporta Apple Salud [SPEC Success signal, CAP-2]
+
+**Given** la misma caminata
+**When** se evalúa el consumo
+**Then** no hay degradación notoria de batería con conteo continuo en background [NFR-8, AD-21]
+
+**Given** la caminata con pantalla bloqueada
+**When** Paul no toca la pantalla en ningún momento
+**Then** la sesión queda registrada completa, y **`stepsEstimated` es 0**: los intervalos en background se reconstruyeron por consulta al sistema, no por estimación [CAP-3, AD-8]
+
+**Given** las tres cadencias de refresco que fija AD-21 (conteo continuo, UI a 1 Hz, Live Activity por evento)
+**When** se mide la sesión
+**Then** el resultado se registra como la medición de referencia con la que se fijan el timeout de reconciliación y el umbral de sesión huérfana, hoy diferidos a `formulas.json` [AD-8, AD-18]
+
+**Given** el resultado del gate
+**When** la prueba falla algún criterio
+**Then** se revisa antes de seguir construyendo — el riesgo se paga aquí, no después
