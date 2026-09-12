@@ -76,6 +76,13 @@
       "y": 1948,
       "w": 1180,
       "h": 820
+    },
+    {
+      "file": "HistorialVacio.dc.html",
+      "x": 2350,
+      "y": 974,
+      "w": 390,
+      "h": 844
     }
   ],
   "annotations": [
@@ -84,7 +91,7 @@
       "x": 0,
       "y": -104,
       "w": 420,
-      "text": "FLUJO PRINCIPAL\nInicio → sesión → resumen. La sesión es un fullScreenCover, no una quinta pestaña (AD-14): por eso estas tres pantallas no llevan tab bar."
+      "text": "FLUJO PRINCIPAL\nInicio → sesión → resumen. La sesión es un fullScreenCover, no una quinta pestaña (AD-14): por eso las cuatro pantallas de sesión y resumen no llevan tab bar."
     },
     {
       "id": "n-chrome",
@@ -98,14 +105,14 @@
       "x": 0,
       "y": 870,
       "w": 420,
-      "text": "NAVEGACIÓN Y ESTADOS\nLas cuatro pestañas más las dos degradaciones que la v3 no tenía dibujadas: el overlay motivacional y el permiso de movimiento denegado."
+      "text": "NAVEGACIÓN Y ESTADOS\nLas cuatro pestañas más las tres degradaciones que la v3 no tenía dibujadas: el overlay motivacional, el permiso de movimiento denegado y el historial vacío."
     },
     {
       "id": "n-datos",
       "x": 940,
       "y": 870,
       "w": 460,
-      "text": "TODOS LOS NÚMEROS CUADRAN.\nUna sola sesión maestra: 4.100 medidos + 236 estimados × 0,75 m = 3,25 km en 42:18 → ritmo 13:00 /km, cadencia 102 spm sobre los 40 min medidos. Semana ISO 5,21 de 10 = 52 %. Mes 12,07 km en 5 caminatas, ritmo medio 12:53. La v3 falló esto en las siete pantallas."
+      "text": "TODOS LOS NÚMEROS CUADRAN, Y LAS FECHAS TAMBIÉN.\nUna sola sesión maestra: 4.100 medidos + 236 estimados × 0,75 m = 3,25 km en 42:18 → ritmo 13:00 /km, cadencia 102,5 spm sobre los 40 min medidos. Semana ISO 37 (lun 7 – dom 13) = 5,21 de 10 = 52 %. Las barras de tendencia se derivan del historial: S-1 (31 ago–6 sep) 6,86 + esta 5,21 = 12,07, exactamente el total de septiembre. Y los días de la semana son los de 2026, no los de 2025."
     },
     {
       "id": "n-piezas",
