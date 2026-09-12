@@ -1,5 +1,6 @@
 .DS_Store
 node_modules/
+www/          # copia que genera Capacitor desde la raíz
 _opencode_scratch/
 *.log
 coverage/
@@ -7,3 +8,18 @@ test-results/
 playwright-report/
 playwright/.cache/
 *.lcov
+
+# Flutter / Dart (sustrato preservado en feature/flutter-substrate)
+.dart_tool/
+.flutter-plugins-dependencies
+*.iml
+
+# Build artifacts
+build/
+ios/DerivedData/
+ios/App/Pods/
+ios/App/build/
+**/xcuserdata/
+
+# IDE
+.idea/
