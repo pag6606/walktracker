@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --green: #34C759;
+  --orange: #FF9500;
+  --blue: #007AFF;
+  --red: #FF3B30;
+  --gray: #8E8E93;
+  --gray2: #AEAEB2;
+  --gray5: #E5E5EA;
+  --gray6: #F2F2F7;
+  --bg: #F2F2F7;
+  --card: #FFFFFF;
+  --card2: #F2F2F7;
+  --bg-dark: #000000;
+  --card-dark: #1C1C1E;
+}
+body.dark {
+  --bg: var(--bg-dark);
+  --card: var(--card-dark);
+  --card2: #2C2C2E;
+  --gray: #8E8E93;
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', Helvetica, sans-serif;
+  background: var(--bg);
+  color: #000;
+  width: 291px;
+  height: 608px;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+body.dark { color: #fff; }
+.safe-top { height: 59px; background: var(--bg); }
+.safe-bottom { height: 34px; }
+
+.nav-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 16px 8px;
+  background: var(--bg);
+}
+.nav-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: #000;
+}
+body.dark .nav-title { color: #fff; }
+
+/* Segmented control */
+.segment {
+  display: flex;
+  background: var(--card2);
+  border-radius: 8px;
+  padding: 2px;
+  margin: 8px 16px 12px;
+}
+.seg-btn {
+  flex: 1;
+  padding: 6px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gray);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.seg-btn.active {
+  background: var(--card);
+  color: #000;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+body.dark .seg-btn.active {
+  color: #fff;
+}
+body.dark .seg-btn.active { background: var(--card-dark); box-shadow: 0 1px 3px rgba(0,0,0,0.4); }
+
+/* Month header */
+.month-header {
+  padding: 12px 16px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Session list */
+.list-content {
+  position: absolute;
+  top: 130px; left: 0; right: 0; bottom: 83px;
+  overflow-y: auto;
+}
+.list-content::-webkit-scrollbar { display: none; }
+
+.session-card {
+  display: flex;
+  align-items: center;
+  background: var(--card);
+  margin: 0 16px 8px;
+  border-radius: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+body.dark .session-card { background: var(--card-dark); box-shadow: none; }
+.session-card:active { opacity: 0.7; }
+
+.session-icon {
+  width: 44px; height: 44px;
+  background: rgba(52,199,89,0.12);
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+.session-info { flex: 1; min-width: 0; }
+.session-date {
+  font-size: 15px;
+  font-weight: 600;
+  color: #000;
+  margin-bottom: 2px;
+}
+body.dark .session-date { color: #fff; }
+.session-stats {
+  font-size: 13px;
+  color: var(--gray);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.session-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  margin-left: 10px;
+}
+.session-km {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--green);
+}
+.session-time {
+  font-size: 12px;
+  color: var(--gray);
+}
+.delete-btn {
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  margin-left: 4px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  padding: 0;
+}
+.delete-btn svg { width: 18px; height: 18px; }
+.delete-btn:active { background: rgba(255,59,48,0.1); }
+
+/* Summary strip */
+.summary-strip {
+  background: var(--card);
+  margin: 0 16px 12px;
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  justify-content: space-around;
+}
+body.dark .summary-strip { background: var(--card-dark); }
+.summary-item { text-align: center; }
+.summary-val {
+  font-size: 20px;
+  font-weight: 700;
+  color: #000;
+}
+body.dark .summary-val { color: #fff; }
+.summary-lbl {
+  font-size: 11px;
+  color: var(--gray);
+  margin-top: 2px;
+}
+
+/* Tab bar */
+.tab-bar {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 49px;
+  background: rgba(242,242,247,0.94);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding-bottom: env(safe-area-inset-bottom);
+  border-top: 0.5px solid rgba(0,0,0,0.1);
+}
+body.dark .tab-bar { background: rgba(29,29,29,0.94); border-top: 0.5px solid rgba(255,255,255,0.1); }
+.tab-item { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 8px; }
+.tab-label { font-size: 10px; color: var(--gray); }
+.tab-item.active .tab-label { color: var(--green); }
+</style>
+</head>
+<body class="dark">
+
+<div class="safe-top"></div>
+
+<div class="nav-bar">
+  <span class="nav-title">Historial</span>
+</div>
+
+<div class="segment">
+  <div class="seg-btn">Semana</div>
+  <div class="seg-btn active">Mes</div>
+  <div class="seg-btn">Año</div>
+</div>
+
+<!-- Summary -->
+<div class="summary-strip">
+  <div class="summary-item">
+    <div class="summary-val">48.3</div>
+    <div class="summary-lbl">km total</div>
+  </div>
+  <div class="summary-item">
+    <div class="summary-val">12</div>
+    <div class="summary-lbl">caminatas</div>
+  </div>
+  <div class="summary-item">
+    <div class="summary-val">5:24</div>
+    <div class="summary-lbl">h totales</div>
+  </div>
+  <div class="summary-item">
+    <div class="summary-val">14:12</div>
+    <div class="summary-lbl">ritmo medio</div>
+  </div>
+</div>
+
+<div class="list-content">
+  <div class="month-header">Septiembre 2026</div>
+
+  <div class="session-card">
+    <div class="session-icon">🏃</div>
+    <div class="session-info">
+      <div class="session-date">Hoy, 11 sep · 14:32</div>
+      <div class="session-stats">5,234 pasos · 42 min · 13:42 / km</div>
+    </div>
+    <div class="session-right">
+      <div class="session-km">3.24</div>
+      <div class="session-time">km</div>
+    </div>
+    <div class="delete-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="3 6 5 6 21 6"/>
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="session-card">
+    <div class="session-icon">🏃</div>
+    <div class="session-info">
+      <div class="session-date">Ayer, 10 sep · 08:15</div>
+      <div class="session-stats">7,891 pasos · 58 min · 12:18 / km</div>
+    </div>
+    <div class="session-right">
+      <div class="session-km">4.76</div>
+      <div class="session-time">km</div>
+    </div>
+    <div class="delete-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="3 6 5 6 21 6"/>
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="session-card">
+    <div class="session-icon">🏃</div>
+    <div class="session-info">
+      <div class="session-date">8 sep · 19:45</div>
+      <div class="session-stats">3,200 pasos · 28 min · 14:05 / km</div>
+    </div>
+    <div class="session-right">
+      <div class="session-km">1.99</div>
+      <div class="session-time">km</div>
+    </div>
+    <div class="delete-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="3 6 5 6 21 6"/>
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="session-card">
+    <div class="session-icon">🏃</div>
+    <div class="session-info">
+      <div class="session-date">6 sep · 07:30</div>
+      <div class="session-stats">10,540 pasos · 1h 12m · 11:42 / km</div>
+    </div>
+    <div class="session-right">
+      <div class="session-km">6.15</div>
+      <div class="session-time">km</div>
+    </div>
+    <div class="delete-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="3 6 5 6 21 6"/>
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="month-header" style="margin-top: 8px;">Agosto 2026</div>
+
+  <div class="session-card">
+    <div class="session-icon">🏃</div>
+    <div class="session-info">
+      <div class="session-date">31 ago · 09:00</div>
+      <div class="session-stats">8,100 pasos · 55 min · 12:55/km</div>
+    </div>
+    <div class="session-right">
+      <div class="session-km">4.25</div>
+      <div class="session-time">km</div>
+    </div>
+    <div class="delete-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="3 6 5 6 21 6"/>
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<div class="tab-bar">
+  <div class="tab-item">
+    <div class="tab-icon">🏠</div>
+    <span class="tab-label">Inicio</span>
+  </div>
+  <div class="tab-item active">
+    <div class="tab-icon">📋</div>
+    <span class="tab-label">Historial</span>
+  </div>
+  <div class="tab-item">
+    <div class="tab-icon">🏆</div>
+    <span class="tab-label">Logros</span>
+  </div>
+  <div class="tab-item">
+    <div class="tab-icon">⚙️</div>
+    <span class="tab-label">Ajustes</span>
+  </div>
+</div>
+<div class="safe-bottom"></div>
+
+</body>
+</html>

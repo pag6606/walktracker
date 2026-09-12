@@ -814,117 +814,108 @@ So que pueda leer mis métricas de un vistazo sin desbloquear el teléfono.
 
 **And** el layout sigue UX-DR4 (Live Activity layout) y mantiene la isla como mantenimiento mínimo "que compile" — sin validación en hardware real (Paul no la tiene) [fuente: epics.md#Epic 7]
 
-### Epic 8: Validación de la apuesta nativa (Fundaciones)
-La web app v3 se empaqueta en el WebView nativo, se genera el proyecto Xcode con el plugin custom `walktracker-kit` y se configura la distribución TestFlight. Su **definition of done es el gate de performance del Success signal** (60 min en dispositivo físico, ≤10 % vs Salud, sin degradación de batería): el ritual que confirma que la apuesta Capacitor funciona antes de construir sobre ella. El montaje son sus primeras historias; el gate es la última.
-**FRs covered:** — (validación de la apuesta: NFR-1, NFR-8)
-**NFRs:** NFR-1, NFR-7, NFR-8
-**ARs:** AR-1, AR-2, AR-4, AR-6, AR-8, AR-9, AR-11, AR-13
-**Orden:** PRIMERO, siempre. Sin su DoD cumplido no se inicia el Epic 1. (Decisión de la mesa: reencuadre aprobado — sesión party mode 2026-08-01.)
+### Epic 8: Fundaciones del sustrato SwiftUI
 
-### Story 8.1: Montaje Capacitor — web v3 en WebView + proyecto Xcode + plugin scaffold
+*(Reescrito el 2026-09-12. El epic se llamaba "Validación de la apuesta nativa" y existía para
+demostrar que Capacitor era viable. Esa apuesta ya no se juega: OQ-1 se reabrió y el sustrato es
+SwiftUI nativo. Lo que queda de fundacional es distinto — y sigue corriendo PRIMERO.)*
 
-As a desarrollador del producto (Paul),
-I want empaquetar la web app v3 en el WebView nativo con Capacitor y generar el proyecto Xcode con el plugin `walktracker-kit` en scaffold,
-So que la app instalable exista como base sobre la que construir el resto.
+Levantar el sustrato sobre el que se construye todo lo demás: el proyecto SwiftUI limpio, la capa
+nativa rescatada, y el arnés que demuestra que el dominio portado se comporta como el validado en
+producción. Sin esto, cada epic posterior improvisa su propia versión de la verdad.
 
-**Acceptance Criteria:**
+**FRs covered:** ninguno directamente — es sustrato
+**NFRs:** NFR-5 (dominio preservado), NFR-6 (hexagonal), NFR-7 (licencias), NFR-8 (batería)
+**ADs:** AD-1, AD-2, AD-3, AD-4, AD-5, AD-6, AD-12, AD-23, AD-24
+**Deroga:** AR-1, AR-2, AR-6, AR-8, AR-9 (ver `DEROGACIONES.md §5`)
 
-**Given** el repositorio único de GitFlow con la web v3
-**When** se inicializa Capacitor
-**Then** se generan `ios/` (proyecto Xcode commiteado) y `capacitor.config.json` con `webDir` apuntando al bundle local y **sin `server.url`** en producción [fuente: AR-9, AR-6]
+#### Historias anuladas
 
-**Given** que se instalan las dependencias nativas
-**When** se añaden al proyecto
-**Then** quedan @capacitor/core/cli/ios 8.4.2, @capacitor/local-notifications 8.2.1, @capacitor-community/keep-awake 8.0.1 y @capacitor/preferences 8.0.1 (todos MIT, sin copyleft) [fuente: AR-8]
+| ID | Título | Por qué |
+|---|---|---|
+| ~~8.1~~ | Montaje Capacitor — web v3 en WebView + plugin scaffold | **VOID.** Figuraba como `done` sobre un sustrato derogado por AD-1 |
+| ~~8.2~~ | Build local en dispositivo + keep-awake | **VOID.** Su mecanismo (`cap run ios`) desaparece. El wake lock sobrevive como `WakeLockPort` (AD-10) dentro de Epic 1 |
 
-**Given** que se crea el plugin custom
-**When** se configura `walktracker-kit`
-**Then** es un paquete local (`./walktracker-kit` con podspec propio, referencia `file:` en package.json) listo para alojar CMPedometer, HKWorkout y el bridge ActivityKit [fuente: AR-2]
+Los IDs 8.1 y 8.2 **no se reutilizan**. Los ficheros de historia se conservan con banner de anulación.
 
-**Given** que la web v3 corre dentro del WebView
-**When** la web toca Capacitor
-**Then** solo lo hace en adapters `Capacitor*` y el composition root — nunca en el dominio [fuente: AR-1]
+#### Orden de ejecución
 
-**Given** el proyecto recién montado
-**When** se compila el target iOS
-**Then** la app arranca mostrando la web v3 dentro del WebView (humo test: la UI existente funciona empaquetada) [fuente: AR-1, AR-6]
+`8.5 → 8.6 → 8.7 → 8.3 → 8.4`. Los números ya no son el orden: es el precio de no reciclar IDs.
 
-### Story 8.2: Build local en dispositivo físico + keep-awake (entorno dev)
+### Story 8.5: Proyecto SwiftUI y limpieza del árbol
 
-As a desarrollador del producto (Paul),
-I want correr la app en mi iPhone físico con un comando,
-So que pueda iterar rápido y validar en hardware real (el simulador no tiene acelerómetro).
+As a desarrollador,
+I want un proyecto Xcode SwiftUI limpio y un único árbol de producto,
+So that cada build sepa qué está compilando y no haya tres sustratos compitiendo.
 
 **Acceptance Criteria:**
 
-**Given** el proyecto Capacitor montado y las herramientas instaladas
-**When** ejecuto `pnpm cap run ios`
-**Then** la app se compila y despliega en el iPhone físico conectado (entorno dev por build local de Xcode) [fuente: AD-C5, AR-8, AR-11]
+**Given** el repositorio con los restos de Capacitor y Flutter
+**When** se completa la historia
+**Then** existe un proyecto Xcode con tres targets —app, `Shared`, Widget Extension— con deployment target **26.0** y sin un solo `if #available` hacia versiones anteriores [AD-2]
 
-**Given** que la app corre en el iPhone físico
-**When** está en foreground durante una sesión activa
-**Then** el keep-awake (`@capacitor-community/keep-awake` 8.0.1) mantiene la pantalla encendida vía `KeepAwakePort.acquire/release` — acotado a foreground [fuente: AR-8, AR-10]
+**Given** el proyecto creado
+**When** se revisa el árbol
+**Then** han desaparecido `ios/App/`, `ios/capacitor-cordova-ios-plugins/`, `www/`, `adapters/`, `capacitor.config.json` y `walktracker-kit/`; y `domain.js`, `motivation.js`, `climate.js`, `storage.js` y `test/` **permanecen congelados** como referencia de contraste [AD-23]
 
-**Given** que la app pasa a background
-**When** la sesión sigue activa
-**Then** el keep-awake se libera (no consume batería de más en background) [fuente: AR-10]
+**Given** el target de la app
+**When** se inspecciona `Info.plist` y los entitlements
+**Then** están `NSMotionUsageDescription`, `NSHealthUpdateUsageDescription`, `NSLocationWhenInUseUsageDescription`, `NSSupportsLiveActivities` y el entitlement de HealthKit; el bundle id es `com.walktracker.app` [AD-1, AD-15]
 
-**Given** que el simulador de iOS no tiene acelerómetro real
-**When** valido el conteo de pasos
-**Then** la validación de movimiento se hace en el iPhone físico, no en el simulador [fuente: AR-11]
+**Given** el esquema de compilación
+**When** se compila
+**Then** *strict concurrency* completa está activada y el build pasa sin warnings de aislamiento [AD-12]
 
-**And** el entorno dev usa `http://localhost` para iterar la web dentro del WebView, y producción (TestFlight) usa bundle local — dos configuraciones distintas y documentadas [fuente: AR-11, AR-6]
+**And** `Domain/` no puede importar frameworks de plataforma: un `import SwiftUI` o `import CoreMotion` ahí es un fallo de build, no una nota de revisión [AD-3]
 
-### Story 8.3: Distribución TestFlight con versionado SemVer
+### Story 8.6: Extracción de la capa nativa desde `feature/flutter-substrate`
 
-As a desarrollador del producto (Paul),
-I want instalar la app de forma duradera en mi iPhone vía TestFlight,
-So que tenga la app instalada sin depender de cables ni builds locales.
-
-**Acceptance Criteria:**
-
-**Given** la cuenta Apple Developer activa
-**When** se configura TestFlight
-**Then** la app se sube como build de TestFlight y queda instalable en el iPhone de Paul [fuente: AD-C5, AR-4]
-
-**Given** que se sube un build a TestFlight
-**When** se etiqueta el release
-**Then** sigue el versionado SemVer configurado para Capacitor (convención del spine) [fuente: AD-C5, AR-4]
-
-**Given** que un hito supera la prueba de performance del Success signal
-**When** se promueve a TestFlight
-**Then** se sube como build de TestFlight (gate de promoción: solo pasan el gate los hitos validados) [fuente: AD-C5]
-
-**And** App Store está **fuera de scope** — instalación por TestFlight o build local es suficiente (no requisito de éxito) [fuente: SPEC.md#102, AR-4]
-
-**And** la PWA se despliega por GitFlow a GitHub Pages como canal secundario, sin interferir con TestFlight [fuente: AD-C5, AR-11]
-
-### Story 8.4: Gate del Success signal — validación de performance en dispositivo físico
-
-As a desarrollador del producto (Paul),
-I want validar en mi iPhone que la apuesta Capacitor aguanta una caminata completa de 60 minutos,
-So que sepa con certeza que la base es viable antes de construir las features encima — o que descubra a tiempo que no lo es.
+As a desarrollador,
+I want rescatar las 446 líneas de Swift que ya implementan podómetro, háptica, Salud y Live Activity,
+So that no reescriba desde cero lo único del proyecto que ya funciona en nativo.
 
 **Acceptance Criteria:**
 
-**Given** el montaje completo (web v3 en WebView + plugin + keep-awake)
-**When** Paul sale a caminar 60 min con el iPhone en el bolsillo, auriculares con música y pantalla bloqueada
-**Then** al terminar, la app muestra pasos, distancia y tiempo **≤10 % de diferencia** vs los que reporta Apple Salud [fuente: SPEC.md#108, capabilities.md#CAP-2]
+**Given** el commit `d9d3fbc` de la rama `feature/flutter-substrate`, que **no es ancestro de `HEAD`**
+**When** se extrae la capa nativa
+**Then** se hace por `git checkout feature/flutter-substrate -- ios/Runner/AppDelegate.swift`, **sin merge de la rama** [AD-23]
 
-**Given** la caminata dogfood de 60 min
-**When** se evalúa la batería
-**Then** no hay degradación notoria de batería durante la sesión con conteo continuo en background [fuente: SPEC.md#108, NFR-8]
+**Given** el `AppDelegate.swift` extraído (CMPedometer, CoreHaptics, AudioToolbox, `HKWorkoutBuilder`, `Activity.request`)
+**When** se integra
+**Then** queda troceado en los adapters que le corresponden —`Adapters/Motion`, `Feedback`, `Health`, `LiveActivity`— cada uno detrás de su puerto; no queda lógica de sistema en el `AppDelegate` [AD-10]
 
-**Given** la caminata de 60 min con pantalla bloqueada y música
-**When** Paul no toca la pantalla durante toda la caminata
-**Then** la app registra la sesión completa sin interacción (conteo en background funcionando) [fuente: SPEC.md#108]
+**Given** el handler de CoreMotion, que corre en su propia cola serie
+**When** entrega datos al `SessionStore`
+**Then** extrae los valores a un `struct` `Sendable` propio **dentro del handler**; `CMPedometerData` y sus `NSNumber` no cruzan la frontera de aislamiento [AD-7, AD-12]
 
-**Given** el resultado del gate
-**When** la prueba supera los criterios
-**Then** el epic queda **validado** y se habilita el inicio del Epic 1 (DoD cumplido) [fuente: AD-C5]
+**Given** que ese código **nunca se ejecutó en dispositivo**
+**When** se cierra la historia
+**Then** se ha verificado en el iPhone 14 físico que el podómetro reporta, que la háptica dispara y que una escritura de prueba aparece en la app Salud — si algo no funciona, se registra como coste adicional de Epic 6 y Epic 7
 
-**Given** el resultado del gate
-**When** la prueba falla los criterios (degradación o diferencia >10 %)
-**Then** se revisa la apuesta Capacitor antes de construir nada más — el riesgo de viabilidad se paga aquí, no después [fuente: SPEC.md#108, AD-C5]
+### Story 8.7: Sustrato de verificación del dominio
 
-**And** el protocolo dogfood es a nivel de epic/story (Instruments solo si aparecen síntomas) — el gate es el mínimo del Success signal fijado por el spine [fuente: ARCHITECTURE-SPINE.md#244, review-rubric.md#F3]
+As a desarrollador,
+I want un arnés que demuestre que el dominio Swift se comporta como el validado en producción,
+So that "idiomático" no sea una coartada para cambiar comportamiento sin que nadie lo note.
+
+**Acceptance Criteria:**
+
+**Given** la suite JS existente (281 aserciones ejecutadas)
+**When** se reparte según AD-6
+**Then** cada aserción queda en **exactamente una** categoría: ~65 **vectores** extraídos a datos, ~111 **escenarios** portados a mano a Swift Testing, y ~52 **excluidos** por probar la agregada v1 de vueltas que `domain-model.md §2` elimina — los excluidos quedan **declarados**, no olvidados
+
+**Given** que ni `GoalEngine` ni `AchievementEngine` tienen una sola aserción en la suite JS, y que 8 de los 14 logros no tienen cobertura
+**When** se completa la historia
+**Then** existen vectores **escritos de nuevo** para los 14 logros (caso que desbloquea y caso que no) y para el `GoalEngine` (semana ISO, límites de lunes y de domingo) [AD-6, AD-5]
+
+**Given** los vectores en datos
+**When** se ejecuta `Scripts/verify-domain.sh`
+**Then** corre **ambos runtimes** —`domain.js` y el dominio Swift— contra el mismo fichero, y su paso en verde es Definition of Done de toda historia que toque `Domain/` (no hay CI: el mecanismo es local) [AD-6]
+
+**Given** la tabla de divergencias declaradas
+**When** se ejecutan los vectores contra `domain.js`
+**Then** solo divergen **dos** conductas —hora local y mapeo WMO, ambas decisiones de plataforma—; las otras dos (doble resta de pausas, rachas lexicográficas) ya no divergen porque se corrigieron en la referencia el 2026-09-12 [`DEROGACIONES.md §6`]
+
+**Given** `Resources/achievements.json`
+**When** arranca la app
+**Then** valida 14 entradas, claves únicas, todas las de `achievements.md` y `metric` dentro del enum cerrado; **falla ruidosamente** si no cuadra, nunca degrada [AD-5]

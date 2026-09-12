@@ -1,5 +1,5 @@
 # generated: 2026-08-01
-# last_updated: 2026-08-01
+# last_updated: 2026-09-12
 # project: walktracker
 # project_key: NOKEY
 # tracking_system: file-system
@@ -22,6 +22,8 @@
 #   - in-progress: Developer actively working on implementation
 #   - review: Ready for code review (via Dev's code-review workflow)
 #   - done: Story completed
+#   - void: Story annulled — the work it described no longer applies (e.g. its
+#           substrate was derogated). The ID is retired and never reused.
 #
 # Retrospective Status:
 #   - optional: Can be completed but not required
@@ -100,10 +102,17 @@ development_status:
   7-3-layout-de-pantalla-de-bloqueo-dynamic-island-compilando: backlog
   epic-7-retrospective: optional
 
-  # Epic 8: Validación de la apuesta nativa (Fundaciones) — corre PRIMERO
+  # Epic 8: Fundaciones del sustrato SwiftUI — corre PRIMERO
+  # Reescrito 2026-09-12 tras el pivot a SwiftUI (OQ-1 reabierta).
+  # 8.1 y 8.2 quedan VOID: su trabajo era sobre Capacitor, derogado por AD-1.
+  # Los IDs 8.1/8.2 NO se reutilizan; el trabajo nuevo entra como 8.5/8.6/8.7.
+  # Orden de ejecución: 8.5 -> 8.6 -> 8.7 -> 8.3 -> 8.4 (los números ya no son el orden).
   epic-8: in-progress
-  8-1-montaje-capacitor-web-v3-en-webview-proyecto-xcode-plugin-scaffold: ready-for-dev
-  8-2-build-local-en-dispositivo-fisico-keep-awake-entorno-dev: backlog
+  8-1-montaje-capacitor-web-v3-en-webview-proyecto-xcode-plugin-scaffold: void
+  8-2-build-local-en-dispositivo-fisico-keep-awake-entorno-dev: void
   8-3-distribucion-testflight-con-versionado-semver: backlog
   8-4-gate-del-success-signal-validacion-de-performance-en-dispositivo-fisico: backlog
+  8-5-proyecto-swiftui-y-limpieza-del-arbol: backlog
+  8-6-extraccion-de-la-capa-nativa-desde-feature-flutter-substrate: backlog
+  8-7-sustrato-de-verificacion-del-dominio-vectores-y-escenarios: backlog
   epic-8-retrospective: optional

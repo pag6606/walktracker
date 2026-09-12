@@ -6,7 +6,9 @@ companions:
   - achievements.md
   - platform-matrix.md
   - ../../../quotes.json
-  - ../../planning-artifacts/architecture/capacitor-migration/PLAN-CAPACITOR-v2.md
+  - ../../planning-artifacts/architecture/architecture-walktracker-2026-09-12/ARCHITECTURE-SPINE.md
+  - ../../planning-artifacts/architecture/architecture-walktracker-2026-09-12/DEROGACIONES.md
+  - ../../planning-artifacts/architecture/architecture-walktracker-2026-09-12/REESTIMACION-EPICS.md
 sources:
   - ../../../input/SPEC_WalkTracker_v3_PWA.md
   - ../../planning-artifacts/prds/prd-walktracker-v3-2026-07-07/prd.md
@@ -80,13 +82,14 @@ Dolor + oportunidad. Paul —usuario único— camina para superar el sobrepeso 
 
 ## Constraints
 
-- **Capacitor como capa nativa (decisión Paul, OQ-1):** la web app v3 existente (UI + dominio) se reutiliza dentro de un WebView nativo; las capacidades del sistema se acceden vía plugins como adapters en el borde (ver companion `PLAN-CAPACITOR-v2.md`); el dominio no conoce Capacitor. Descarta la reescritura SwiftUI total. Su viabilidad queda condicionada a la validación de performance en dispositivo físico (ver Success signal).
+- **SwiftUI nativo (decisión Paul, OQ-1 reabierta y resuelta de nuevo el 2026-09-12):** app iOS nativa contra el SDK de iOS 26, sin WebView y sin capa híbrida. El dominio de la v3 se porta a Swift idiomático; las capacidades del sistema se acceden por adapters detrás de puertos. Descarta Capacitor, Flutter y cualquier sustrato híbrido. Deroga `PLAN-CAPACITOR-v2.md` — el inventario de lo anulado y lo absorbido está en el companion `DEROGACIONES.md`, que es vinculante. Los invariantes de construcción están en el companion `ARCHITECTURE-SPINE.md` como `AD-1`…`AD-24`, IDs estables y citables.
+- **Suelo de despliegue iOS 26.0:** el dispositivo es un iPhone 14 con iOS 26 y es el único universo de instalación. Descarta compatibilidad hacia atrás: `if #available` hacia versiones anteriores está prohibido.
 - **No-backend (invariante permanente):** todo on-device; la única llamada de red permitida es el clima. Descarta autenticación, cuentas, sincronización cloud y servidor propio.
 - **Usuario único:** producto estrictamente personal (Paul). Descarta multi-cuenta, perfiles y cualquier UX de identidad.
 - **Privacidad:** datos en el dispositivo; sin analítica ni telemetría de terceros; si el clima sale por red, las coordenadas se redondean a 2 decimales antes de enviarse.
-- **Dominio preservado:** se reutilizan los invariantes validados en v3 —cronómetro wall-clock, pausa explícita única, sesión finalizada inmutable, zancada congelada al cierre, validación en la frontera, cadencia calculada solo sobre tramos medidos, pasos estimados siempre desglosados y marcados—. Descarta reescribir el modelo de dominio (`domain-model.md`).
+- **Dominio preservado — los invariantes, no los defectos:** se reutilizan los invariantes validados en v3 —cronómetro wall-clock, pausa explícita única, sesión finalizada inmutable, zancada congelada al cierre, validación en la frontera, cadencia calculada solo sobre tramos medidos, pasos estimados siempre desglosados y marcados—. Descarta reescribir el modelo de dominio (`domain-model.md`). **Cuatro divergencias son obligatorias** respecto al código v3, declaradas en `ARCHITECTURE-SPINE.md` AD-6: logros temporales y rachas en hora local y no UTC; lluvia por código WMO y no por regex sobre string localizado; las pausas se restan una sola vez (`domain.js:349-352` las resta dos: cadencia 84,4 donde debe ser 80,3, ritmo 1.085 donde debe ser 1.140); y las rachas se comparan como fechas (`motivation.js:156-159` ordena lexicográficamente sin relleno de ceros y rompe una racha real del 25-sep al 1-oct).
 - **Arquitectura hexagonal:** dominio puro sin frameworks de plataforma ni UI; puertos definidos en el dominio, adapters en el borde. Descarta lógica de dominio en views/controllers.
-- **Licencias:** solo dependencias Apache-2.0 / MIT; copyleft fuerte (GPL/AGPL) es bloqueante.
+- **Licencias:** en **código**, solo dependencias Apache-2.0 / MIT; copyleft fuerte (GPL/AGPL) es bloqueante. En **fuentes de datos** se admite CC-BY 4.0 con atribución visible — Open-Meteo lo es, y su atribución va en Ajustes → Acerca de.
 - **Batería:** una sesión de 60 min con conteo continuo no degrada la batería de forma notoria.
 - **UX:** targets táctiles ≥ 44 pt, claro/oscuro, dirección "celebrar, nunca culpar", números grandes, momento motivacional de 3–4 s saltable; UI en español.
 
@@ -101,18 +104,26 @@ Dolor + oportunidad. Paul —usuario único— camina para superar el sobrepeso 
 - Control de la reproducción de música.
 - Publicación en App Store como requisito de éxito (instalación por build local o TestFlight es suficiente).
 - Importación del historial de la PWA (decisión Paul, OQ-3: arranque limpio; CAP-16 retirada y su ID reservada por si se reactiva en una versión futura).
-- Reescritura SwiftUI total de la app (decisión Paul, OQ-1: Capacitor).
+- Capacitor, WebView y cualquier sustrato híbrido (decisión Paul, OQ-1 reabierta el 2026-09-12).
 
 ## Success signal
 
-Paul sale a caminar con el iPhone en el bolsillo, auriculares con música y pantalla bloqueada; al terminar, la app muestra pasos, distancia y tiempo exactos (≤10 % vs Salud), el workout ya está escrito en Apple Salud y la app celebra el km recorrido y su progreso semanal — sin que Paul haya tocado la pantalla durante toda la caminata. A los 30 días: historial íntegro sin ningún respaldo manual y Paul reporta sentirse reconocido. La viabilidad de Capacitor queda demostrada en su iPhone físico: una sesión completa de 60 min con conteo en background sin degradación de performance ni de batería notoria.
+Paul sale a caminar con el iPhone en el bolsillo, auriculares con música y pantalla bloqueada; al terminar, la app muestra pasos, distancia y tiempo exactos (≤10 % vs Salud), el workout ya está escrito en Apple Salud y la app celebra el km recorrido y su progreso semanal — sin que Paul haya tocado la pantalla durante toda la caminata. A los 30 días: historial íntegro sin ningún respaldo manual y Paul reporta sentirse reconocido. El gate en su iPhone 14 físico se conserva y cambia de significado: una sesión completa de 60 min con conteo en background sin degradación de batería notoria y con precisión ≤ 10 % vs Salud. Ya no valida si un WebView aguanta —ese riesgo desaparece con el sustrato nativo—, valida NFR-8.
 
 ## Assumptions
 
 - **A-1:** Paul dispone o dispondrá de Mac + Xcode + cuenta Apple Developer de pago — barrera documentada desde v3 como la razón de ser del producto puente PWA.
-- **A-2:** El iPhone de Paul corre iOS 17+ (la v3 ya asumía 16.4+).
+- **A-2 [verificada, ya no es supuesto]:** el dispositivo es un **iPhone 14** (A15, sin Dynamic Island) con **iOS 26**. Consecuencia: CAP-18 se valida solo en el layout de pantalla de bloqueo; la Dynamic Island se limita a compilar.
 - **A-3:** El banco de 100 frases (`quotes.json`) y el catálogo de 14 logros se reutilizan íntegros, sin cambios de contenido.
 
 ## Open Questions
 
-*(Ninguna abierta — OQ-1, OQ-3 y OQ-4 resueltas por Paul el 2026-07-28; OQ-2 resuelta el mismo día: Live Activity en scope como CAP-18.)*
+*(Ninguna abierta.)*
+
+**OQ-5 RESUELTA (Paul, 2026-09-12):** el iPhone 14 de validación **se congela en iOS 26** y no se actualiza a iOS 27 hasta terminar el desarrollo. El toolchain se queda en Xcode 26.6 / Swift 6.3.3. Consecuencias aceptadas, registradas aquí porque vinculan:
+
+- Las actualizaciones automáticas de iOS deben quedar **desactivadas** en el dispositivo; las Respuestas de Seguridad pueden seguir activas.
+- iOS 26.6.2 es la última del ciclo y **no trae parches de seguridad** — los siguientes van en iOS 27. El dispositivo queda sin parches nuevos durante el desarrollo. Riesgo aceptado: dispositivo personal, app sin backend, sin datos de terceros.
+- La app se construirá y validará **solo contra iOS 26**. El día que Paul actualice a iOS 27 será la primera vez que corra ahí: la primera sesión post-actualización es una **revalidación obligatoria** de CAP-2 y CAP-3, no un trámite.
+
+*(OQ-3 y OQ-4 resueltas por Paul el 2026-07-28. OQ-2 resuelta el mismo día: Live Activity en scope como CAP-18. **OQ-1 reabierta y resuelta de nuevo el 2026-09-12: SwiftUI nativo, superseding Capacitor.**)*

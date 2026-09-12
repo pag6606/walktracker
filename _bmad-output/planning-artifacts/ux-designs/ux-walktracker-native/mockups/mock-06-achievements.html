@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --green: #34C759;
+  --orange: #FF9500;
+  --blue: #007AFF;
+  --red: #FF3B30;
+  --gray: #8E8E93;
+  --gray2: #AEAEB2;
+  --gold: #FFD60A;
+  --silver: #98989F;
+  --bronze: #CD7F32;
+  --bg: #000000;
+  --card: #1C1C1E;
+  --card2: #2C2C2E;
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', Helvetica, sans-serif;
+  background: var(--bg);
+  color: #fff;
+  width: 291px;
+  height: 608px;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+.safe-top { height: 59px; }
+.safe-bottom { height: 34px; }
+
+.nav-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 16px 8px;
+}
+.nav-title { font-size: 17px; font-weight: 600; }
+
+/* ── NEXT ACHIEVEMENT PROGRESS STRIP ── */
+.next-ach-strip {
+  background: var(--card);
+  border-radius: 16px;
+  margin: 4px 16px 16px;
+  padding: 14px 16px;
+}
+.next-ach-label {
+  font-size: 11px;
+  color: var(--gray);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+}
+.next-ach-body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.next-ach-icon {
+  width: 44px; height: 44px;
+  background: rgba(255,214,10,0.15);
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+.next-ach-info { flex: 1; }
+.next-ach-name {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.next-ach-desc { font-size: 12px; color: var(--gray); margin-bottom: 6px; }
+.progress-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--gray);
+}
+.next-ach-badge {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gold);
+  background: rgba(255,214,10,0.12);
+  padding: 4px 10px;
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+/* Grid */
+.grid-content {
+  position: absolute;
+  top: 188px; left: 0; right: 0; bottom: 83px;
+  overflow-y: auto; overflow-x: hidden;
+  padding: 0 16px;
+}
+.grid-content::-webkit-scrollbar { display: none; }
+
+.section-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 16px 0 10px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.ach-card {
+  background: var(--card);
+  border-radius: 16px;
+  padding: 14px 8px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.15s;
+}
+.ach-card:active { transform: scale(0.96); }
+.ach-card.locked { opacity: 0.4; }
+.ach-card.gold .ach-icon-wrap { background: rgba(255,214,10,0.15); }
+.ach-card.green .ach-icon-wrap { background: rgba(52,199,89,0.15); }
+.ach-card.blue .ach-icon-wrap { background: rgba(0,122,255,0.15); }
+.ach-card.bronze .ach-icon-wrap { background: rgba(205,127,50,0.15); }
+.ach-card.red .ach-icon-wrap { background: rgba(255,59,48,0.15); }
+.ach-icon-wrap {
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 8px;
+  font-size: 22px;
+}
+.ach-name {
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+  line-height: 1.3;
+  margin-bottom: 2px;
+}
+.ach-desc {
+  font-size: 9px;
+  color: var(--gray);
+  line-height: 1.3;
+}
+.lock-overlay {
+  position: absolute;
+  top: 5px; right: 5px;
+  font-size: 9px;
+  color: var(--gray);
+}
+
+/* Overall progress */
+.overall-strip {
+  background: var(--card);
+  border-radius: 12px;
+  margin: 16px 0;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.overall-info { flex: 1; }
+.overall-title { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+.overall-sub { font-size: 11px; color: var(--gray); }
+.overall-ring { position: relative; }
+.overall-ring svg { transform: rotate(-90deg); }
+.overall-ring circle { fill: none; stroke-width: 4; }
+.overall-ring .bg { stroke: var(--card2); }
+.overall-ring .fill { stroke: var(--green); stroke-linecap: round; }
+.overall-val {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* Tab bar */
+.tab-bar {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 49px;
+  background: rgba(29,29,29,0.94);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding-bottom: env(safe-area-inset-bottom);
+  border-top: 0.5px solid rgba(255,255,255,0.1);
+}
+.tab-item { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 8px; }
+.tab-label { font-size: 10px; color: var(--gray); }
+.tab-item.active .tab-label { color: var(--green); }
+</style>
+</head>
+<body>
+
+<div class="safe-top"></div>
+
+<div class="nav-bar">
+  <span class="nav-title">Logros</span>
+</div>
+
+<!-- Next Achievement Progress Strip -->
+<div class="next-ach-strip">
+  <div class="next-ach-label">Siguiente logro</div>
+  <div class="next-ach-body">
+    <div class="next-ach-icon">🏆</div>
+    <div class="next-ach-info">
+      <div class="next-ach-name">Meta semanal cumplida</div>
+      <div class="next-ach-desc">Cumple tu meta de la semana</div>
+      <div class="progress-labels" style="margin-top: 6px;">
+        <span>5,2 km de 10 km</span>
+        <span style="color: #34C759;">faltan 4,8 km</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="grid-content">
+
+  <!-- Overall -->
+  <div class="overall-strip">
+    <div class="overall-info">
+      <div class="overall-title">Progreso general</div>
+      <div class="overall-sub">4 de 14 logros desbloqueados</div>
+    </div>
+    <div class="overall-ring">
+      <svg width="44" height="44" viewBox="0 0 44 44">
+        <circle class="bg" cx="22" cy="22" r="18"/>
+        <circle class="fill" cx="22" cy="22" r="18"
+          stroke-dasharray="113" stroke-dashoffset="81"/>
+      </svg>
+      <div class="overall-val">4</div>
+    </div>
+  </div>
+
+  <!-- Unlocked -->
+  <div class="section-label">Desbloqueados</div>
+  <div class="grid">
+    <div class="ach-card green">
+      <div class="ach-icon-wrap">🚶</div>
+      <div class="ach-name">Primera caminata</div>
+      <div class="ach-desc">Completa tu primera sesión</div>
+    </div>
+    <div class="ach-card gold">
+      <div class="ach-icon-wrap">🏅</div>
+      <div class="ach-name">Tu primer kilómetro</div>
+      <div class="ach-desc">Completa 1 km en una sesión</div>
+    </div>
+    <div class="ach-card bronze">
+      <div class="ach-icon-wrap">🥉</div>
+      <div class="ach-name">Cinco kilómetros</div>
+      <div class="ach-desc">Completa 5 km en una sesión</div>
+    </div>
+    <div class="ach-card blue">
+      <div class="ach-icon-wrap">🏃</div>
+      <div class="ach-name">Maratonista</div>
+      <div class="ach-desc">Acumula 42 km en total</div>
+    </div>
+  </div>
+
+  <!-- Locked -->
+  <div class="section-label">Bloqueados</div>
+  <div class="grid">
+    <div class="ach-card locked gold">
+      <div class="lock-overlay">🔒</div>
+      <div class="ach-icon-wrap">🏆</div>
+      <div class="ach-name">Meta semanal cumplida</div>
+      <div class="ach-desc">Cumple tu meta de la semana</div>
+    </div>
+    <div class="ach-card locked">
+      <div class="lock-overlay">🔒</div>
+      <div class="ach-icon-wrap">🥈</div>
+      <div class="ach-name">Diez kilómetros</div>
+      <div class="ach-desc">Completa 10 km en una sesión</div>
+    </div>
+    <div class="ach-card locked">
+      <div class="lock-overlay">🔒</div>
+      <div class="ach-icon-wrap">💪</div>
+      <div class="ach-name">Constancia</div>
+      <div class="ach-desc">Acumula 30 sesiones en total</div>
+    </div>
+    <div class="ach-card locked red">
+      <div class="lock-overlay">🔒</div>
+      <div class="ach-icon-wrap">🔥</div>
+      <div class="ach-name">7 días consecutivos</div>
+      <div class="ach-desc">Camina 7 días seguidos</div>
+    </div>
+    <div class="ach-card locked">
+      <div class="lock-overlay">🔒</div>
+      <div class="ach-icon-wrap">⚡</div>
+      <div class="ach-name">Caminante rápido</div>
+      <div class="ach-desc">Ritmo menor a 8:00 /km</div>
+    </div>
+    <div class="ach-card locked">
+      <div class="lock-overlay">🔒</div>
+      <div class="ach-icon-wrap">🌅</div>
+      <div class="ach-name">Madrugador</div>
+      <div class="ach-desc">Camina antes de las 7:00</div>
+    </div>
+    <div class="ach-card locked">
+      <div class="lock-overlay">🔒</div>
+      <div class="ach-icon-wrap">🌙</div>
+      <div class="ach-name">Caminante nocturno</div>
+      <div class="ach-desc">Camina después de las 21:00</div>
+    </div>
+    <div class="ach-card locked blue">
+      <div class="lock-overlay">🔒</div>
+      <div class="ach-icon-wrap">🌧️</div>
+      <div class="ach-name">Caminata bajo la lluvia</div>
+      <div class="ach-desc">Camina con clima lluvioso</div>
+    </div>
+    <div class="ach-card locked">
+      <div class="lock-overlay">🔒</div>
+      <div class="ach-icon-wrap">☀️</div>
+      <div class="ach-name">Caminante del sol</div>
+      <div class="ach-desc">Camina con temperatura >30 °C</div>
+    </div>
+    <div class="ach-card locked">
+      <div class="lock-overlay">🔒</div>
+      <div class="ach-icon-wrap">❄️</div>
+      <div class="ach-name">Caminante del frío</div>
+      <div class="ach-desc">Camina con temperatura <5 °C</div>
+    </div>
+  </div>
+
+  <div style="height: 20px;"></div>
+</div>
+
+<div class="tab-bar">
+  <div class="tab-item">
+    <span class="tab-label">Inicio</span>
+  </div>
+  <div class="tab-item">
+    <span class="tab-label">Historial</span>
+  </div>
+  <div class="tab-item active">
+    <span class="tab-label">Logros</span>
+  </div>
+  <div class="tab-item">
+    <span class="tab-label">Ajustes</span>
+  </div>
+</div>
+
+<div class="safe-bottom"></div>
+</body>
+</html>

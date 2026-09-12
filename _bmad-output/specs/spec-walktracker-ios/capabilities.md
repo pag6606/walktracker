@@ -39,7 +39,7 @@ Companion de `SPEC.md`. Una sección por capability: prioridad (MoSCoW heredado 
 ## CAP-5 — Clima snapshot al inicio · Must
 - **Hereda:** RF-06 v3; resuelve R3.
 - Snapshot congelado al iniciar: `tempC, feelsLikeC, condition, humidityPct, uvIndex, windKmh, capturedAt`.
-- Proveedor primario: Open-Meteo sin key — el adapter de la PWA se reutiliza tal cual bajo Capacitor (decisión derivada de OQ-1; WeatherKit se difiere: requeriría plugin Swift custom). Coordenadas redondeadas a 2 decimales.
+- Proveedor primario: Open-Meteo sin key, consumido por `WeatherAdapter` detrás de `WeatherPort`; WeatherKit se difiere (cambio de adapter, aislado). Coordenadas redondeadas a 2 decimales **en `LocationPort`**, el único punto donde la restricción de Privacidad es verificable. Open-Meteo es CC-BY 4.0: exige atribución visible.
 - Timeout 3 s y degradación limpia: sin red/permiso → la sesión inicia sin clima, no bloqueante.
 - **Criterios:**
   - Con red → snapshot visible asociado a la sesión.
@@ -73,7 +73,7 @@ Companion de `SPEC.md`. Una sección por capability: prioridad (MoSCoW heredado 
 
 ## CAP-9 — Persistencia local garantizada · Must
 - **Hereda:** RNF-02 v3; resuelve R6.
-- Bajo Capacitor, el storage vive en el sandbox de la app instalada (WebView persistente; `@capacitor/preferences` como refuerzo si fuera necesario, detrás de StoragePort). La evicción de iOS era específica de la PWA home-screen; una app instalada no la sufre bajo uso normal.
+- El storage vive en el sandbox de la app instalada: ficheros JSON `Codable` en Application Support con escritura atómica, detrás de `StoragePort`. La evicción de iOS era específica de la PWA en pantalla de inicio; una app instalada no la sufre. SwiftData se descartó: ~1.500 sesiones en diez años no justifican un segundo modelo y su capa de mapeo.
 - Sesiones finalizadas inmutables (invariante de dominio). Config y snapshot de sesión activa en storage de preferencias.
 - **Criterios:**
   - Reinicio del iPhone → historial, logros y config íntegros.
@@ -129,7 +129,7 @@ Companion de `SPEC.md`. Una sección por capability: prioridad (MoSCoW heredado 
 
 ## CAP-17 — Notificaciones locales de recordatorio de meta · Should (OQ-4 resuelta: en scope)
 - **Hereda:** RF-18 v3 (Web Push) convertido a notificaciones locales nativas — no requiere servidor push, coherente con no-backend.
-- **Condición de Paul:** entra a scope solo si el esfuerzo es bajo → confirmado: con Capacitor se implementa vía `@capacitor/local-notifications` (plugin estándar, licencia MIT), sin código nativo custom.
+- **Condición de Paul:** entra a scope solo si el esfuerzo es bajo → re-verificada tras el pivot (2026-09-12): `UNUserNotificationCenter` nativo es igual o más simple que el plugin que sostenía la premisa original, y sin dependencia. La premisa se sustituye; la capability no cambia.
 - Recordatorio semanal del estado de la meta (p. ej. domingo por la tarde: "Te faltan 2 km esta semana").
 - **Criterios:**
   - Recordatorio programado llega con la app cerrada; se respeta el permiso de notificaciones.
@@ -154,7 +154,7 @@ Invariantes de UX que cruzan plataforma (constraint UX): números grandes, celeb
 - **Nuevo** (R7 de la matriz; en PWA no tenía equivalente). Paul la quiere en v1 por encima de la recomendación de diferir.
 - Muestra en la pantalla de bloqueo (y en la Dynamic Island en hardware que la tenga) las métricas vivas de la sesión: pasos, distancia, tiempo. Mismo contenido que la pantalla Sesión, en formato glanceable.
 - Se crea al iniciar la sesión, se actualiza durante, y se cierra al finalizar/pausar de forma terminal. Si la extension falla o el SO la rechaza, la app funciona completa sin ella (degradación limpia, coherente con el resto del producto).
-- **Costo aceptado bajo Capacitor:** requiere **Widget Extension en Swift con ActivityKit** + bridge para empujar las métricas desde el WebView. Es código nativo custom (junto al plugin de podómetro, las dos únicas piezas Swift a medida). Requiere iOS 16.1+; Dynamic Island solo en hardware con isla.
+- **Costo:** requiere un **Widget Extension con ActivityKit** y un target `Shared` para el tipo de `ContentState`. No requiere App Group — el estado viaja por `request`/`update` con tope de 4 KB. Requiere `NSSupportsLiveActivities` en `Info.plist`. La extensión solo renderiza: no calcula, no lee ficheros, no importa el dominio. En el iPhone 14 se valida el layout de pantalla de bloqueo; la Dynamic Island se limita a compilar.
 - **Orden de construcción:** capa aditiva al final — primero se valida el core (conteo background + HealthKit + performance, Success signal), luego se monta la Live Activity sobre las mismas métricas.
 - **Criterios:**
   - Sesión activa + teléfono bloqueado → métricas actualizándose en la Live Activity.
