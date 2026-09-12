@@ -479,7 +479,7 @@ body {
     const now = Date.now();
     const dur = D.elapsedS(state.session.startedAt, state.session.totalPausesMs, now);
     const dist = state.session.distanceM;
-    const p = dist >= 100 ? D.pace(dur, state.session.pausesS, dist) : null;
+    const p = dist >= 100 ? D.pace(dur, 0, dist) : null; // dur ya es neto de pausas
 
     $('ses-dist').textContent = (dist / 1000).toFixed(2);
     $('ses-steps').textContent = (state.session.stepsMeasured || 0) + (state.session.stepsEstimated > 0 ? ` (~${state.session.stepsEstimated})` : '');

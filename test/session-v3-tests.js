@@ -174,9 +174,17 @@ console.log('\n📋 AC-8: finishV3 cadence');
   s2 = Domain.addSteps(s2, 4980);
   s2 = Domain.pause(s2, NOW + 600000);
   s2 = Domain.resume(s2, NOW + 780000);
-  const ended2 = NOW + 3900000; // 65 min total, 59 min active (3720s - 180s pauses)
+  const ended2 = NOW + 3900000; // 65 min wall, 3 min pausados -> durS = 3720s = 62 min netos
   const f2 = Domain.finishV3(s2, ended2);
-  assertApprox(f2.cadenceSpm, 84.4, 0.5, `cadence with pauses ≈ 84.4 spm (got ${f2.cadenceSpm})`);
+  // durS ya es neto: cadencia = 4980 / 62 min = 80.3 spm.
+  // Antes se asertaba 84.4, que salía de restar las pausas dos veces (DEROGACIONES.md §6).
+  assertApprox(f2.cadenceSpm, 80.3, 0.5, `cadence with pauses ≈ 80.3 spm (got ${f2.cadenceSpm})`);
+  // Regresión: la cadencia al finalizar debe coincidir con la que muestra la vista en vivo.
+  assertApprox(f2.cadenceSpm, Domain.calculateCadence(4980, f2.durationS), 0.05,
+    'cadencia al finalizar == cadencia en vivo');
+  // Regresión de ritmo: movingS = durS completo, no durS - pausas.
+  assertApprox(f2.paceSecPerKm, Math.round(f2.durationS / (f2.distanceM / 1000)), 1,
+    `ritmo usa durS neto sin volver a restar pausas (got ${f2.paceSecPerKm})`);
 }
 
 // ═══════════════════════════════════════════════════════

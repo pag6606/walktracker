@@ -164,6 +164,25 @@ console.log('\n📋 Streak & Time');
 // ═══════════════════════════════════════════════════════
 //  Summary
 // ═══════════════════════════════════════════════════════
+//  Regresión: racha a caballo entre dos meses
+//  (DEROGACIONES.md §6 — claves sin zero-padding ordenaban mal)
+// ═══════════════════════════════════════════════════════
+console.log('\n📋 Regresión: racha cruzando fin de mes');
+{
+  const mk = (iso) => ({ startedAt: Date.parse(iso + 'T10:00:00Z'), distanceM: 2000 });
+  const cruzaMes = [
+    '2026-09-25','2026-09-26','2026-09-27','2026-09-28',
+    '2026-09-29','2026-09-30','2026-10-01',
+  ].map(mk);
+  assert(checkStreak(cruzaMes, 7),
+    'racha de 7 días del 25-sep al 1-oct se reconoce (antes: false por orden lexicográfico)');
+  // Y el control negativo: con un hueco no hay racha.
+  const conHueco = ['2026-09-25','2026-09-26','2026-09-28',
+                    '2026-09-29','2026-09-30','2026-10-01','2026-10-02'].map(mk);
+  assert(!checkStreak(conHueco, 7), 'un hueco el 27-sep rompe la racha');
+}
+
+// ═══════════════════════════════════════════════════════
 console.log('\n══════════════════════════════════════════');
 console.log(`  Motivation: ${passed + failed} tests  |  ✅ ${passed} passed  |  ❌ ${failed} failed`);
 console.log('══════════════════════════════════════════\n');

@@ -153,15 +153,20 @@
 
   function checkStreak(sessions, days) {
     if (sessions.length < days) return false;
+    // Claves YYYY-MM-DD con relleno de ceros: sin él, "2026-9-25" ordena
+    // DESPUÉS de "2026-10-1" y la racha se rompe al cambiar de mes.
     const dates = [...new Set(sessions.map(s => {
       const d = new Date(s.startedAt);
-      return `${d.getUTCFullYear()}-${d.getUTCMonth()+1}-${d.getUTCDate()}`;
+      const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const dd = String(d.getUTCDate()).padStart(2, '0');
+      return `${d.getUTCFullYear()}-${mm}-${dd}`;
     }))].sort().reverse();
     if (dates.length < days) return false;
     let streak = 1;
     for (let i = 1; i < dates.length; i++) {
-      const prev = new Date(dates[i-1]);
-      const curr = new Date(dates[i]);
+      // Parseo explícito en UTC: las claves se construyeron con getUTC*.
+      const prev = new Date(dates[i-1] + 'T00:00:00Z');
+      const curr = new Date(dates[i] + 'T00:00:00Z');
       const diff = (prev - curr) / (1000 * 60 * 60 * 24);
       if (Math.round(diff) === 1) streak++;
       else streak = 1;

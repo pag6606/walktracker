@@ -212,7 +212,9 @@ const Domain = (() => {
       elapsedS(session.startedAt, totalPausesMs, nowMs)
     );
     const dist = distance(session.laps, session.lapPerimeterM);
-    const paceSec = pace(durS, Math.round(totalPausesMs / 1000), dist);
+    // durS ya viene NETO de pausas (elapsedS las resta). Pasar pausesS aquí
+    // las restaría por segunda vez. Ver DEROGACIONES.md §6.
+    const paceSec = pace(durS, 0, dist);
     return Object.freeze({
       ...session,
       status: SESSION_STATUS.FINISHED,
@@ -347,9 +349,12 @@ const Domain = (() => {
       : session.totalPausesMs;
     const durS = Math.round(elapsedS(session.startedAt, totalPausesMs, nowMs));
     const dist = v3distance(session.stepsMeasured, session.stepsEstimated, session.strideM);
-    const p = dist >= 100 ? pace(durS, Math.round(totalPausesMs / 1000), dist) : null;
-    const activeMin = (durS - Math.round(totalPausesMs / 1000)) / 60;
-    const cad = activeMin > 0 ? +(session.stepsMeasured / activeMin).toFixed(1) : 0;
+    // durS ya viene NETO de pausas (elapsedS las resta). Restarlas otra vez
+    // aquí inflaba el ritmo y la cadencia. Ver DEROGACIONES.md §6.
+    const p = dist >= 100 ? pace(durS, 0, dist) : null;
+    // Una sola implementación de cadencia, la misma que usa la vista en vivo:
+    // así el número no cambia al pulsar Finalizar.
+    const cad = calculateCadence(session.stepsMeasured, durS);
 
     return Object.freeze({
       ...session,
