@@ -1,0 +1,192 @@
+# Manifiesto de XcodeGen — fuente de verdad del proyecto Xcode.
+#
+# `WalkTracker.xcodeproj` NO se versiona (decisión de Paul, 2026-09-12): se regenera
+# con `xcodegen generate` y está en `.gitignore`. Nadie cambia un ajuste de build sin
+# que aparezca en este diff, y no hay `.pbxproj` que resolver en un merge.
+#
+# Coste aceptado: añadir o borrar un fichero desde fuera de Xcode exige regenerar
+# antes de compilar. Un fichero nuevo sin regenerar no rompe el build: se ignora en
+# silencio. `Scripts/check-project-shape.sh` es lo que convierte ese silencio en un
+# fallo ruidoso.
+#
+# XcodeGen es herramienta de build, no dependencia de la app: no entra en ningún target.
+
+name: WalkTracker
+
+options:
+  bundleIdPrefix: com.walktracker
+  createIntermediateGroups: true
+  generateEmptyDirectories: false
+  deploymentTarget:
+    iOS: "26.0"
+  # El grupo de `Scripts/` y `project.yml` visibles en Xcode sin pertenecer a un target.
+  groupSortPosition: top
+
+# AD-2 / AD-12: el suelo y la concurrencia estricta son de proyecto, no de target,
+# para que ningún target pueda quedarse fuera por olvido.
+settings:
+  base:
+    IPHONEOS_DEPLOYMENT_TARGET: "26.0"
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    SWIFT_EMIT_LOC_STRINGS: YES
+    CODE_SIGN_STYLE: Automatic
+    MARKETING_VERSION: "4.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    CLANG_ENABLE_MODULES: YES
+    SWIFT_OPTIMIZATION_LEVEL: "-Onone"
+  configs:
+    Release:
+      SWIFT_OPTIMIZATION_LEVEL: "-O"
+
+targets:
+
+  # ── Domain ───────────────────────────────────────────────────────────────────
+  # Su propio módulo, fuera del árbol de la app. Es lo que hace ESTRUCTURAL la
+  # dirección de dependencias (AD-3): desde `Domain` no se puede nombrar un tipo de
+  # `UI/` ni de `Adapters/` aunque no haya ningún import, porque esos símbolos no
+  # existen en este módulo. No es una regla de revisión: es el enlazador.
+  Domain:
+    type: framework
+    platform: iOS
+    sources:
+      - path: Domain
+        excludes:
+          - "**/.gitkeep"
+    settings:
+      base:
+        PRODUCT_NAME: Domain
+        PRODUCT_BUNDLE_IDENTIFIER: com.walktracker.Domain
+        GENERATE_INFOPLIST_FILE: YES
+        DEFINES_MODULE: YES
+        SKIP_INSTALL: NO
+
+  # ── Shared ───────────────────────────────────────────────────────────────────
+  # Contrato de la Live Activity y el poco formateo que la extensión necesita
+  # (AD-15). Compartir el tipo es pertenencia a target, no disco.
+  Shared:
+    type: framework
+    platform: iOS
+    sources:
+      - path: Shared
+        excludes:
+          - "**/.gitkeep"
+    settings:
+      base:
+        PRODUCT_NAME: Shared
+        PRODUCT_BUNDLE_IDENTIFIER: com.walktracker.Shared
+        GENERATE_INFOPLIST_FILE: YES
+        DEFINES_MODULE: YES
+        SKIP_INSTALL: NO
+
+  # ── WalkTracker (app) ────────────────────────────────────────────────────────
+  WalkTracker:
+    type: application
+    platform: iOS
+    sources:
+      - path: WalkTracker
+        excludes:
+          - "**/.gitkeep"
+          - "App/Info.plist"
+          - "App/WalkTracker.entitlements"
+    dependencies:
+      - target: Domain
+        embed: true
+      - target: Shared
+        embed: true
+      - target: WalkTrackerActivity
+        embed: true
+    settings:
+      base:
+        PRODUCT_NAME: WalkTracker
+        PRODUCT_BUNDLE_IDENTIFIER: com.walktracker.app
+        INFOPLIST_FILE: WalkTracker/App/Info.plist
+        CODE_SIGN_ENTITLEMENTS: WalkTracker/App/WalkTracker.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "1"
+        # Solo los targets que ejecutan build phases lo desactivan.
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+    preBuildScripts:
+      # `basedOnDependencyAnalysis: false` es deliberado y NO se toca. Declarar un
+      # fichero de salida hacía la fase cacheable y DESACTIVABA el gate en silencio
+      # (verificado: una violación pasó el build). El precio es una `note:` de Xcode
+      # en cada build. Un gate fiable vale más que un log limpio.
+      - name: "Forma del proyecto (AD-3 · AD-15 · AD-23)"
+        basedOnDependencyAnalysis: false
+        script: |
+          "$PROJECT_DIR/Scripts/check-project-shape.sh" "$PROJECT_DIR"
+
+  # ── WalkTrackerActivity (Widget Extension) ───────────────────────────────────
+  # Depende de `Shared` y NO de `Domain`: el grafo de targets lo impide. Un
+  # `import Domain` aquí falla con "no such module", porque `Domain` no está
+  # enlazado en este módulo.
+  WalkTrackerActivity:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: WalkTrackerActivity
+        excludes:
+          - "**/.gitkeep"
+          - "Info.plist"
+    dependencies:
+      - target: Shared
+        embed: false
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework
+    settings:
+      base:
+        PRODUCT_NAME: WalkTrackerActivity
+        PRODUCT_BUNDLE_IDENTIFIER: com.walktracker.app.WalkTrackerActivity
+        INFOPLIST_FILE: WalkTrackerActivity/Info.plist
+        TARGETED_DEVICE_FAMILY: "1"
+        SKIP_INSTALL: YES
+        # La extensión resuelve los frameworks embebidos en la app contenedora.
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../../Frameworks"
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+    preBuildScripts:
+      # El gate va TAMBIÉN aquí, y esto no es redundancia. La extensión es
+      # dependencia de la app, así que compila ANTES: con el script solo en la app,
+      # el compilador fallaba primero con "Unable to find module dependency: 'Domain'",
+      # que no explica nada. Enganchado aquí, el build falla con el mensaje del gate.
+      - name: "Forma del proyecto (AD-3 · AD-15 · AD-23)"
+        basedOnDependencyAnalysis: false
+        script: |
+          "$PROJECT_DIR/Scripts/check-project-shape.sh" "$PROJECT_DIR"
+
+  # ── WalkTrackerTests ─────────────────────────────────────────────────────────
+  # Swift Testing. Vacío salvo el caso de humo: la historia 8.7 pone aquí los
+  # vectores de AD-6 (`Vectors/`) y los escenarios portados a mano (`Scenarios/`).
+  WalkTrackerTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: WalkTrackerTests
+        excludes:
+          - "**/.gitkeep"
+    dependencies:
+      - target: WalkTracker
+      - target: Domain
+        embed: false
+      - target: Shared
+        embed: false
+    settings:
+      base:
+        PRODUCT_NAME: WalkTrackerTests
+        PRODUCT_BUNDLE_IDENTIFIER: com.walktracker.app.tests
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  WalkTracker:
+    build:
+      targets:
+        WalkTracker: all
+        WalkTrackerActivity: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - WalkTrackerTests
+    archive:
+      config: Release

@@ -261,10 +261,6 @@ body {
 <script src="./climate.js"></script>
 <script src="./motivation.js"></script>
 <script src="./runtime.js"></script>
-<script src="./adapters/capacitor-keep-awake-adapter.js"></script>
-<script src="./plugin.js"></script>
-<script src="./adapters/capacitor-motion-adapter.js"></script>
-<script src="./adapters/capacitor-feedback-adapter-v2.js"></script>
 <script src="./quotes.json" id="quotes-json"></script>
 <script>
 // ═══════════════════════════════════════════════════════
@@ -993,7 +989,7 @@ body {
     D.registerFeedbackAdapter(feedbackAdapter);
     state.feedbackAdapter = feedbackAdapter;
     if (state.config.soundEnabled === false) {
-      feedbackAdapter.setSoundEnabled(false);
+      if (feedbackAdapter) feedbackAdapter.setSoundEnabled(false);
     }
     // Init weekly km tracking for goal detection
     const initProgress = Mot.getWeeklyProgress(state.allSessions, state.config.weeklyGoalKm);

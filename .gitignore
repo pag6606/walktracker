@@ -1,7 +1,5 @@
 .DS_Store
 node_modules/
-# copia que genera Capacitor desde la raíz
-www/
 _opencode_scratch/
 *.log
 coverage/
@@ -18,15 +16,22 @@ playwright/.cache/
 # Build artifacts
 build/
 ios/DerivedData/
-ios/App/Pods/
-ios/App/build/
+DerivedData/
 **/xcuserdata/
+
+# El proyecto Xcode NO se versiona: la fuente de verdad es `project.yml` y el
+# proyecto se regenera con `xcodegen generate`. Nadie cambia un ajuste de build sin
+# que aparezca en el diff, y no hay `.pbxproj` que resolver en un merge.
+WalkTracker.xcodeproj/
 
 # IDE
 .idea/
 
 # Restos de Flutter en el árbol: el sustrato vive en feature/flutter-substrate,
-# no en esta rama (AD-23 — un solo árbol de producto).
+# no en esta rama (AD-23 — un solo árbol de producto). Estas reglas se conservan
+# a propósito: la historia 8.6 hace
+# `git checkout feature/flutter-substrate -- ios/Runner/AppDelegate.swift`
+# sobre este mismo árbol.
 ios/Flutter/
 ios/Runner/
 ios/Runner.xcodeproj/
