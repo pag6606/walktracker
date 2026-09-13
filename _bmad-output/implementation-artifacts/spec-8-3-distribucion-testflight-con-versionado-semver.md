@@ -150,6 +150,12 @@ el commit con una versión SemVer coherente con la del binario.
   `v4.0.0-build.N`, e instalación desde TestFlight en el iPhone 14. Requiere el registro en App Store
   Connect. La historia queda en `review` hasta entonces.
 
+- **Validación contra App Store Connect (2026-09-13).** Registro creado por Paul con el nombre
+  `walktracker`. Validate App del Organizer sobre el archivo del ensayo rechazó el binario por falta de
+  `NSHealthShareUsageDescription` (obligatoria con el entitlement de HealthKit aunque la app solo
+  escriba); corregido en `fix/8-3-health-share-usage` y revalidado con éxito sobre `WalkTracker 4.0.0
+  (36)`. El ensayo local no puede detectar esto: solo lo comprueba App Store Connect.
+
 ## Spec Change Log
 
 ## Review Triage Log
