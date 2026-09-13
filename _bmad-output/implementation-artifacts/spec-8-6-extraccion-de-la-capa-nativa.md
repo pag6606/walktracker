@@ -169,6 +169,11 @@ que cada capacidad funciona de verdad.
   para test. Verificación final: `clean test` en iPhone 16e → 30 tests en 8 suites, cero warnings
   propios; build firmado para el iPhone 14 `BUILD SUCCEEDED` e instalada (`com.walktracker.app` 4.0.0).
 
+- **Verificación en el iPhone 14 (2026-09-12, Paul): todo funcionó.** Podómetro contando pasos al
+  caminar, háptica en los cuatro eventos, workout de prueba visible en Salud, y Live Activity iniciada
+  y terminada. El código extraído, que nunca se había ejecutado en un dispositivo, no genera coste
+  adicional para los Epics 6 y 7.
+
 ## Spec Change Log
 
 ## Review Triage Log

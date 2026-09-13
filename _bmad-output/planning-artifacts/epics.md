@@ -771,7 +771,7 @@ Paul ve las métricas de su caminata en la pantalla de bloqueo, sin desbloquear 
 **NFRs:** NFR-1, NFR-8
 **ADs:** AD-15 (la extensión no tiene dominio), AD-21 (presupuesto de energía), AD-11 (degradación), AD-13 (Liquid Glass)
 **UX:** UX-DR4 — **con la salvedad de abajo**
-**Riesgo:** medio-bajo. El iPhone 14 no tiene Dynamic Island: se valida el layout de pantalla de bloqueo y la isla se limita a compilar. `Activity.request`/`update`/`end` ya están escritos en la capa nativa que rescata la historia 8.6 — pero **nunca se han ejecutado en un dispositivo**.
+**Riesgo:** medio-bajo. El iPhone 14 no tiene Dynamic Island: se valida el layout de pantalla de bloqueo y la isla se limita a compilar. `Activity.request`/`update`/`end` ya están escritos en la capa nativa que rescató la historia 8.6 (`LiveActivityAdapter`), y **Paul los verificó en el iPhone 14 el 2026-09-12**: la actividad se inicia y termina. Queda por validar el ciclo por eventos (7.2) y el layout con Liquid Glass (7.3).
 
 > ⚠️ **Encargo pendiente para UX.** `UX-DR4` documenta un layout de Live Activity diseñado como
 > tarjeta plana de iOS 17. Desde iOS 26 la Live Activity de pantalla de bloqueo **también hereda
