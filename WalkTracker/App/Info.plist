@@ -39,6 +39,12 @@
 	<!-- AD-15: sin esta clave el sistema no permite Live Activities. -->
 	<key>NSSupportsLiveActivities</key>
 	<true/>
+	<!-- 8.3 · Cumplimiento de exportación: la app solo usa el HTTPS del sistema
+	     (URLSession), que está exento. Declararlo aquí evita la pregunta en cada
+	     build subido a App Store Connect. Si algún día entra cifrado propio, esto
+	     deja de ser verdad y hay que revisarlo antes de subir. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<!-- AD-13: `UIDesignRequiresCompatibility` está PROHIBIDA. Liquid Glass se
 	     hereda del SDK de iOS 26; no se declara nada para desactivarlo. -->
 </dict>

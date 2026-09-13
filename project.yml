@@ -62,7 +62,11 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.walktracker.Domain
         GENERATE_INFOPLIST_FILE: YES
         DEFINES_MODULE: YES
-        SKIP_INSTALL: NO
+        # YES, y no se toca (8.3). El framework viaja embebido en la app; con NO se
+        # instalaba ADEMÁS en `Products/Library/Frameworks` del archivo, Xcode lo
+        # trataba como archivo genérico y la distribución a App Store Connect lo
+        # rechazaba ("doesn't support distributing archive").
+        SKIP_INSTALL: YES
 
   # ── Shared ───────────────────────────────────────────────────────────────────
   # Contrato de la Live Activity y el poco formateo que la extensión necesita
@@ -80,7 +84,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.walktracker.Shared
         GENERATE_INFOPLIST_FILE: YES
         DEFINES_MODULE: YES
-        SKIP_INSTALL: NO
+        # YES por lo mismo que `Domain`: embebido en la app, no instalado aparte.
+        SKIP_INSTALL: YES
 
   # ── WalkTracker (app) ────────────────────────────────────────────────────────
   WalkTracker:
