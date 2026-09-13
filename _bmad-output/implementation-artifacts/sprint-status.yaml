@@ -58,6 +58,8 @@ development_status:
   1-4-pausar-reanudar-y-finalizar-sesión-controles: backlog
   1-5-reconstrucción-de-intervalos-en-background-por-query-al-sist: backlog
   1-6-recuperación-foreground-wall-clock-estimated-banner: backlog
+  # Al terminar 1-6 → gate 8-4 (caminata de 30 min) ANTES de epic-2..epic-7.
+  # Reubicación del 2026-09-13: sprint-change-proposal-2026-09-13.md
   epic-1-retrospective: optional
 
   epic-2: backlog
@@ -101,5 +103,6 @@ development_status:
   8-6-extracción-de-la-capa-nativa-desde-feature-flutter-substrate: done
   8-7-sustrato-de-verificación-del-dominio: done
   8-3-distribución-testflight-con-versionado-semver: done
+  # Se ejecuta DESPUÉS de epic-1 (1-1..1-6). epic-8 sigue in-progress hasta entonces.
   8-4-gate-del-success-signal-batería-y-precisión-en-dispositivo-f: backlog
   epic-8-retrospective: optional

@@ -55,7 +55,8 @@ This document provides the complete epic and story breakdown for WalkTracker iOS
 - **NFR-6**: Arquitectura hexagonal — dominio puro sin frameworks de plataforma/UI; puertos en dominio, adapters en borde.
 - **NFR-7**: Licencias — solo Apache-2.0/MIT; copyleft fuerte bloqueante.
   - > ⚠️ **ENMENDADO el 2026-09-12** → Apache-2.0/MIT en **código**; en **fuentes de datos** se admite CC-BY 4.0 con atribución visible. Open-Meteo es CC-BY, no MIT (**AD-24**). Copyleft fuerte sigue bloqueante.
-- **NFR-8**: Batería — sesión de 60 min con conteo continuo sin degradación notoria.
+- **NFR-8**: Batería — sesión de 30 min con conteo continuo sin degradación notoria.
+  - > ⚠️ **ENMENDADO el 2026-09-13** → antes 60 min. Umbral verificable: ≤ 5 % de caída total en los 30 min y WalkTracker no destacado en Ajustes → Batería. [`SPEC.md` Constraints · Batería]
 - **NFR-9**: UX — targets ≥44 pt, claro/oscuro, "celebrar nunca culpar", números grandes, overlay 3–4 s saltable, UI en español.
 
 ### Additional Requirements
@@ -67,6 +68,7 @@ This document provides the complete epic and story breakdown for WalkTracker iOS
 - **AR-3 (AD-C4)**: Reconstrucción background por `queryPedometerData` como camino primario; `GapEstimator` solo si query falla/vacía (reglas heredadas: muestra ≥120 s, desglosado, "~", descartable); en web el GapEstimator sigue siendo el camino principal.
 - **AR-4 (AD-C5)**: Distribución = builds locales Xcode (`pnpm cap run ios`) para iterar + TestFlight como canal duradero. Gate de promoción = prueba de performance del Success signal (60 min background, ≤10 % vs Salud, sin degradación batería). App Store fuera de scope. PWA se despliega por GitFlow a Pages.
   - > ⛔ **PARCIAL el 2026-09-12** → heredero: **Story 8.3**. TestFlight sobrevive; el mecanismo `pnpm cap run ios` no. [`DEROGACIONES.md §5`]
+  - > ⚠️ **ENMENDADO el 2026-09-13** → el gate pasa a **30 min** (≤ 5 % de batería, WalkTracker no destacado en Ajustes → Batería) y corre en la **Story 8.4 tras el Epic 1**. [`sprint-change-proposal-2026-09-13.md`]
 - **AR-5 (AD-C6)**: Live Activity alimentada por eventos nativos (callbacks CMPedometer en `walktracker-kit`), NO por WebView; el WebView solo ordena estado mayor (inicio/pausa/fin) vía `LiveActivityPort`.
   - > ⛔ **DEROGADO el 2026-09-12** → heredero: **AD-15**. No hay WebView que ordene el estado: la app alimenta la Live Activity directamente. [`DEROGACIONES.md §5`]
 - **AR-6 (AD-C7)**: Bundle local únicamente; prohibido `server.url` en producción; actualizaciones vía build/TestFlight; única red = Open-Meteo.
@@ -277,6 +279,8 @@ So that mi caminata quede completa y correcta aunque la app no estuviera en prim
 
 **And** la consulta al sistema pasa por el `MotionPort` (`query→{steps, distanceM}|null`); el `GapEstimator` vive en el dominio puro y solo se invoca cuando el puerto devuelve `null` o vacío [fuente: ARCHITECTURE-SPINE.md AR-3, AR-10]
 
+**And** la consulta al sistema está acotada por el **timeout de reconciliación** de AD-8, leído de `formulas.json`: esta historia lo introduce con un **valor provisional marcado como tal** en el fichero, y la historia **8.4** lo reemplaza por el valor medido en el iPhone 14 [AD-8, reubicación del 2026-09-13]
+
 ### Story 1.6: Recuperación foreground — wall-clock + Estimated Banner
 
 As a caminante (usuario único),
@@ -302,6 +306,8 @@ So que nunca me sienta engañado sobre el estado de mi caminata.
 **Then** la reconstrucción por query (historia 1.5) se ejecuta ANTES de refrescar la UI, y la UI muestra el estado consolidado (medidos + estimados si los hubo)
 
 **And** la recuperación usa el snapshot `activeSession` persistido `{startedAtMs, stepsMeasured, stepsEstimated, ...}` y es silenciosa (sin bloqueos ni pantallas de carga) [fuente: domain-model.md#98]
+
+**And** si la app arranca con una sesión activa más antigua que el **umbral de sesión huérfana** de AD-18, se cierra recortada al último dato real, marcada `recovered: true` y sin logros ni celebración; el umbral vive en `formulas.json` con un **valor provisional**, y la **8.4** lo reemplaza por el medido [AD-18, reubicación del 2026-09-13]
 
 ### Epic 2: Clima, motivación y calibración
 Paul inicia cada sesión con un snapshot del clima y una frase motivacional, y puede recalibrar su zancada sin alterar el historial cerrado.
@@ -830,6 +836,10 @@ So that no tenga que desbloquear el teléfono para saber cómo voy.
 
 **And** app y tarjeta muestran **el mismo número** porque hay **una sola fuente**: el `ContentState` que publica `SessionStore`. La extensión no recalcula nada [AD-15, AD-22]
 
+**Given** la Live Activity actualizándose por evento durante una caminata de 30 min con la pantalla bloqueada
+**When** se repite la medición de batería de la **8.4**
+**Then** la batería sigue cayendo **≤ 5 %** en los 30 min y WalkTracker no aparece como consumidor destacado en Ajustes → Batería: la Live Activity no rompe el presupuesto de AD-21 [NFR-8, AD-21, reubicación del 2026-09-13]
+
 ### Story 7.3: Layout de pantalla de bloqueo (y la isla, que solo compila)
 
 As a caminante (usuario único),
@@ -862,7 +872,7 @@ So that mirar el teléfono un segundo me baste.
 
 *(Reescrito el 2026-09-12. El epic se llamaba "Validación de la apuesta nativa" y existía para
 demostrar que Capacitor era viable. Esa apuesta ya no se juega: OQ-1 se reabrió y el sustrato es
-SwiftUI nativo. Lo que queda de fundacional es distinto — y sigue corriendo PRIMERO.)*
+SwiftUI nativo. Lo que queda de fundacional es distinto — y sigue corriendo PRIMERO, **salvo su gate final (8.4), que mide una sesión real y corre después del Epic 1** (reubicación del 2026-09-13).)*
 
 Levantar el sustrato sobre el que se construye todo lo demás: el proyecto SwiftUI limpio, la capa
 nativa rescatada, y el arnés que demuestra que el dominio portado se comporta como el validado en
@@ -875,7 +885,9 @@ producción. Sin esto, cada epic posterior improvisa su propia versión de la ve
 
 #### Orden de ejecución
 
-`8.5 → 8.6 → 8.7 → 8.3 → 8.4`. Los números ya no son el orden: es el precio de no reciclar IDs.
+`8.5 → 8.6 → 8.7 → 8.3`, y después **Epic 1 (1.1–1.6) → 8.4**, antes de los epics 2–7. Los números ya no son el orden: es el precio de no reciclar IDs.
+
+**Por qué 8.4 va detrás del Epic 1** (2026-09-13): sus criterios miden una sesión con conteo continuo, `stepsEstimated = 0` y reconstrucción del background, que no existen hasta 1.1–1.6. Y hay una dependencia circular: 8.4 **fija** el timeout de reconciliación y el umbral de sesión huérfana que 1.5 y 1.6 **usan**. Se rompe así: el Epic 1 arranca con valores provisionales en `formulas.json` y 8.4 los reemplaza por los medidos. [`sprint-change-proposal-2026-09-13.md`]
 #### Historias anuladas — fuera del tracking
 
 | ID | Título | Por qué |
@@ -994,31 +1006,37 @@ So that tenga la app instalada sin depender de cables ni de builds locales.
 
 ### Story 8.4: Gate del Success signal — batería y precisión en dispositivo físico
 
-As a desarrollador del producto (Paul),
-I want validar en mi iPhone que una caminata completa de 60 minutos se registra con precisión y sin castigar la batería,
-So that el criterio de éxito del SPEC quede demostrado en hardware y no en un documento.
+*(Reubicada el 2026-09-13: se ejecuta **después del Epic 1**. Sus criterios miden una sesión real
+—conteo, reconstrucción del background, UI de sesión— que construyen las historias 1.1–1.6. Duración
+enmendada de 60 a 30 min: `SPEC.md` Constraints · Batería. [`sprint-change-proposal-2026-09-13.md`])*
 
-*(Esta historia cambia de significado con el pivot. Ya no valida "si el WebView aguanta" — ese riesgo
-desaparece con el sustrato nativo. Ahora valida NFR-8 y la precisión de CAP-2/CAP-3.)*
+*(Cambió de significado con el pivot: ya no valida "si el WebView aguanta" —ese riesgo desaparece con
+el sustrato nativo—. Valida NFR-8 y la precisión de CAP-2/CAP-3.)*
+
+As a desarrollador del producto (Paul),
+I want validar en mi iPhone que una caminata de 30 minutos se registra con precisión y sin castigar la batería,
+So that el criterio de éxito del SPEC quede demostrado en hardware antes de construir sobre el conteo.
 
 **Acceptance Criteria:**
 
-**Given** la app nativa instalada en el iPhone 14
-**When** Paul sale a caminar 60 min con el teléfono en el bolsillo, auriculares con música y pantalla bloqueada
+**Given** las historias 1.1–1.6 en `done` y la app instalada en el iPhone 14 por TestFlight
+**When** Paul sale a caminar **30 min** con el teléfono en el bolsillo, auriculares con música y pantalla bloqueada
 **Then** al terminar, los pasos y la distancia difieren **≤ 10 %** de los que reporta Apple Salud [SPEC Success signal, CAP-2]
 
 **Given** la misma caminata
 **When** se evalúa el consumo
-**Then** no hay degradación notoria de batería con conteo continuo en background [NFR-8, AD-21]
+**Then** la batería cae **≤ 5 %** en los 30 min y **Ajustes → Batería** no muestra a WalkTracker como consumidor destacado del periodo [NFR-8, AD-21]
 
 **Given** la caminata con pantalla bloqueada
 **When** Paul no toca la pantalla en ningún momento
-**Then** la sesión queda registrada completa, y **`stepsEstimated` es 0**: los intervalos en background se reconstruyeron por consulta al sistema, no por estimación [CAP-3, AD-8]
+**Then** la sesión queda registrada completa y **`stepsEstimated` es 0**: los intervalos en background se reconstruyeron por consulta al sistema, no por estimación [CAP-3, AD-8]
 
-**Given** las tres cadencias de refresco que fija AD-21 (conteo continuo, UI a 1 Hz, Live Activity por evento)
+**Given** las cadencias de AD-21 que existen al terminar el Epic 1 (**conteo continuo y UI a 1 Hz**)
 **When** se mide la sesión
-**Then** el resultado se registra como la medición de referencia con la que se fijan el timeout de reconciliación y el umbral de sesión huérfana, hoy diferidos a `formulas.json` [AD-8, AD-18]
+**Then** el resultado se registra como medición de referencia y **reemplaza los valores provisionales** de `formulas.json` del timeout de reconciliación y del umbral de sesión huérfana [AD-8, AD-18]
+
+**And** la cadencia de la Live Activity por evento **no** se mide aquí: no existe hasta la 7.2, que recomprueba la batería con ella activa
 
 **Given** el resultado del gate
 **When** la prueba falla algún criterio
-**Then** se revisa antes de seguir construyendo — el riesgo se paga aquí, no después
+**Then** se revisa antes de seguir con los epics 2–7: el riesgo se paga aquí, no después

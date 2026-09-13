@@ -261,12 +261,12 @@ stateDiagram-v2
 ### AD-21 — Presupuesto de energía y cadencia de refresco
 
 - **Binds:** NFR-8, CAP-2, CAP-4, CAP-18, Success signal
-- **Prevents:** que cada unidad elija su propia frecuencia de actualización y la suma incumpla "60 min sin degradación notoria" — el criterio de éxito del SPEC
+- **Prevents:** que cada unidad elija su propia frecuencia de actualización y la suma incumpla "30 min sin degradación notoria (≤ 5 % de caída)" — el criterio de éxito del SPEC, enmendado el 2026-09-13
 - **Rule:** tres cadencias, fijadas aquí porque varias unidades deben compartirlas:
   - **Conteo:** `CMPedometer` en modo continuo mientras hay sesión activa; la query histórica se reserva a la reconciliación de AD-8. No se combinan.
   - **UI:** el cronómetro refresca a **1 Hz** y solo redibuja la vista de sesión. Las métricas derivadas se recalculan con el dato del coprocesador, no con el tick.
   - **Live Activity:** actualización **por evento** (cambio de km, pausa, reanudación, fin), nunca periódica. El reloj lo anima la extensión con `Text(timerInterval:)`, coste cero de actualizaciones.
-  - La medición de 60 min en el iPhone 14 es **gate de la historia final**, no un chequeo posterior.
+  - La medición de 30 min en el iPhone 14 es **gate de la historia 8.4**, que corre **al terminar el Epic 1** y antes de los epics 2–7: no es un chequeo posterior. Mide conteo y UI; la cadencia de la Live Activity la recomprueba la 7.2 con el mismo umbral. *(Reubicado y enmendado el 2026-09-13; antes "60 min" y "gate de la historia final".)*
 
 ### AD-22 — Sin fuente en el dominio, no se pinta
 
@@ -383,7 +383,7 @@ Scripts/verify-domain.sh    # ejecuta ambos runtimes contra los vectores (AD-6)
 
 | Diferido | Por qué puede esperar |
 | --- | --- |
-| Valor del timeout de reconciliación y del umbral de sesión huérfana | AD-8 y AD-18 fijan que existen, dónde viven (`formulas.json`) y qué pasa al agotarse; el número sale de la primera medición en el iPhone 14 |
+| Valor del timeout de reconciliación y del umbral de sesión huérfana | AD-8 y AD-18 fijan que existen, dónde viven (`formulas.json`) y qué pasa al agotarse. Las historias 1.5 y 1.6 los introducen con **valores provisionales marcados**; la **8.4** los reemplaza por los medidos en el iPhone 14 (2026-09-13) |
 | Enumeración completa de `formulas.json` | El fichero existe desde el día uno; su contenido se llena al portar cada cálculo. Hay ≥ 30 constantes en el JS, con `0.655` triplicado — consolidarlas es parte del port, no una decisión previa |
 | Migración de esquema | `schemaVersion` presente desde el día uno; con arranque limpio (OQ-3) no hay nada que migrar |
 | Diseño visual de las tres piezas dibujadas | Depende de la v4 de mockups, congelada hasta este spine |
