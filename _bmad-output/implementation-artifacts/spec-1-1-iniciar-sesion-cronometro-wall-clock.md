@@ -2,7 +2,7 @@
 title: '1.1 — Iniciar sesión de caminata con cronómetro wall-clock'
 type: 'feature'
 created: '2026-09-13'
-status: 'in-review'
+status: 'done'
 route: 'dispatch'
 review_loop_iteration: 0
 baseline_commit: '08a006914810b4c4f7895a78f7519623a5534f07'
@@ -123,6 +123,10 @@ tiempo transcurrido refrescándose a 1 Hz.
   debe estar citado y toda cita debe ser escenario suyo. Casos rojos en `red-path-tests.sh`.
 - `SessionView` mide en `max(context.date, clock.now)` vía `SessionStore.elapsedS(notBefore:)`.
 - `project.yml`: `developmentLanguage: es`, alineado con `CFBundleDevelopmentRegion` y el catálogo.
+
+- **Verificación en el iPhone 14 (2026-09-13, Paul): funciona.** Build de desarrollo instalado y lanzado
+  con `devicectl`: arranca (catálogo y `formulas.json` validan), cuatro pestañas, "Iniciar caminata"
+  presenta la sesión y el contador avanza. Sin botones en la sesión, como se decidió hasta la 1.4.
 
 ## Spec Change Log
 
