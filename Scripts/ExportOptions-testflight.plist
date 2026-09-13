@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!--
+  Opciones de exportación de `Scripts/release-testflight.sh` (8.3).
+
+  `destination: upload` sube a App Store Connect con la cuenta de Apple ya configurada
+  en Xcode: no hay clave de API ni credenciales en el repositorio. El modo ensayo
+  del script (dry-run) exporta con una COPIA temporal de este fichero con `destination: export`,
+  que deja un `.ipa` local sin subir nada.
+
+  `manageAppVersionAndBuildNumber: false` es deliberado: la versión es la de
+  `project.yml` y el número de build lo calcula el script. Si Xcode los reescribiera
+  al exportar, la etiqueta git dejaría de nombrar el binario subido.
+-->
+<dict>
+	<key>method</key>
+	<string>app-store-connect</string>
+	<key>destination</key>
+	<string>upload</string>
+	<key>teamID</key>
+	<string>Z3M45B4K6D</string>
+	<key>signingStyle</key>
+	<string>automatic</string>
+	<key>manageAppVersionAndBuildNumber</key>
+	<false/>
+	<key>uploadSymbols</key>
+	<true/>
+	<key>stripSwiftSymbols</key>
+	<true/>
+</dict>
+</plist>

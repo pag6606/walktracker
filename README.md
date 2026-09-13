@@ -62,7 +62,7 @@ WalkTracker/          # la app
 Shared/               # ActivitySnapshot + su formateo — compartido con la extensión
 WalkTrackerActivity/  # Widget Extension — SOLO renderiza
 WalkTrackerTests/     # Swift Testing · Vectors/ (AD-6, 8.7) · Scenarios/ (Epic 1)
-Scripts/              # gates de forma del proyecto
+Scripts/              # gates, verificación del dominio y release a TestFlight
 project.yml           # fuente de verdad del proyecto Xcode
 ```
 
@@ -161,6 +161,108 @@ con `timeZone`.
 
 El destino del simulador se cambia con `VERIFY_DESTINATION`.
 
+## Releases a TestFlight (8.3)
+
+TestFlight es el canal duradero al iPhone 14. App Store está **fuera de scope**: no hay ficha,
+capturas ni envío a revisión.
+
+### Política de versiones (SemVer)
+
+- **`project.yml` es la única fuente de la versión** (`MARKETING_VERSION`). El número de build
+  **no se edita a mano**: lo calcula el script (`git rev-list --count HEAD`) y solo crece.
+- **Durante todo el MVP la versión se queda en `4.0.0`.** Cada subida etiqueta
+  `v4.0.0-build.N`; la etiqueta `v4.0.0` a secas se reserva para el MVP completo.
+- **Después del MVP:** PATCH para arreglos, MINOR para funcionalidad, MAJOR para cambios que rompan
+  datos. Se cambia `MARKETING_VERSION` en `project.yml`, en un commit, antes del release.
+- La etiqueta nombra **exactamente** el binario subido: el script comprueba en el archivo que la app
+  y la extensión dicen esa versión y ese build antes de exportar.
+
+### Hacer un release
+
+```bash
+git checkout main && git pull
+bash Scripts/release-testflight.sh --dry-run     # opcional: archiva y exporta un .ipa local
+bash Scripts/release-testflight.sh               # archiva, pide confirmación, sube y etiqueta
+git push origin v4.0.0-build.N                   # publica la etiqueta que imprimió
+```
+
+Antes de archivar, el script exige **todo** esto y, si falta algo, dice qué y sale ≠ 0 sin archivar:
+
+- Xcode **26.x** (se niega con otra versión mayor; 26.3 es el verificado).
+- Rama `main` y árbol **limpio**, sin ficheros sin seguimiento.
+- Tras `git fetch --tags origin`, **HEAD igual a `origin/main`**: los PR se fusionan en GitHub, y un
+  `main` sin pull subiría un commit que no es el fusionado. Las etiquetas de otros clones cuentan.
+- `MARKETING_VERSION` SemVer y definida una sola vez.
+- La etiqueta `v<versión>-build.<N>` libre y `N` mayor que cualquier build ya etiquetado.
+- `Scripts/check-project-shape.sh` y `Scripts/verify-domain.sh` en verde.
+
+**La subida pide confirmación explícita**: hay que escribir la etiqueta. Un número de build subido
+queda gastado para siempre, suba bien o no. Sin terminal interactiva (p. ej. cuando lo ejecuta
+Claude) se pasa `--confirm v4.0.0-build.N`, **solo con la confirmación de Paul en ese momento**, y
+tiene que coincidir con la etiqueta calculada o no se archiva.
+
+HEAD y el árbol se vuelven a comprobar tras los gates, tras el archivo y justo antes de subir: si
+alguien edita o hace commit mientras tanto, el script se detiene. El archivo y la subida muestran su
+progreso en la terminal y lo guardan en los logs.
+
+El `--dry-run` vale en cualquier rama con árbol limpio y no va a la red: exporta un `.ipa` firmado
+para distribución en `build/release/<etiqueta>-ensayo/export/` y no sube ni etiqueta nada. El número
+de build que muestra es **provisional**: el real se calcula en `main` al hacer el release. Archivos y logs quedan en
+`build/release/` (ignorado por git).
+
+La subida usa la cuenta de Apple **configurada en Xcode** (Ajustes → Cuentas) con
+`xcodebuild -exportArchive` y `Scripts/ExportOptions-testflight.plist` (`destination: upload`). No
+hay clave de API, contraseñas ni perfiles en el repositorio, ni fastlane: la firma automática crea
+lo que falte (certificado Apple Distribution, App ID de la extensión) con `-allowProvisioningUpdates`.
+
+El camino rojo del script es ejecutable y no toca App Store Connect:
+
+```bash
+bash Scripts/release-testflight-tests.sh
+```
+
+### Lo que Paul hace a mano
+
+**En Xcode, una sola vez:** Ajustes → Cuentas → **+** → Apple ID del equipo de pago
+(`Z3M45B4K6D`). Sin cuenta, `xcodebuild -exportArchive` falla con «No Accounts» incluso en el
+`--dry-run`: los perfiles de desarrollo que ya hay en disco sirven para archivar, pero no para firmar
+la distribución.
+
+### Cuando una subida falla o App Store Connect rechaza el build
+
+- **La subida falla o se interrumpe** (error de `xcodebuild`, Ctrl-C, red): el script **no
+  etiqueta**, pero el build `N` puede haber llegado ya a App Store Connect y quedar gastado. Repetir
+  desde el mismo commit da el mismo `N` y se rechazaría. Para reintentar hace falta un **commit nuevo
+  en `origin/main`** —vale uno vacío: `git commit --allow-empty -m "release: reintento"`, empujado o
+  fusionado— y otro release, que calculará `N+1`.
+- **App Store Connect lo rechaza después de procesarlo** (llega por correo, minutos después): la
+  subida ya terminó bien y **la etiqueta ya existe**. No se borra: queda como registro de un build
+  gastado. El arreglo entra como un commit nuevo en `main` y sale en un build nuevo.
+
+**En App Store Connect, una sola vez, antes de la primera subida:** Apps → **+** → Nueva app →
+plataforma iOS, idioma principal español, bundle id `com.walktracker.app`, un SKU cualquiera. El
+nombre de la ficha es el que quede disponible (no tiene que ser «WalkTracker»).
+
+**En cada release:**
+
+1. App Store Connect → la app → **TestFlight**: esperar a que el build pase de «Procesando» a listo
+   (unos minutos; llega un correo).
+2. La primera vez, añadirse como **tester interno** (grupo de pruebas interno con tu Apple ID). Los
+   testers internos no necesitan revisión de Apple.
+3. Si pregunta por el cumplimiento de exportación, no debería: `ITSAppUsesNonExemptEncryption = NO`
+   ya va en el `Info.plist`. Se basa en la suposición de que la app solo usará el HTTPS del sistema;
+   la historia del clima la revisa cuando entre la primera llamada de red.
+4. iPhone 14 → app **TestFlight** → WalkTracker → Instalar. La app abre; la pantalla de diagnóstico
+   de la 8.6 **no** aparece, porque es solo `DEBUG` y TestFlight instala Release.
+
+Un build de TestFlight caduca a los **90 días**: antes de eso, otro release.
+
+**Privacidad:** `WalkTracker/Resources/PrivacyInfo.xcprivacy` declara cero rastreo y cero datos
+recogidos. Hoy la app no hace ninguna llamada de red; lo que dice sobre el clima es una suposición
+que la historia del clima tiene que revisar cuando entre. La primera historia que use una API con motivo obligatorio (`UserDefaults`, fechas de
+ficheros, tiempo desde el arranque, espacio en disco) la declara ahí o App Store Connect rechaza el
+build.
+
 ## Estado
 
 - El proyecto y el árbol limpio son la historia **8.5** (esta).
@@ -168,3 +270,4 @@ El destino del simulador se cambia con `VERIFY_DESTINATION`.
   entra por `git checkout` de un único fichero. Por eso `ios/` sigue en `.gitignore` aunque hoy no
   tenga contenido versionado.
 - El arnés de verificación del dominio es la **8.7**: `Scripts/verify-domain.sh`, arriba.
+- La distribución por TestFlight con etiquetas SemVer es la **8.3**: `Scripts/release-testflight.sh`, arriba.

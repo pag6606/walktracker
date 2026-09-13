@@ -43,7 +43,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: '2026-08-01'
-last_updated: 09-12-2026 23:05
+last_updated: 09-13-2026 09:30
 project: walktracker
 project_key: NOKEY
 tracking_system: file-system
@@ -100,6 +100,6 @@ development_status:
   8-5-proyecto-swiftui-y-limpieza-del-árbol: done
   8-6-extracción-de-la-capa-nativa-desde-feature-flutter-substrate: done
   8-7-sustrato-de-verificación-del-dominio: done
-  8-3-distribución-testflight-con-versionado-semver: backlog
+  8-3-distribución-testflight-con-versionado-semver: review
   8-4-gate-del-success-signal-batería-y-precisión-en-dispositivo-f: backlog
   epic-8-retrospective: optional

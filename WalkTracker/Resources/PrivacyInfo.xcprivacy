@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!--
+  Manifiesto de privacidad del producto (8.3).
+
+  - Sin rastreo y sin dominios de rastreo: no hay analítica, ni crash reporting, ni SDK
+    de terceros.
+  - Sin datos recogidos: pasos, sesiones y salud se quedan en el dispositivo (y en
+    Apple Salud, que es del usuario). HOY la app no hace ninguna llamada de red.
+    SUPOSICIÓN, a revisar por la historia del clima cuando entre: la consulta del
+    clima enviará coordenadas redondeadas a Open-Meteo solo para responder en el
+    momento, sin guardarlas ni vincularlas a nadie, y eso no cuenta como recogida. Si
+    el diseño final no es así, este manifiesto cambia antes de subir.
+  - Tipos de API con motivo: vacío porque HOY el código no usa ninguno (UserDefaults,
+    marcas de tiempo de ficheros, tiempo desde el arranque, espacio en disco, teclados
+    activos). La primera historia que use uno lo declara aquí con su motivo, o App Store
+    Connect rechaza el build.
+-->
+<dict>
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array/>
+</dict>
+</plist>
