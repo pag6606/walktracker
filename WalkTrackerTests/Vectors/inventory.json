@@ -396,7 +396,7 @@
       "site": "test/session-v3-tests.js:68",
       "code": "assert(s.distanceM === 0, 'distanceM = 0');",
       "category": "scenario",
-      "story": "1.1"
+      "story": "1.3"
     },
     {
       "site": "test/session-v3-tests.js:69",
@@ -414,13 +414,13 @@
       "site": "test/session-v3-tests.js:71",
       "code": "assert(s.paceSecPerKm === null, 'paceSecPerKm = null');",
       "category": "scenario",
-      "story": "1.1"
+      "story": "1.3"
     },
     {
       "site": "test/session-v3-tests.js:72",
       "code": "assert(s.cadenceSpm === 0, 'cadenceSpm = 0');",
       "category": "scenario",
-      "story": "1.1"
+      "story": "1.3"
     },
     {
       "site": "test/session-v3-tests.js:73",

@@ -158,6 +158,31 @@ struct VectorHarnessTests {
         #expect(!VectorMatcher.matches(expected: .array([.number(1)]), actual: .array([.number(1), .number(2)]), tolerance: nil))
     }
 
+    @Test("elapsedS está portado: sus vectores reales pasan y no quedan pendientes")
+    func elapsedSIsPorted() throws {
+        let files = try VectorBundle.files().filter { $0.file.function == "elapsedS" }
+        #expect(!files.isEmpty)
+
+        let run = VectorRun.evaluate(harness: .swiftDomain, files: files)
+
+        #expect(run.failures.isEmpty, "\(run.failures)")
+        #expect(run.pending["elapsedS"] == nil)
+        #expect(run.passed == files.reduce(0) { $0 + $1.file.vectors.count })
+    }
+
+    @Test("elapsedS: una pausa abierta en el vector falla con su motivo, no se ignora")
+    func elapsedSRejectsOpenPause() throws {
+        let open = try Self.vector("""
+            { "id": "p", "sources": [],
+              "input": { "startedAtMs": 0, "totalPausesMs": 0, "nowMs": 60000, "pausedAtMs": 30000 },
+              "expected": 30 }
+            """)
+        guard case .failed = VectorHarness.swiftDomain.verdict(for: open, of: "elapsedS") else {
+            Issue.record("una pausa abierta sin portar no rompió el vector")
+            return
+        }
+    }
+
     @Test("Un vector sin expected ni throws no decodifica")
     func vectorNeedsExactlyOneOutcome() {
         #expect(throws: DecodingError.self) {

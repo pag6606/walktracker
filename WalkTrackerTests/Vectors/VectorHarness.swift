@@ -180,8 +180,12 @@ struct VectorHarness: Sendable {
 
     /// **El registro.** Cada historia que porta una función al dominio Swift la añade
     /// aquí, y desde ese momento sus vectores dejan de estar pendientes y pasan a
-    /// romper `verify-domain.sh` si fallan. Hoy no hay ninguna portada.
-    static let swiftDomain = VectorHarness(implementations: [:])
+    /// romper `verify-domain.sh` si fallan.
+    ///
+    /// - `elapsedS` (1.1): `Chronometer.elapsedS`.
+    static let swiftDomain = VectorHarness(implementations: [
+        "elapsedS": SwiftDomainPorts.elapsedS,
+    ])
 
     let implementations: [String: VectorImplementation]
 
@@ -208,6 +212,49 @@ struct VectorHarness: Sendable {
                 return .failed("esperado invalidValue(field: \(field)), Swift lanza \(error)")
             }
         }
+    }
+}
+
+// MARK: - Traducción vector → dominio Swift
+
+/// Una entrada de vector que la implementación registrada no sabe traducir. Rompe el
+/// vector con su motivo: nunca se adivina un valor.
+struct VectorInputError: Error, CustomStringConvertible {
+    let description: String
+}
+
+/// Las traducciones de la entrada neutral de cada vector a los tipos del dominio
+/// Swift. Es la contraparte de `ADAPTERS` en `Scripts/vectors/run-js.js`.
+enum SwiftDomainPorts {
+
+    /// Los vectores de `elapsedS` están en **milisegundos** (la firma de `domain.js:69`);
+    /// el dominio Swift trabaja en segundos y con `Date`. `totalPausesMs` ausente o
+    /// `null` es 0, como el `|| 0` de la referencia.
+    static let elapsedS: VectorImplementation = { vector in
+        let input = vector.input
+        guard let startedAtMs = input["startedAtMs"]?.double, let nowMs = input["nowMs"]?.double else {
+            throw VectorInputError(description: "elapsedS: faltan startedAtMs o nowMs")
+        }
+        let totalPausesMs: Double
+        switch input["totalPausesMs"] {
+        case nil, .null?: totalPausesMs = 0
+        case let value?:
+            guard let ms = value.double else { throw VectorInputError(description: "elapsedS: totalPausesMs no es un número") }
+            totalPausesMs = ms
+        }
+        // La pausa abierta entra con pausar/reanudar (1.4). Hasta entonces un vector
+        // que la traiga falla con su motivo en lugar de ignorarla en silencio.
+        switch input["pausedAtMs"] {
+        case nil, .null?: break
+        default: throw VectorInputError(description: "elapsedS: pausedAtMs con pausa abierta aún no está portado (1.4)")
+        }
+
+        let elapsed = Chronometer.elapsedS(
+            startedAt: Date(timeIntervalSince1970: startedAtMs / 1000),
+            totalPausesS: totalPausesMs / 1000,
+            now: Date(timeIntervalSince1970: nowMs / 1000)
+        )
+        return .number(elapsed)
     }
 }
 

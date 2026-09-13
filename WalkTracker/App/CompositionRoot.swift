@@ -22,6 +22,10 @@ struct CompositionRoot {
     let liveActivity: any LiveActivityPort
     /// Catálogo de los 14 logros, ya validado (AD-5, CAP-8).
     let achievementCatalog: AchievementCatalog
+    /// Constantes de fórmula de `formulas.json`, ya validadas.
+    let formulas: Formulas
+    /// Único escritor de la sesión (AD-7). Las vistas solo llaman a sus intenciones.
+    let sessionStore: SessionStore
 
     init(
         clock: any ClockPort = SystemClock(),
@@ -29,7 +33,8 @@ struct CompositionRoot {
         feedback: any FeedbackPort = FeedbackAdapter(),
         health: any HealthPort = HealthAdapter(),
         liveActivity: any LiveActivityPort = LiveActivityAdapter(),
-        achievementCatalog: AchievementCatalog? = nil
+        achievementCatalog: AchievementCatalog? = nil,
+        formulas: Formulas? = nil
     ) {
         self.clock = clock
         self.motion = motion
@@ -37,6 +42,9 @@ struct CompositionRoot {
         self.health = health
         self.liveActivity = liveActivity
         self.achievementCatalog = achievementCatalog ?? Self.bundledAchievementCatalogOrTerminate()
+        let formulas = formulas ?? Self.bundledFormulasOrTerminate()
+        self.formulas = formulas
+        self.sessionStore = SessionStore(clock: clock, strideM: formulas.defaultStrideM)
     }
 
     // MARK: - Catálogo de logros (AD-5)
@@ -67,6 +75,36 @@ struct CompositionRoot {
         } catch {
             log.fault("Catálogo de logros inválido: \(String(describing: error), privacy: .public)")
             fatalError("AD-5: el catálogo de logros no valida y la app no arranca — \(error)")
+        }
+    }
+
+    // MARK: - Constantes de fórmula
+
+    private static let formulasLog = Logger(subsystem: "com.walktracker.app", category: "Formulas")
+
+    /// Lee y valida `formulas.json` de un bundle. Separado del arranque, como el
+    /// catálogo, para que cada causa de rechazo sea comprobable sin matar el proceso.
+    nonisolated static func loadFormulas(from bundle: Bundle) throws(FormulasError) -> Formulas {
+        guard let url = bundle.url(forResource: "formulas", withExtension: "json") else {
+            throw .malformed("formulas.json no está en el bundle \(bundle.bundleIdentifier ?? bundle.bundlePath)")
+        }
+        let data: Data
+        do {
+            data = try Data(contentsOf: url)
+        } catch {
+            throw .malformed("no se puede leer formulas.json: \(error.localizedDescription)")
+        }
+        return try Formulas.decode(from: data)
+    }
+
+    /// Las constantes de la app o nada: con una constante inválida **la app no
+    /// arranca**. Una zancada de reserva escondería el fallo en cada distancia.
+    private static func bundledFormulasOrTerminate() -> Formulas {
+        do {
+            return try loadFormulas(from: .main)
+        } catch {
+            formulasLog.fault("formulas.json inválido: \(String(describing: error), privacy: .public)")
+            fatalError("formulas.json no valida y la app no arranca — \(error)")
         }
     }
 }

@@ -1,0 +1,51 @@
+{
+  "sourceLanguage": "es",
+  "strings": {
+    "Aceptar": {
+      "comment": "Botón que cierra la alerta de inicio fallido."
+    },
+    "Ajustes": {
+      "comment": "Pestaña Ajustes del TabView (AD-14) y título de su pantalla."
+    },
+    "Caminata en curso": {
+      "comment": "Única señal de sesión en curso, en la pantalla de sesión."
+    },
+    "Historial": {
+      "comment": "Pestaña Historial del TabView (AD-14) y título de su pantalla."
+    },
+    "Iniciar caminata": {
+      "comment": "CTA principal de Inicio: empieza una sesión."
+    },
+    "Inicio": {
+      "comment": "Pestaña Inicio del TabView (AD-14) y título de su pantalla."
+    },
+    "Las caminatas que termines aparecerán aquí.": {
+      "comment": "Descripción del historial vacío."
+    },
+    "Logros": {
+      "comment": "Pestaña Logros del TabView (AD-14) y título de su pantalla."
+    },
+    "Los logros que desbloquees aparecerán aquí.": {
+      "comment": "Descripción de la pestaña de logros vacía."
+    },
+    "No se pudo iniciar la caminata": {
+      "comment": "Alerta si el dominio rechaza crear la sesión."
+    },
+    "Sin ajustes": {
+      "comment": "Ajustes vacío: todavía no hay ajustes."
+    },
+    "Sin caminatas": {
+      "comment": "Historial vacío: aún no hay caminatas terminadas."
+    },
+    "Sin logros": {
+      "comment": "Logros vacío: aún no hay logros desbloqueados."
+    },
+    "Tiempo": {
+      "comment": "Etiqueta del tiempo transcurrido en la pantalla de sesión."
+    },
+    "Todavía no hay nada que ajustar.": {
+      "comment": "Descripción de la pestaña de ajustes vacía."
+    }
+  },
+  "version": "1.0"
+}

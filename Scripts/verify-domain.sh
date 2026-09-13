@@ -13,7 +13,8 @@
 #   2. Runner JS — domain.js/motivation.js contra los vectores. Solo pueden fallar
 #      los vectores marcados con una de las dos divergencias declaradas
 #      (localTime · wmoCategory); un divergente que pase también rompe.
-#   3. Swift — xcodebuild test de los vectores, el arnés y el catálogo de logros.
+#   3. Swift — xcodebuild test de los vectores, el arnés, el catálogo de logros,
+#      las constantes de fórmula y los escenarios portados a mano del Epic 1.
 #      Las funciones aún no portadas se listan como pendientes; las portadas que
 #      fallan rompen.
 #
@@ -50,7 +51,7 @@ if ! node "$ROOT/Scripts/vectors/run-js.js"; then
 fi
 
 # ── 3. Swift ─────────────────────────────────────────────────────────────────
-section "3/3 · Vectores y catálogo en Swift"
+section "3/3 · Vectores, catálogo y escenarios en Swift"
 # El proyecto no se versiona y XcodeGen fija la lista de ficheros: un vector nuevo
 # sin regenerar no entraría en el bundle de tests y no se ejecutaría EN SILENCIO.
 if ! command -v xcodegen >/dev/null 2>&1; then
@@ -66,7 +67,10 @@ else
         CODE_SIGNING_ALLOWED=NO \
         -only-testing:WalkTrackerTests/DomainVectorTests \
         -only-testing:WalkTrackerTests/VectorHarnessTests \
-        -only-testing:WalkTrackerTests/AchievementCatalogTests) >"$LOG" 2>&1
+        -only-testing:WalkTrackerTests/AchievementCatalogTests \
+        -only-testing:WalkTrackerTests/FormulasTests \
+        -only-testing:WalkTrackerTests/ChronometerTests \
+        -only-testing:WalkTrackerTests/SessionStartScenarios) >"$LOG" 2>&1
     status=$?
 
     grep -E '^[[:space:]]*(✘|✔ Suite)|AD-6 · Swift|error:|Test run with' "$LOG" | sed 's/^/  /'

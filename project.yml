@@ -15,6 +15,9 @@ name: WalkTracker
 
 options:
   bundleIdPrefix: com.walktracker
+  # Español es la lengua de desarrollo: coincide con `CFBundleDevelopmentRegion` y
+  # con el `sourceLanguage` de `Localizable.xcstrings`.
+  developmentLanguage: es
   createIntermediateGroups: true
   generateEmptyDirectories: false
   deploymentTarget:

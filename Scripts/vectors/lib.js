@@ -38,18 +38,20 @@ const EXCLUSION_REASONS = {
   'quotes-bundle': 'Afirma el contenido de quotes.json, no una conducta del dominio.',
 };
 
-/** Argumentos de CLI compartidos: `--root DIR`, `--vectors DIR` y `--catalog FICHERO`, para las sondas rojas. */
+/** Argumentos de CLI compartidos: `--root DIR`, `--vectors DIR`, `--catalog FICHERO` y `--scenarios DIR`, para las sondas rojas. */
 function parseArgs(argv) {
-  const args = { root: ROOT, vectors: null, catalog: null, quiet: false };
+  const args = { root: ROOT, vectors: null, catalog: null, scenarios: null, quiet: false };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--root') args.root = path.resolve(argv[++i]);
     else if (argv[i] === '--vectors') args.vectors = path.resolve(argv[++i]);
     else if (argv[i] === '--catalog') args.catalog = path.resolve(argv[++i]);
+    else if (argv[i] === '--scenarios') args.scenarios = path.resolve(argv[++i]);
     else if (argv[i] === '--quiet') args.quiet = true;
     else throw new Error(`argumento desconocido: ${argv[i]}`);
   }
   if (!args.vectors) args.vectors = path.join(args.root, 'WalkTrackerTests', 'Vectors');
   if (!args.catalog) args.catalog = path.join(args.root, 'WalkTracker', 'Resources', 'achievements.json');
+  if (!args.scenarios) args.scenarios = path.join(args.root, 'WalkTrackerTests', 'Scenarios');
   return args;
 }
 
@@ -96,7 +98,42 @@ function loadVectorFiles(vectorsDir) {
     .map(f => ({ file: f, data: readJSON(path.join(vectorsDir, f)) }));
 }
 
+/**
+ * Citas de los escenarios portados a mano: cada `@Test("…")` de
+ * `WalkTrackerTests/Scenarios/*.swift` cuyo nombre nombra un sitio de la suite JS
+ * (`session-v3-tests.js:52`). La historia de la cita es la del `@Suite("Escenarios 1.x …")`
+ * de su fichero. Devuelve `{ citations: [{ site, story, where }], errors }`.
+ */
+function scanScenarioCitations(scenariosDir) {
+  const citations = [];
+  const errors = [];
+  if (!fs.existsSync(scenariosDir)) {
+    errors.push(`${scenariosDir}: no existe la carpeta de escenarios portados`);
+    return { citations, errors };
+  }
+  const suiteNames = SUITE_FILES.map(f => path.basename(f).replace(/[.-]/g, '\\$&'));
+  const siteRe = new RegExp(`(?<![\\w-])(?:test/)?(${suiteNames.join('|')}):(\\d+)`, 'g');
+  for (const file of fs.readdirSync(scenariosDir).filter(f => f.endsWith('.swift')).sort()) {
+    const text = fs.readFileSync(path.join(scenariosDir, file), 'utf8');
+    const suite = text.match(/@Suite\s*\(\s*"Escenarios (1\.[1-6])\b/);
+    const lines = text.split('\n');
+    lines.forEach((line, idx) => {
+      const test = line.match(/@Test\s*\(\s*"([^"]*)"/);
+      if (!test) return;
+      const where = `${file}:${idx + 1}`;
+      for (const m of test[1].matchAll(siteRe)) {
+        if (!suite) {
+          errors.push(`${where}: cita ${m[1]}:${m[2]}, pero el fichero no declara @Suite("Escenarios 1.x …")`);
+          continue;
+        }
+        citations.push({ site: `test/${m[1]}:${m[2]}`, story: suite[1], where });
+      }
+    });
+  }
+  return { citations, errors };
+}
+
 module.exports = {
   ROOT, SUITE_FILES, DIVERGENCE_FAMILIES, EXCLUSION_REASONS,
-  parseArgs, scanSites, readJSON, loadVectorFiles,
+  parseArgs, scanSites, readJSON, loadVectorFiles, scanScenarioCitations,
 };
