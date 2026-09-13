@@ -804,13 +804,13 @@
       "site": "test/session-v3-tests.js:350",
       "code": "assertApprox(f.distanceM, expDist, 0.01, `final distance = ${expDist}`);",
       "category": "scenario",
-      "story": "1.2"
+      "story": "1.3"
     },
     {
       "site": "test/session-v3-tests.js:351",
       "code": "assert(f.status === 'finished', 'finished');",
       "category": "scenario",
-      "story": "1.2"
+      "story": "1.4"
     },
     {
       "site": "test/session-v3-tests.js:359",

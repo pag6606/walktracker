@@ -1,12 +1,14 @@
 import SwiftUI
 
-/// Sesión activa, presentada como `fullScreenCover` (AD-14). La 1.1 solo muestra el
-/// tiempo: pasos y métricas llegan en la 1.2 y la 1.3, y los controles de pausa y
-/// cierre en la 1.4. No hay salida de esta pantalla antes de la 1.4.
+/// Sesión activa, presentada como `fullScreenCover` (AD-14). Muestra el tiempo en el
+/// centro y, debajo, los pasos del coprocesador como segunda métrica (decisión de Paul
+/// en la 1.2; en la 1.3 la distancia pasa al centro). Los controles de pausa y cierre
+/// llegan en la 1.4: no hay salida de esta pantalla antes.
 ///
 /// El `TimelineView` repinta una vez por segundo, alineado con el inicio de la sesión.
 /// Cada repintado relee el tiempo del store, que sale del reloj (con la fecha de la
-/// entrada como suelo): el tick no cuenta nada.
+/// entrada como suelo): el tick no cuenta nada. Los pasos se repintan cuando llega una
+/// muestra del podómetro, no con el tick.
 struct SessionView: View {
 
     let store: SessionStore
@@ -34,6 +36,11 @@ struct SessionView: View {
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
 
+            if let steps = store.session?.stepsMeasured {
+                stepsMetric(steps)
+                    .padding(.top, 32)
+            }
+
             Spacer()
         }
         .padding()
@@ -50,5 +57,22 @@ struct SessionView: View {
             .accessibilityLabel(Text("Tiempo"))
             .accessibilityValue(Text(ElapsedTimeFormat.spoken(seconds)))
             .accessibilityAddTraits(.updatesFrequently)
+    }
+
+    /// Un solo elemento para VoiceOver, que lee la magnitud completa: "350 pasos".
+    private func stepsMetric(_ steps: Int) -> some View {
+        VStack(spacing: 4) {
+            Text(steps, format: .number)
+                .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.4)
+            Text("Pasos")
+                .font(.title3)
+                .foregroundStyle(.secondary)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("\(steps) pasos"))
+        .accessibilityAddTraits(.updatesFrequently)
     }
 }

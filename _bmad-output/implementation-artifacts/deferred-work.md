@@ -18,3 +18,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-1-iniciar-sesion-cronometro-wall-clock.md`
   summary: Test automático de interfaz que compruebe que "Iniciar caminata" presenta la sesión a pantalla completa y que el tiempo en pantalla avanza cada segundo.
   evidence: Hueco de verificación de la revisión de la 1.1 (V2): sustituir el `TimelineView` por una lectura única congelaría el tiempo en 0:00 sin romper ningún test. El proyecto no tiene target de UI tests (XCUITest diferido en el spine); hoy lo cubre la verificación manual en el iPhone.
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-2-conteo-pasos-coprocesador.md`
+  summary: Verificar que `HomeView` relee el permiso de Motion al volver a primer plano desde Ajustes y cierra la pantalla bloqueante a Inicio sin sesión.
+  evidence: Hueco de verificación de la revisión de la 1.2 (VG, hallazgo 19): borrar el `.onChange(of: scenePhase)` o cambiar la fase deja todos los tests en verde, porque los tests llaman a `motionStatusMayHaveChanged()` directamente y el proyecto no tiene target de UI tests; los checks manuales de la 1.2 no cubren "denegar → Abrir Ajustes → conceder → volver".

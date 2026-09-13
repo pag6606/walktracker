@@ -43,7 +43,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: '2026-08-01'
-last_updated: 09-13-2026 13:55
+last_updated: 09-13-2026 16:43
 project: walktracker
 project_key: NOKEY
 tracking_system: file-system
@@ -53,7 +53,7 @@ development_status:
   # Epic 1: Sesión y conteo de pasos nativo
   epic-1: in-progress
   1-1-iniciar-sesión-de-caminata-con-cronómetro-wall-clock: done
-  1-2-conteo-de-pasos-en-vivo-vía-coprocesador-motionport: backlog
+  1-2-conteo-de-pasos-en-vivo-vía-coprocesador-motionport: review
   1-3-métricas-en-vivo-distancia-tiempo-ritmo-y-cadencia: backlog
   1-4-pausar-reanudar-y-finalizar-sesión-controles: backlog
   1-5-reconstrucción-de-intervalos-en-background-por-query-al-sist: backlog
