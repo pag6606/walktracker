@@ -61,7 +61,7 @@ WalkTracker/          # la app
   Application/  Adapters/  UI/  Resources/
 Shared/               # ActivitySnapshot + su formateo — compartido con la extensión
 WalkTrackerActivity/  # Widget Extension — SOLO renderiza
-WalkTrackerTests/     # Swift Testing (Vectors/ y Scenarios/ los llena la 8.7)
+WalkTrackerTests/     # Swift Testing · Vectors/ (AD-6, 8.7) · Scenarios/ (Epic 1)
 Scripts/              # gates de forma del proyecto
 project.yml           # fuente de verdad del proyecto Xcode
 ```
@@ -121,10 +121,50 @@ Estas suites corren con `node`, no con vitest: son scripts autoejecutables y vit
 recolecta. `npx vitest run` sí ejecuta `test/index-tests.js` (integración jsdom del `index.html`
 heredado), que arrastra 9 fallos previos al pivot y no bloquea nada de este epic.
 
+## Verificación del dominio (AD-6)
+
+```bash
+bash Scripts/verify-domain.sh
+```
+
+**Su verde es Definition of Done de toda historia que toque `Domain/`.** No hay CI: este script es
+el mecanismo, no una recomendación. Hace tres cosas y sale ≠ 0 si cualquiera falla:
+
+1. **Inventario** (`Scripts/vectors/check-inventory.js`). Cada sitio de aserción de
+   `test/{domain,session-v3,motivation,gapestimator}-tests.js` está **exactamente una vez** en
+   `WalkTrackerTests/Vectors/inventory.json`: vector, escenario (con la historia del Epic 1 que lo
+   porta) o excluido (con motivo). Los totales vigentes son los que imprime `check-inventory` (y
+   declara `totals` en el inventario); un sitio que falta, sobra o cambió se nombra como
+   `fichero:línea`. A continuación, dentro del mismo paso, corre `Scripts/vectors/red-path-tests.sh`:
+   el **camino rojo del arnés JS**. Sobre copias temporales de los vectores, el inventario y el
+   catálogo (nunca el árbol real) afirma código de salida y mensaje de cada fallo que el runner y el
+   inventario dicen detectar. Si un gate deja de detectar lo que dice, `verify-domain.sh` sale en rojo.
+2. **Runner JS** (`Scripts/vectors/run-js.js`). Ejecuta `domain.js` y `motivation.js` contra
+   `WalkTrackerTests/Vectors/*.json`. Solo pueden fallar los vectores marcados con una de las dos
+   divergencias declaradas —`localTime` (hora local, no UTC) y `wmoCategory` (lluvia por código WMO,
+   incluidos los chubascos 80–82)—; el vector lleva el valor de Swift. Un divergente que `domain.js`
+   **pase** también rompe: la divergencia ya no existe y hay que retirarla. Fuera de
+   `evaluateAchievements`, un divergente lleva además `expectedJs` —el valor exacto que da
+   `domain.js`— para que un error del vector no se esconda tras la divergencia. Comprueba además que los
+   14 logros tengan un vector que desbloquea y otro que no, y que `achievements.json` conserve
+   nombres, descripciones e iconos de la referencia.
+3. **Swift** (`xcodebuild test` de `DomainVectorTests`, `VectorHarnessTests` y
+   `AchievementCatalogTests`). Regenera el proyecto antes, para que un vector nuevo no quede fuera
+   del bundle en silencio. Las funciones aún sin portar se listan como **pendientes**; las portadas
+   que fallan rompen.
+
+**Al portar una función al dominio Swift**, regístrala en `VectorHarness.swiftDomain`
+(`WalkTrackerTests/Vectors/VectorHarness.swift`): desde ese momento sus vectores dejan de estar
+pendientes y pasan a vincular. Un vector nuevo va en el fichero de su función, en datos neutrales
+(`NaN`/`Infinity` como cadena en la entrada; `null` para una métrica ausente) y, si es de hora,
+con `timeZone`.
+
+El destino del simulador se cambia con `VERIFY_DESTINATION`.
+
 ## Estado
 
 - El proyecto y el árbol limpio son la historia **8.5** (esta).
 - La capa nativa se extrae de `feature/flutter-substrate` en la **8.6** — esa rama **no se mergea**:
   entra por `git checkout` de un único fichero. Por eso `ios/` sigue en `.gitignore` aunque hoy no
   tenga contenido versionado.
-- El arnés de verificación del dominio es la **8.7**.
+- El arnés de verificación del dominio es la **8.7**: `Scripts/verify-domain.sh`, arriba.

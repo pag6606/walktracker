@@ -157,8 +157,9 @@ targets:
           "$PROJECT_DIR/Scripts/check-project-shape.sh" "$PROJECT_DIR"
 
   # ── WalkTrackerTests ─────────────────────────────────────────────────────────
-  # Swift Testing. Vacío salvo el caso de humo: la historia 8.7 pone aquí los
-  # vectores de AD-6 (`Vectors/`) y los escenarios portados a mano (`Scenarios/`).
+  # Swift Testing. `Vectors/` lleva los vectores de AD-6 (historia 8.7): sus `.json`
+  # se empaquetan como recursos del bundle de tests y los lee también el runner JS.
+  # `Scenarios/` recibe los escenarios portados a mano en el Epic 1.
   WalkTrackerTests:
     type: bundle.unit-test
     platform: iOS

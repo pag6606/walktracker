@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "function": "achievementCatalog",
+  "reference": "motivation.js:58",
+  "vectors": [
+    {
+      "id": "catorce-claves-en-orden",
+      "sources": ["test/motivation-tests.js:55"],
+      "note": "El test afirma 14 entradas; el vector fija además cuáles y en qué orden (achievements.md).",
+      "input": {},
+      "expected": {
+        "keys": ["first_km", "first_5km", "first_10km", "first_session", "weekly_goal", "rain_walker", "7_days_streak", "marathon_42km", "speed_walker", "early_bird", "night_walker", "hot_walker", "cold_walker", "consistency_30"]
+      }
+    }
+  ]
+}

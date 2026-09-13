@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "function": "selectQuote",
+  "reference": "motivation.js:28",
+  "vectors": [
+    {
+      "id": "lista-vacia",
+      "sources": ["test/motivation-tests.js:35"],
+      "note": "La única conducta de selectQuote que no depende del azar. Las que sí (motivation-tests.js:20, :27, :32) están excluidas.",
+      "input": { "quotes": [], "recentIds": [] },
+      "expected": null
+    }
+  ]
+}

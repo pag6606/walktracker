@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "function": "pace",
+  "reference": "domain.js:105",
+  "vectors": [
+    {
+      "id": "3370m-en-62min-con-2min-de-pausa",
+      "sources": ["test/domain-tests.js:112"],
+      "input": { "durationS": 3720, "pausesS": 120, "distanceM": 3370.63 },
+      "expected": 1068
+    },
+    {
+      "id": "distancia-cero-es-ausente",
+      "sources": ["test/domain-tests.js:201"],
+      "note": "domain.js devuelve Infinity; el vector lleva null: una métrica ausente es ausente (AD-4).",
+      "input": { "durationS": 3600, "pausesS": 0, "distanceM": 0 },
+      "expected": null
+    },
+    {
+      "id": "duracion-cero-es-ausente",
+      "sources": ["test/domain-tests.js:205"],
+      "note": "domain.js devuelve Infinity; el vector lleva null (AD-4).",
+      "input": { "durationS": 0, "pausesS": 0, "distanceM": 406.1 },
+      "expected": null
+    }
+  ]
+}

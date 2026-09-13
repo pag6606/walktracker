@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "function": "estimateSteps",
+  "reference": "domain.js:508",
+  "vectors": [
+    {
+      "id": "80spm-5min",
+      "sources": ["test/gapestimator-tests.js:21"],
+      "input": { "cadenceSpm": 80, "gapS": 300 },
+      "expected": 400
+    },
+    {
+      "id": "gap-cero",
+      "sources": ["test/gapestimator-tests.js:29", "test/gapestimator-tests.js:72"],
+      "note": "Las dos aserciones prueban la misma entrada: un vector, dos sitios.",
+      "input": { "cadenceSpm": 80, "gapS": 0 },
+      "expected": 0
+    },
+    {
+      "id": "gap-negativo",
+      "sources": ["test/gapestimator-tests.js:30"],
+      "input": { "cadenceSpm": 80, "gapS": -1 },
+      "expected": 0
+    },
+    {
+      "id": "cadencia-cero",
+      "sources": ["test/gapestimator-tests.js:38"],
+      "input": { "cadenceSpm": 0, "gapS": 300 },
+      "expected": 0
+    },
+    {
+      "id": "cadencia-negativa",
+      "sources": ["test/gapestimator-tests.js:39"],
+      "input": { "cadenceSpm": -1, "gapS": 300 },
+      "expected": 0
+    },
+    {
+      "id": "80spm-60min",
+      "sources": ["test/gapestimator-tests.js:81"],
+      "input": { "cadenceSpm": 80, "gapS": 3600 },
+      "expected": 4800
+    },
+    {
+      "id": "cadencia-nan",
+      "sources": ["test/gapestimator-tests.js:89"],
+      "input": { "cadenceSpm": "NaN", "gapS": 300 },
+      "throws": { "field": "cadenceSpm", "js": "TypeError" }
+    },
+    {
+      "id": "gap-nan",
+      "sources": ["test/gapestimator-tests.js:90"],
+      "input": { "cadenceSpm": 80, "gapS": "NaN" },
+      "throws": { "field": "gapS", "js": "TypeError" }
+    }
+  ]
+}

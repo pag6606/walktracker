@@ -90,12 +90,19 @@ graph TD
       "description": "Completa 1 km en una sesión",
       "icon": "🏅",
       "metric": "sessionDistanceM", // enum cerrado, ver más abajo
-      "threshold": 1000,
-      "comparison": "gte" }       // gte | lte | eq
+      "threshold": 1000,          // número · [min, max] para between · cadena para weatherCategory
+      "comparison": "gte" }       // gte | lte | eq | gt | lt | between
   ] }
 ```
 
 `metric` es un enum cerrado en Swift: `sessionDistanceM · totalDistanceM · sessionCount · consecutiveDays · startHourLocal · weatherCategory · tempC · paceSecPerKm · weeklyGoalMet`. El evaluador es un `switch` **exhaustivo** sobre ese enum — una métrica nueva sin rama no compila. El arranque valida: 14 entradas, claves únicas, todas las de `achievements.md`, `metric` conocida. **Falla ruidosamente**, no degrada.
+
+**Enmienda del esquema — 2026-09-12, decisión de Paul (historia 8.7).** Con `gte · lte · eq` no cabían los 14 logros sin convenciones fuera de los datos: `speed_walker` es "menor que", `hot_walker` "mayor que" y `early_bird`/`night_walker` son una franja. Se amplía:
+
+- `comparison` es `gte · lte · eq · gt · lt · between`. `between` es **inclusiva** en los dos extremos.
+- `threshold` es un **número**; un **`[min, max]`** con `min ≤ max` para `between`; o una **cadena** para `weatherCategory` (hoy solo `"rain"`, y solo con `eq`). Cualquier otra combinación hace fallar el arranque (`invalidThreshold`).
+- `early_bird` y `night_walker` conservan la conducta de la v3: hora local **entera** de 5 a 7 inclusive (05:00–07:59) y de 21 a 23 inclusive (21:00–23:59). No es una divergencia nueva.
+- `weekly_goal` usa `weeklyGoalMet` con `threshold: 1` y `eq`; lo evalúa `GoalEngine`, no el cierre de sesión.
 
 ### AD-6 — Prueba de equivalencia con la v3: tres categorías y divergencias declaradas
 

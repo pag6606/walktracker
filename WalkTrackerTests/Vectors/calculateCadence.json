@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "function": "calculateCadence",
+  "reference": "domain.js:525",
+  "vectors": [
+    {
+      "id": "4980-pasos-en-59min",
+      "sources": ["test/gapestimator-tests.js:48"],
+      "input": { "stepsMeasured": 4980, "activeSeconds": 3540 },
+      "expected": 84.4
+    },
+    {
+      "id": "cero-pasos",
+      "sources": ["test/gapestimator-tests.js:56"],
+      "input": { "stepsMeasured": 0, "activeSeconds": 3540 },
+      "expected": 0
+    },
+    {
+      "id": "cero-segundos-activos",
+      "sources": ["test/gapestimator-tests.js:64"],
+      "input": { "stepsMeasured": 4980, "activeSeconds": 0 },
+      "expected": 0
+    },
+    {
+      "id": "100-pasos-en-1min",
+      "sources": ["test/gapestimator-tests.js:98"],
+      "input": { "stepsMeasured": 100, "activeSeconds": 60 },
+      "expected": 100
+    },
+    {
+      "id": "100-pasos-en-2min",
+      "sources": ["test/gapestimator-tests.js:99"],
+      "input": { "stepsMeasured": 100, "activeSeconds": 120 },
+      "expected": 50
+    },
+    {
+      "id": "pasos-negativos",
+      "sources": ["test/gapestimator-tests.js:100"],
+      "input": { "stepsMeasured": -1, "activeSeconds": 60 },
+      "throws": { "field": "stepsMeasured", "js": "RangeError" }
+    },
+    {
+      "id": "segundos-negativos",
+      "sources": ["test/gapestimator-tests.js:101"],
+      "input": { "stepsMeasured": 100, "activeSeconds": -1 },
+      "throws": { "field": "activeSeconds", "js": "RangeError" }
+    }
+  ]
+}

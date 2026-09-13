@@ -1,0 +1,1167 @@
+{
+  "schemaVersion": 1,
+  "description": "Reparto de AD-6: cada sitio de aserción de los cuatro ficheros de test JS, exactamente una vez. Lo contrasta Scripts/vectors/check-inventory.js.",
+  "baseline": "489ad2e",
+  "files": [
+    "test/domain-tests.js",
+    "test/session-v3-tests.js",
+    "test/motivation-tests.js",
+    "test/gapestimator-tests.js"
+  ],
+  "totals": {
+    "sites": 186,
+    "executions": 285,
+    "vector": 56,
+    "scenario": 64,
+    "excluded": 66,
+    "excludedByReason": {
+      "v1-laps": 52,
+      "js-runtime-introspection": 9,
+      "untypable-argument": 1,
+      "math-random": 3,
+      "quotes-bundle": 1
+    }
+  },
+  "exclusionReasons": {
+    "v1-laps": "Agregada v1 de vueltas: domain-model.md §2 la elimina y no hay runtime Swift contra el que correrla.",
+    "js-runtime-introspection": "Introspección del runtime JS (typeof, undefined, Object.isFrozen): en Swift la garantiza el sistema de tipos.",
+    "untypable-argument": "Argumento que el sistema de tipos de Swift no deja construir.",
+    "math-random": "Depende de Math.random: sin RandomPort no hay entrada fija que vectorizar.",
+    "quotes-bundle": "Afirma el contenido de quotes.json, no una conducta del dominio."
+  },
+  "sites": [
+    {
+      "site": "test/domain-tests.js:48",
+      "code": "assert(s.laps === 83, 'laps === 83');",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:49",
+      "code": "assert(Math.abs(s.distanceM - 3370.63) < 0.01, `distanceM ≈ 3370.63 (got ${s.distanceM})`);",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:50",
+      "code": "assert(Math.abs(s.lapPerimeterM - 40.61) < 0.001, `lapPerimeterM frozen at 40.61 (got ${s.lapPerimeterM})`);",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:60",
+      "code": "assert(s.laps === 5, '5 laps after adding');",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:62",
+      "code": "assert(s.laps === 4, 'laps === 4 after undo');",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:63",
+      "code": "assert(Math.abs(s.distanceM - 162.44) < 0.01, `distanceM ≈ 162.44 after undo (got ${s.distanceM})`);",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:72",
+      "code": "assert(s.laps === 0, 'starts at 0');",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:74",
+      "code": "assert(s.laps === 0, 'laps stays 0 after undo');",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:85",
+      "code": "assert(finished.status === 'finished', 'status === finished');",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:86",
+      "code": "assert(finished.endedAt !== null, 'endedAt set');",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:87",
+      "code": "assertThrows(() => Domain.lap(finished), Error, 'lap() on finished throws');",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:88",
+      "code": "assertThrows(() => Domain.undo(finished), Error, 'undo() on finished throws');",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:89",
+      "code": "assertThrows(() => Domain.pause(finished, 3600000), Error, 'pause() on finished throws');",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:101",
+      "code": "assert(Math.abs(elapsed - 3600) < 0.1, `elapsedS ≈ 3600s (got ${elapsed}s)`);",
+      "category": "vector",
+      "vector": "elapsedS#62min-menos-2min-de-pausa"
+    },
+    {
+      "site": "test/domain-tests.js:110",
+      "code": "assert(Math.abs(dist - 3370.63) < 0.01, `distance(83, 40.61) ≈ 3370.63 (got ${dist})`);",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:112",
+      "code": "assert(p === 1068, `pace === 1068 s/km (got ${p})`);",
+      "category": "vector",
+      "vector": "pace#3370m-en-62min-con-2min-de-pausa"
+    },
+    {
+      "site": "test/domain-tests.js:121",
+      "code": "assert(Math.abs(r.lapPerimeterM - 41.58) < 0.01, `recalibrate(0.66, 63) → 41.58 (got ${r.lapPerimeterM})`);",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:122",
+      "code": "assert(r.strideM === 0.66, 'strideM preserved');",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:123",
+      "code": "assert(r.stepsPerLap === 63, 'stepsPerLap preserved');",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:131",
+      "code": "assertThrows(() => Domain.recalibrate({ strideM: 0, stepsPerLap: 62 }), RangeError, 'strideM=0 → RangeError');",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:132",
+      "code": "assertThrows(() => Domain.recalibrate({ strideM: -1, stepsPerLap: 62 }), RangeError, 'strideM=-1 → RangeError');",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:133",
+      "code": "assertThrows(() => Domain.recalibrate({ strideM: 0.5, stepsPerLap: 0 }), RangeError, 'stepsPerLap=0 → RangeError');",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:141",
+      "code": "assertThrows(() => Domain.recalibrate({ strideM: 'x', stepsPerLap: 62 }), TypeError, 'strideM string → TypeError');",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:142",
+      "code": "assertThrows(() => Domain.recalibrate({ strideM: NaN, stepsPerLap: 62 }), TypeError, 'strideM NaN → TypeError');",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:143",
+      "code": "assertThrows(() => Domain.recalibrate({ strideM: 0.5, stepsPerLap: undefined }), TypeError, 'stepsPerLap undefined → TypeError');",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:155",
+      "code": "assert(s.laps === 2, '2 laps before pause');",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:159",
+      "code": "assert(s.status === 'paused', 'status = paused after pause');",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:160",
+      "code": "assert(s.pausedAtMs === pauseAtMs, 'pausedAtMs stored');",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:165",
+      "code": "assert(s.status === 'active', 'status = active after resume');",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:166",
+      "code": "assert(s.totalPausesMs === 120000, `totalPausesMs = 120000 (got ${s.totalPausesMs})`);",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:167",
+      "code": "assert(s.pausedAtMs === null, 'pausedAtMs cleared');",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:171",
+      "code": "assert(finished.status === 'finished', 'finish works after resume');",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:172",
+      "code": "assertThrows(() => Domain.pause(finished, resumeAtMs + 600000), Error, 'pause on finished throws');",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:187",
+      "code": "assert(f.laps === 10, '10 laps');",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:188",
+      "code": "assert(Math.abs(f.distanceM - 406.1) < 0.01, `distance ≈ 406.1m (got ${f.distanceM})`);",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:189",
+      "code": "assert(f.pausesS === 120, `pausesS === 120 (got ${f.pausesS})`);",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:192",
+      "code": "assert(f.durationS > 0, `durationS > 0 (got ${f.durationS}s)`);",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:201",
+      "code": "assert(Domain.pace(3600, 0, 0) === Infinity, 'pace with 0 distance → Infinity');",
+      "category": "vector",
+      "vector": "pace#distancia-cero-es-ausente"
+    },
+    {
+      "site": "test/domain-tests.js:203",
+      "code": "assertThrows(() => Domain.distance(-1, 40.61), RangeError, 'negative laps → RangeError');",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:205",
+      "code": "assert(Domain.pace(0, 0, 406.1) === Infinity, 'pace with 0 duration → Infinity');",
+      "category": "vector",
+      "vector": "pace#duracion-cero-es-ausente"
+    },
+    {
+      "site": "test/domain-tests.js:222",
+      "code": "assert(recovered.laps === 42, 'laps restored');",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:223",
+      "code": "assert(recovered.status === 'active', 'active status');",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:224",
+      "code": "assert(Math.abs(recovered.lapPerimeterM - 40.61) < 0.001, 'perimeter derived');",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:225",
+      "code": "assert(Math.abs(recovered.distanceM - 1705.62) < 0.01, `distance derived (got ${recovered.distanceM})`);",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:235",
+      "code": "assert(recoveredPaused.status === 'paused', 'paused status restored');",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:236",
+      "code": "assert(recoveredPaused.laps === 15, 'laps in paused');",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:237",
+      "code": "assert(Math.abs(recoveredPaused.lapPerimeterM - 41.58) < 0.01, 'perimeter 0.66*63=41.58');",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:238",
+      "code": "assert(recoveredPaused.pausedAtMs !== null, 'pausedAtMs set to current time');",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:239",
+      "code": "assert(recoveredPaused.totalPausesMs === 300000, 'totalPausesMs restored');",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:241",
+      "code": "assertThrows(() => Domain.restoreSession({}), TypeError, 'empty snapshot throws');",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/domain-tests.js:242",
+      "code": "assertThrows(() => Domain.restoreSession(null), TypeError, 'null snapshot throws');",
+      "category": "excluded",
+      "reason": "v1-laps"
+    },
+    {
+      "site": "test/session-v3-tests.js:51",
+      "code": "assert(typeof s === 'object', 'returns object');",
+      "category": "excluded",
+      "reason": "js-runtime-introspection",
+      "note": "typeof s === \"object\""
+    },
+    {
+      "site": "test/session-v3-tests.js:52",
+      "code": "assert(s.strideM === STRIDE, `strideM = ${STRIDE}`);",
+      "category": "scenario",
+      "story": "1.1"
+    },
+    {
+      "site": "test/session-v3-tests.js:53",
+      "code": "assertThrows(() => Domain.createV3Session(NOW, 0), RangeError, 'strideM=0 → RangeError');",
+      "category": "scenario",
+      "story": "1.1"
+    },
+    {
+      "site": "test/session-v3-tests.js:54",
+      "code": "assertThrows(() => Domain.createV3Session(NOW, -1), RangeError, 'strideM=-1 → RangeError');",
+      "category": "scenario",
+      "story": "1.1"
+    },
+    {
+      "site": "test/session-v3-tests.js:55",
+      "code": "assertThrows(() => Domain.createV3Session(NOW, NaN), TypeError, 'strideM=NaN → TypeError');",
+      "category": "scenario",
+      "story": "1.1"
+    },
+    {
+      "site": "test/session-v3-tests.js:56",
+      "code": "assertThrows(() => Domain.createV3Session(NOW, 'x'), TypeError, 'strideM=string → TypeError');",
+      "category": "excluded",
+      "reason": "untypable-argument",
+      "note": "strideM 'x' (string): no compila en Swift"
+    },
+    {
+      "site": "test/session-v3-tests.js:65",
+      "code": "assert(s.stepsMeasured === 0, 'stepsMeasured = 0');",
+      "category": "scenario",
+      "story": "1.1"
+    },
+    {
+      "site": "test/session-v3-tests.js:66",
+      "code": "assert(s.stepsEstimated === 0, 'stepsEstimated = 0');",
+      "category": "scenario",
+      "story": "1.1"
+    },
+    {
+      "site": "test/session-v3-tests.js:67",
+      "code": "assert(s.strideM === STRIDE, `strideM = ${STRIDE}`);",
+      "category": "scenario",
+      "story": "1.1"
+    },
+    {
+      "site": "test/session-v3-tests.js:68",
+      "code": "assert(s.distanceM === 0, 'distanceM = 0');",
+      "category": "scenario",
+      "story": "1.1"
+    },
+    {
+      "site": "test/session-v3-tests.js:69",
+      "code": "assert(s.status === 'active', 'status = active');",
+      "category": "scenario",
+      "story": "1.1"
+    },
+    {
+      "site": "test/session-v3-tests.js:70",
+      "code": "assert(s.startedAt === NOW, 'startedAt set');",
+      "category": "scenario",
+      "story": "1.1"
+    },
+    {
+      "site": "test/session-v3-tests.js:71",
+      "code": "assert(s.paceSecPerKm === null, 'paceSecPerKm = null');",
+      "category": "scenario",
+      "story": "1.1"
+    },
+    {
+      "site": "test/session-v3-tests.js:72",
+      "code": "assert(s.cadenceSpm === 0, 'cadenceSpm = 0');",
+      "category": "scenario",
+      "story": "1.1"
+    },
+    {
+      "site": "test/session-v3-tests.js:73",
+      "code": "assert(s.pausesS === 0, 'pausesS = 0');",
+      "category": "scenario",
+      "story": "1.1"
+    },
+    {
+      "site": "test/session-v3-tests.js:74",
+      "code": "assert(s.endedAt === null, 'endedAt = null');",
+      "category": "scenario",
+      "story": "1.1"
+    },
+    {
+      "site": "test/session-v3-tests.js:76",
+      "code": "assert(s.laps === undefined, 'no laps field (v3)');",
+      "category": "excluded",
+      "reason": "js-runtime-introspection",
+      "note": "campo v1 undefined: en Swift el tipo no lo tiene"
+    },
+    {
+      "site": "test/session-v3-tests.js:77",
+      "code": "assert(s.lapPerimeterM === undefined, 'no lapPerimeterM field (v3)');",
+      "category": "excluded",
+      "reason": "js-runtime-introspection",
+      "note": "campo v1 undefined: en Swift el tipo no lo tiene"
+    },
+    {
+      "site": "test/session-v3-tests.js:78",
+      "code": "assert(s.stepsPerLap === undefined, 'no stepsPerLap field (v3)');",
+      "category": "excluded",
+      "reason": "js-runtime-introspection",
+      "note": "campo v1 undefined: en Swift el tipo no lo tiene"
+    },
+    {
+      "site": "test/session-v3-tests.js:88",
+      "code": "assert(s.stepsMeasured === 100, 'stepsMeasured = 100 after 1 add');",
+      "category": "scenario",
+      "story": "1.2"
+    },
+    {
+      "site": "test/session-v3-tests.js:90",
+      "code": "assert(s.stepsMeasured === 150, 'stepsMeasured = 150 after 2 adds');",
+      "category": "scenario",
+      "story": "1.2"
+    },
+    {
+      "site": "test/session-v3-tests.js:100",
+      "code": "assert(s.stepsMeasured === 4980, '4980 steps after 4980 addSteps(1)');",
+      "category": "scenario",
+      "story": "1.2"
+    },
+    {
+      "site": "test/session-v3-tests.js:102",
+      "code": "assertApprox(s.distanceM, expectedDist, 0.01, `distanceM ≈ ${expectedDist} (got ${s.distanceM})`);",
+      "category": "scenario",
+      "story": "1.3"
+    },
+    {
+      "site": "test/session-v3-tests.js:114",
+      "code": "assertApprox(s.distanceM, expected, 0.01, `distanceM = ${expected} (got ${s.distanceM})`);",
+      "category": "scenario",
+      "story": "1.3"
+    },
+    {
+      "site": "test/session-v3-tests.js:119",
+      "code": "assertApprox(s2.distanceM, expected2, 0.01, `without estimated: ${expected2} (got ${s2.distanceM})`);",
+      "category": "scenario",
+      "story": "1.3"
+    },
+    {
+      "site": "test/session-v3-tests.js:131",
+      "code": "assert(f.status === 'finished', 'status = finished');",
+      "category": "scenario",
+      "story": "1.4"
+    },
+    {
+      "site": "test/session-v3-tests.js:132",
+      "code": "assert(f.endedAt === ended, 'endedAt set');",
+      "category": "scenario",
+      "story": "1.4"
+    },
+    {
+      "site": "test/session-v3-tests.js:133",
+      "code": "assertApprox(f.durationS, 3720, 1, `durationS ≈ 3720 (got ${f.durationS})`);",
+      "category": "scenario",
+      "story": "1.4"
+    },
+    {
+      "site": "test/session-v3-tests.js:147",
+      "code": "assert(f.paceSecPerKm > 0, `pace = ${f.paceSecPerKm} s/km`);",
+      "category": "scenario",
+      "story": "1.3"
+    },
+    {
+      "site": "test/session-v3-tests.js:155",
+      "code": "assert(f2.pausesS === 180, `pausesS = 180 (got ${f2.pausesS})`);",
+      "category": "scenario",
+      "story": "1.4"
+    },
+    {
+      "site": "test/session-v3-tests.js:156",
+      "code": "assert(f2.paceSecPerKm !== null, 'pace calculated with pauses');",
+      "category": "scenario",
+      "story": "1.3"
+    },
+    {
+      "site": "test/session-v3-tests.js:169",
+      "code": "assert(f.cadenceSpm > 0, `cadence = ${f.cadenceSpm} spm`);",
+      "category": "scenario",
+      "story": "1.3"
+    },
+    {
+      "site": "test/session-v3-tests.js:170",
+      "code": "assertApprox(f.cadenceSpm, 80.3, 0.5, `cadence ≈ 80.3 spm (got ${f.cadenceSpm})`);",
+      "category": "scenario",
+      "story": "1.3"
+    },
+    {
+      "site": "test/session-v3-tests.js:181",
+      "code": "assertApprox(f2.cadenceSpm, 80.3, 0.5, `cadence with pauses ≈ 80.3 spm (got ${f2.cadenceSpm})`);",
+      "category": "scenario",
+      "story": "1.3"
+    },
+    {
+      "site": "test/session-v3-tests.js:183",
+      "code": "assertApprox(f2.cadenceSpm, Domain.calculateCadence(4980, f2.durationS), 0.05,",
+      "category": "scenario",
+      "story": "1.3"
+    },
+    {
+      "site": "test/session-v3-tests.js:186",
+      "code": "assertApprox(f2.paceSecPerKm, Math.round(f2.durationS / (f2.distanceM / 1000)), 1,",
+      "category": "scenario",
+      "story": "1.3"
+    },
+    {
+      "site": "test/session-v3-tests.js:198",
+      "code": "assert(f.status === 'finished', 'status = finished');",
+      "category": "scenario",
+      "story": "1.4"
+    },
+    {
+      "site": "test/session-v3-tests.js:199",
+      "code": "assertThrows(() => Domain.addSteps(f, 1), Error, 'addSteps on finished throws');",
+      "category": "scenario",
+      "story": "1.4"
+    },
+    {
+      "site": "test/session-v3-tests.js:200",
+      "code": "assertThrows(() => Domain.addEstimatedSteps(f, 1), Error, 'addEstimatedSteps on finished throws');",
+      "category": "scenario",
+      "story": "1.4"
+    },
+    {
+      "site": "test/session-v3-tests.js:201",
+      "code": "assertThrows(() => Domain.finishV3(f, NOW + 900000), Error, 'finishV3 on finished throws');",
+      "category": "scenario",
+      "story": "1.4"
+    },
+    {
+      "site": "test/session-v3-tests.js:202",
+      "code": "assert(f.strideM === STRIDE, 'strideM preserved');",
+      "category": "scenario",
+      "story": "1.4"
+    },
+    {
+      "site": "test/session-v3-tests.js:204",
+      "code": "assert(Object.isFrozen(f), 'finished session is frozen');",
+      "category": "excluded",
+      "reason": "js-runtime-introspection",
+      "note": "Object.isFrozen: en Swift la sesión es un value type"
+    },
+    {
+      "site": "test/session-v3-tests.js:215",
+      "code": "assert(s.status === 'paused', 'status = paused after pause');",
+      "category": "scenario",
+      "story": "1.4"
+    },
+    {
+      "site": "test/session-v3-tests.js:216",
+      "code": "assert(s.pausedAtMs !== null, 'pausedAtMs set');",
+      "category": "scenario",
+      "story": "1.4"
+    },
+    {
+      "site": "test/session-v3-tests.js:218",
+      "code": "assert(s.status === 'active', 'status = active after resume');",
+      "category": "scenario",
+      "story": "1.4"
+    },
+    {
+      "site": "test/session-v3-tests.js:219",
+      "code": "assert(s.totalPausesMs === 120000, `totalPausesMs = 120000 (got ${s.totalPausesMs})`);",
+      "category": "scenario",
+      "story": "1.4"
+    },
+    {
+      "site": "test/session-v3-tests.js:220",
+      "code": "assert(s.pausedAtMs === null, 'pausedAtMs cleared');",
+      "category": "scenario",
+      "story": "1.4"
+    },
+    {
+      "site": "test/session-v3-tests.js:222",
+      "code": "assert(s.stepsMeasured === 50, 'stepsMeasured preserved');",
+      "category": "scenario",
+      "story": "1.4"
+    },
+    {
+      "site": "test/session-v3-tests.js:224",
+      "code": "assert(s.stepsMeasured === 80, 'stepsMeasured = 80 after add after resume');",
+      "category": "scenario",
+      "story": "1.4"
+    },
+    {
+      "site": "test/session-v3-tests.js:233",
+      "code": "assert(s.laps === 0, 'v1 createSession works');",
+      "category": "excluded",
+      "reason": "v1-laps",
+      "note": "AC-11: regresión de la API v1 de vueltas"
+    },
+    {
+      "site": "test/session-v3-tests.js:234",
+      "code": "assert(s.lapPerimeterM === 40.61, 'v1 perimeter derived');",
+      "category": "excluded",
+      "reason": "v1-laps",
+      "note": "AC-11: regresión de la API v1 de vueltas"
+    },
+    {
+      "site": "test/session-v3-tests.js:236",
+      "code": "assert(s1.laps === 1, 'v1 lap works');",
+      "category": "excluded",
+      "reason": "v1-laps",
+      "note": "AC-11: regresión de la API v1 de vueltas"
+    },
+    {
+      "site": "test/session-v3-tests.js:238",
+      "code": "assert(s1.laps === 0, 'v1 undo works');",
+      "category": "excluded",
+      "reason": "v1-laps",
+      "note": "AC-11: regresión de la API v1 de vueltas"
+    },
+    {
+      "site": "test/session-v3-tests.js:240",
+      "code": "assert(f.status === 'finished', 'v1 finish works');",
+      "category": "excluded",
+      "reason": "v1-laps",
+      "note": "AC-11: regresión de la API v1 de vueltas"
+    },
+    {
+      "site": "test/session-v3-tests.js:257",
+      "code": "assert(r.stepsMeasured === 2450, 'stepsMeasured restored');",
+      "category": "scenario",
+      "story": "1.6"
+    },
+    {
+      "site": "test/session-v3-tests.js:258",
+      "code": "assert(r.stepsEstimated === 320, 'stepsEstimated restored');",
+      "category": "scenario",
+      "story": "1.6"
+    },
+    {
+      "site": "test/session-v3-tests.js:259",
+      "code": "assert(r.strideM === STRIDE, 'strideM restored');",
+      "category": "scenario",
+      "story": "1.6"
+    },
+    {
+      "site": "test/session-v3-tests.js:260",
+      "code": "assert(r.status === 'active', 'status = active');",
+      "category": "scenario",
+      "story": "1.6"
+    },
+    {
+      "site": "test/session-v3-tests.js:262",
+      "code": "assertApprox(r.distanceM, expDist, 0.01, `distanceM derived (got ${r.distanceM})`);",
+      "category": "scenario",
+      "story": "1.6"
+    },
+    {
+      "site": "test/session-v3-tests.js:270",
+      "code": "assertThrows(() => Domain.restoreV3Session(null), TypeError, 'null snapshot → TypeError');",
+      "category": "scenario",
+      "story": "1.6"
+    },
+    {
+      "site": "test/session-v3-tests.js:271",
+      "code": "assertThrows(() => Domain.restoreV3Session({}), TypeError, 'empty snapshot → TypeError');",
+      "category": "scenario",
+      "story": "1.6"
+    },
+    {
+      "site": "test/session-v3-tests.js:272",
+      "code": "assertThrows(() => Domain.restoreV3Session({ startedAtMs: 0 }), TypeError, 'missing strideM → TypeError');",
+      "category": "scenario",
+      "story": "1.6"
+    },
+    {
+      "site": "test/session-v3-tests.js:273",
+      "code": "assertThrows(() => Domain.restoreV3Session({ startedAtMs: 0, strideM: 0 }), RangeError, 'strideM=0 → RangeError');",
+      "category": "scenario",
+      "story": "1.6"
+    },
+    {
+      "site": "test/session-v3-tests.js:274",
+      "code": "assertThrows(() => Domain.restoreV3Session({ startedAtMs: 0, strideM: -1 }), RangeError, 'strideM=-1 → RangeError');",
+      "category": "scenario",
+      "story": "1.6"
+    },
+    {
+      "site": "test/session-v3-tests.js:285",
+      "code": "assert(f.paceSecPerKm === null, `pace = null for short distance (got ${f.paceSecPerKm})`);",
+      "category": "scenario",
+      "story": "1.3"
+    },
+    {
+      "site": "test/session-v3-tests.js:296",
+      "code": "assertThrows(() => Domain.addSteps(f, 1), Error, 'addSteps on finished → Error');",
+      "category": "scenario",
+      "story": "1.4"
+    },
+    {
+      "site": "test/session-v3-tests.js:297",
+      "code": "assertThrows(() => Domain.addEstimatedSteps(f, 1), Error, 'addEstimatedSteps on finished → Error');",
+      "category": "scenario",
+      "story": "1.4"
+    },
+    {
+      "site": "test/session-v3-tests.js:308",
+      "code": "assert(s.stepsEstimated === 320, 'stepsEstimated = 320');",
+      "category": "scenario",
+      "story": "1.5"
+    },
+    {
+      "site": "test/session-v3-tests.js:309",
+      "code": "assert(s.stepsMeasured === 4980, 'stepsMeasured unchanged');",
+      "category": "scenario",
+      "story": "1.5"
+    },
+    {
+      "site": "test/session-v3-tests.js:311",
+      "code": "assertApprox(s.distanceM, expDist, 0.01, `distance includes estimated (got ${s.distanceM})`);",
+      "category": "scenario",
+      "story": "1.5"
+    },
+    {
+      "site": "test/session-v3-tests.js:321",
+      "code": "assert(s.stepsMeasured === 0, 'stepsMeasured = 0 after addSteps(0)');",
+      "category": "scenario",
+      "story": "1.2"
+    },
+    {
+      "site": "test/session-v3-tests.js:323",
+      "code": "assert(s2.stepsMeasured === 5, 'addSteps(5) works after addSteps(0)');",
+      "category": "scenario",
+      "story": "1.2"
+    },
+    {
+      "site": "test/session-v3-tests.js:332",
+      "code": "assert(Object.isFrozen(s), 'active session is frozen');",
+      "category": "excluded",
+      "reason": "js-runtime-introspection",
+      "note": "Object.isFrozen: en Swift la sesión es un value type"
+    },
+    {
+      "site": "test/session-v3-tests.js:334",
+      "code": "assert(Object.isFrozen(s2), 'after addSteps, session is frozen');",
+      "category": "excluded",
+      "reason": "js-runtime-introspection",
+      "note": "Object.isFrozen: en Swift la sesión es un value type"
+    },
+    {
+      "site": "test/session-v3-tests.js:345",
+      "code": "assert(s.stepsMeasured === i + 1, `step ${i+1}: stepsMeasured = ${i+1}`);",
+      "category": "scenario",
+      "story": "1.2",
+      "executions": 100
+    },
+    {
+      "site": "test/session-v3-tests.js:350",
+      "code": "assertApprox(f.distanceM, expDist, 0.01, `final distance = ${expDist}`);",
+      "category": "scenario",
+      "story": "1.2"
+    },
+    {
+      "site": "test/session-v3-tests.js:351",
+      "code": "assert(f.status === 'finished', 'finished');",
+      "category": "scenario",
+      "story": "1.2"
+    },
+    {
+      "site": "test/session-v3-tests.js:359",
+      "code": "assertApprox(Domain.v3distance(0, 0, 0.655), 0, 0.001, '0 steps = 0 distance');",
+      "category": "vector",
+      "vector": "v3distance#cero-pasos"
+    },
+    {
+      "site": "test/session-v3-tests.js:360",
+      "code": "assertApprox(Domain.v3distance(1, 0, 0.655), 0.66, 0.01, '1 step * 0.655 = 0.66m');",
+      "category": "vector",
+      "vector": "v3distance#un-paso-medido"
+    },
+    {
+      "site": "test/session-v3-tests.js:361",
+      "code": "assertApprox(Domain.v3distance(0, 1, 0.655), 0.66, 0.01, '1 estimated * 0.655 = 0.66m');",
+      "category": "vector",
+      "vector": "v3distance#un-paso-estimado"
+    },
+    {
+      "site": "test/session-v3-tests.js:362",
+      "code": "assertApprox(Domain.v3distance(1000, 0, 0.655), 655, 0.01, '1000 steps = 655m');",
+      "category": "vector",
+      "vector": "v3distance#mil-pasos"
+    },
+    {
+      "site": "test/session-v3-tests.js:363",
+      "code": "assertApprox(Domain.v3distance(1000, 500, 0.655), 982.5, 0.01, '1000+500 steps = 982.5m');",
+      "category": "vector",
+      "vector": "v3distance#mil-medidos-mas-quinientos-estimados"
+    },
+    {
+      "site": "test/session-v3-tests.js:364",
+      "code": "assertThrows(() => Domain.v3distance(-1, 0, 0.655), RangeError, 'negative stepsMeasured → error');",
+      "category": "vector",
+      "vector": "v3distance#medidos-negativos"
+    },
+    {
+      "site": "test/session-v3-tests.js:365",
+      "code": "assertThrows(() => Domain.v3distance(0, -1, 0.655), RangeError, 'negative stepsEstimated → error');",
+      "category": "vector",
+      "vector": "v3distance#estimados-negativos"
+    },
+    {
+      "site": "test/session-v3-tests.js:366",
+      "code": "assertThrows(() => Domain.v3distance(0, 0, 0), RangeError, 'strideM=0 → error');",
+      "category": "vector",
+      "vector": "v3distance#zancada-cero"
+    },
+    {
+      "site": "test/motivation-tests.js:20",
+      "code": "assert(q !== null, 'selectQuote returns quote');",
+      "category": "excluded",
+      "reason": "math-random"
+    },
+    {
+      "site": "test/motivation-tests.js:21",
+      "code": "assert(typeof q.id === 'number', 'quote has id');",
+      "category": "excluded",
+      "reason": "js-runtime-introspection",
+      "note": "typeof del id y del texto de la frase"
+    },
+    {
+      "site": "test/motivation-tests.js:22",
+      "code": "assert(typeof q.text === 'string', 'quote has text');",
+      "category": "excluded",
+      "reason": "js-runtime-introspection",
+      "note": "typeof del id y del texto de la frase"
+    },
+    {
+      "site": "test/motivation-tests.js:27",
+      "code": "assert(!recentIds.includes(excluded.id), `excluded ID ${excluded.id} not in recent 20`);",
+      "category": "excluded",
+      "reason": "math-random"
+    },
+    {
+      "site": "test/motivation-tests.js:32",
+      "code": "assert(fallback !== null, 'fallback works when all excluded');",
+      "category": "excluded",
+      "reason": "math-random"
+    },
+    {
+      "site": "test/motivation-tests.js:35",
+      "code": "assert(selectQuote([], []) === null, 'empty quotes → null');",
+      "category": "vector",
+      "vector": "selectQuote#lista-vacia"
+    },
+    {
+      "site": "test/motivation-tests.js:40",
+      "code": "assert(ids.length === 20, 'recent IDs capped at 20');",
+      "category": "vector",
+      "vector": "updateRecentIds#tope-de-20"
+    },
+    {
+      "site": "test/motivation-tests.js:41",
+      "code": "assert(ids[0] === 5, 'oldest ID removed');",
+      "category": "vector",
+      "vector": "updateRecentIds#tope-de-20"
+    },
+    {
+      "site": "test/motivation-tests.js:42",
+      "code": "assert(ids[19] === 24, 'newest ID added');",
+      "category": "vector",
+      "vector": "updateRecentIds#tope-de-20"
+    },
+    {
+      "site": "test/motivation-tests.js:45",
+      "code": "assert(quotes.length === 100, '100 quotes in bundle');",
+      "category": "excluded",
+      "reason": "quotes-bundle",
+      "note": "quotes.json tiene 100 frases"
+    },
+    {
+      "site": "test/motivation-tests.js:55",
+      "code": "assert(cat.length === 14, '14 achievements in catalog');",
+      "category": "vector",
+      "vector": "achievementCatalog#catorce-claves-en-orden"
+    },
+    {
+      "site": "test/motivation-tests.js:60",
+      "code": "assert(earned.some(e => e.key === 'first_session'), 'first_session earned');",
+      "category": "vector",
+      "vector": "evaluateAchievements#primera-sesion-500m-sin-clima"
+    },
+    {
+      "site": "test/motivation-tests.js:65",
+      "code": "assert(kmEarned.some(e => e.key === 'first_km'), 'first_km earned at 1.2km');",
+      "category": "vector",
+      "vector": "evaluateAchievements#primera-sesion-1200m"
+    },
+    {
+      "site": "test/motivation-tests.js:70",
+      "code": "assert(!shortEarned.some(e => e.key === 'first_km'), 'first_km not earned < 1km');",
+      "category": "vector",
+      "vector": "evaluateAchievements#primera-sesion-500m-sin-clima"
+    },
+    {
+      "site": "test/motivation-tests.js:75",
+      "code": "assert(rainEarned.some(e => e.key === 'rain_walker'), 'rain_walker earned with rain');",
+      "category": "vector",
+      "vector": "evaluateAchievements#lluvia-ligera-wmo-61"
+    },
+    {
+      "site": "test/motivation-tests.js:80",
+      "code": "assert(!noWxEarned.some(e => e.key === 'rain_walker'), 'rain_walker not earned without weather');",
+      "category": "vector",
+      "vector": "evaluateAchievements#primera-sesion-500m-sin-clima"
+    },
+    {
+      "site": "test/motivation-tests.js:85",
+      "code": "assert(fastEarned.some(e => e.key === 'speed_walker'), 'speed_walker earned with pace 400s/km');",
+      "category": "vector",
+      "vector": "evaluateAchievements#ritmo-400"
+    },
+    {
+      "site": "test/motivation-tests.js:90",
+      "code": "assert(!dupeEarned.some(e => e.key === 'first_session'), 'already unlocked not re-earned');",
+      "category": "vector",
+      "vector": "evaluateAchievements#primera-sesion-ya-desbloqueada"
+    },
+    {
+      "site": "test/motivation-tests.js:100",
+      "code": "assert(empty.completedKm === 0, '0 km with no sessions');",
+      "category": "vector",
+      "vector": "weeklyProgress#sin-sesiones"
+    },
+    {
+      "site": "test/motivation-tests.js:101",
+      "code": "assert(empty.goalKm === 10, 'goal = 10 km');",
+      "category": "vector",
+      "vector": "weeklyProgress#sin-sesiones"
+    },
+    {
+      "site": "test/motivation-tests.js:102",
+      "code": "assert(empty.isComplete === false, 'not complete');",
+      "category": "vector",
+      "vector": "weeklyProgress#sin-sesiones"
+    },
+    {
+      "site": "test/motivation-tests.js:109",
+      "code": "assert(progress.completedKm === 5, '5 km completed');",
+      "category": "vector",
+      "vector": "weeklyProgress#una-sesion-el-lunes"
+    },
+    {
+      "site": "test/motivation-tests.js:110",
+      "code": "assert(progress.percentage === 50, '50%');",
+      "category": "vector",
+      "vector": "weeklyProgress#una-sesion-el-lunes"
+    },
+    {
+      "site": "test/motivation-tests.js:119",
+      "code": "assert(multi.completedKm === 12, '12 km completed');",
+      "category": "vector",
+      "vector": "weeklyProgress#tres-sesiones-12km"
+    },
+    {
+      "site": "test/motivation-tests.js:120",
+      "code": "assert(multi.isComplete === true, 'goal complete');",
+      "category": "vector",
+      "vector": "weeklyProgress#tres-sesiones-12km"
+    },
+    {
+      "site": "test/motivation-tests.js:126",
+      "code": "assert(boundary.completedKm === 3, '3 km across 2 days');",
+      "category": "vector",
+      "vector": "weeklyProgress#lunes-y-martes-a-medianoche"
+    },
+    {
+      "site": "test/motivation-tests.js:132",
+      "code": "assert(weekBound.completedKm === 2, 'only this week counts (2 km)');",
+      "category": "vector",
+      "vector": "weeklyProgress#semana-anterior-excluida"
+    },
+    {
+      "site": "test/motivation-tests.js:147",
+      "code": "assert(checkStreak(dates, 7), '7-day streak detected');",
+      "category": "vector",
+      "vector": "checkStreak#siete-dias-00h-utc"
+    },
+    {
+      "site": "test/motivation-tests.js:151",
+      "code": "assert(!checkStreak(few, 3), 'not a streak with 1 session');",
+      "category": "vector",
+      "vector": "checkStreak#una-sesion-no-es-racha"
+    },
+    {
+      "site": "test/motivation-tests.js:155",
+      "code": "assert(checkTimeOfDay(morning, 5, 7), 'morning walk detected');",
+      "category": "vector",
+      "vector": "checkTimeOfDay#06-30-utc-es-madrugada"
+    },
+    {
+      "site": "test/motivation-tests.js:158",
+      "code": "assert(checkTimeOfDay(night, 21, 23), 'night walk detected');",
+      "category": "vector",
+      "vector": "checkTimeOfDay#22-00-utc-es-noche"
+    },
+    {
+      "site": "test/motivation-tests.js:161",
+      "code": "assert(!checkTimeOfDay(noon, 5, 7), 'afternoon not early bird');",
+      "category": "vector",
+      "vector": "checkTimeOfDay#14-00-utc-no-es-madrugada"
+    },
+    {
+      "site": "test/motivation-tests.js:177",
+      "code": "assert(checkStreak(cruzaMes, 7),",
+      "category": "vector",
+      "vector": "checkStreak#cruza-fin-de-mes"
+    },
+    {
+      "site": "test/motivation-tests.js:182",
+      "code": "assert(!checkStreak(conHueco, 7), 'un hueco el 27-sep rompe la racha');",
+      "category": "vector",
+      "vector": "checkStreak#hueco-rompe-la-racha"
+    },
+    {
+      "site": "test/gapestimator-tests.js:21",
+      "code": "assert(steps === 400, `80 spm × 5 min = 400 (got ${steps})`);",
+      "category": "vector",
+      "vector": "estimateSteps#80spm-5min"
+    },
+    {
+      "site": "test/gapestimator-tests.js:29",
+      "code": "assert(Domain.estimateSteps(80, 0) === 0, 'gapS=0 → 0');",
+      "category": "vector",
+      "vector": "estimateSteps#gap-cero"
+    },
+    {
+      "site": "test/gapestimator-tests.js:30",
+      "code": "assert(Domain.estimateSteps(80, -1) === 0, 'gapS=-1 → 0');",
+      "category": "vector",
+      "vector": "estimateSteps#gap-negativo"
+    },
+    {
+      "site": "test/gapestimator-tests.js:38",
+      "code": "assert(Domain.estimateSteps(0, 300) === 0, 'cadence=0 → 0');",
+      "category": "vector",
+      "vector": "estimateSteps#cadencia-cero"
+    },
+    {
+      "site": "test/gapestimator-tests.js:39",
+      "code": "assert(Domain.estimateSteps(-1, 300) === 0, 'cadence=-1 → 0');",
+      "category": "vector",
+      "vector": "estimateSteps#cadencia-negativa"
+    },
+    {
+      "site": "test/gapestimator-tests.js:48",
+      "code": "assert(cad === 84.4, `4980 steps / 59 min = 84.4 spm (got ${cad})`);",
+      "category": "vector",
+      "vector": "calculateCadence#4980-pasos-en-59min"
+    },
+    {
+      "site": "test/gapestimator-tests.js:56",
+      "code": "assert(Domain.calculateCadence(0, 3540) === 0, '0 steps → 0');",
+      "category": "vector",
+      "vector": "calculateCadence#cero-pasos"
+    },
+    {
+      "site": "test/gapestimator-tests.js:64",
+      "code": "assert(Domain.calculateCadence(4980, 0) === 0, '0 active seconds → 0');",
+      "category": "vector",
+      "vector": "calculateCadence#cero-segundos-activos"
+    },
+    {
+      "site": "test/gapestimator-tests.js:72",
+      "code": "assert(Domain.estimateSteps(80, 0) === 0, '0s gap → 0');",
+      "category": "vector",
+      "vector": "estimateSteps#gap-cero"
+    },
+    {
+      "site": "test/gapestimator-tests.js:81",
+      "code": "assert(steps === 4800, `80 spm × 60 min = 4800 (got ${steps})`);",
+      "category": "vector",
+      "vector": "estimateSteps#80spm-60min"
+    },
+    {
+      "site": "test/gapestimator-tests.js:89",
+      "code": "assertThrows(() => Domain.estimateSteps(NaN, 300), TypeError, 'NaN cadence → TypeError');",
+      "category": "vector",
+      "vector": "estimateSteps#cadencia-nan"
+    },
+    {
+      "site": "test/gapestimator-tests.js:90",
+      "code": "assertThrows(() => Domain.estimateSteps(80, NaN), TypeError, 'NaN gap → TypeError');",
+      "category": "vector",
+      "vector": "estimateSteps#gap-nan"
+    },
+    {
+      "site": "test/gapestimator-tests.js:98",
+      "code": "assert(Domain.calculateCadence(100, 60) === 100, '100 steps / 1 min = 100 spm');",
+      "category": "vector",
+      "vector": "calculateCadence#100-pasos-en-1min"
+    },
+    {
+      "site": "test/gapestimator-tests.js:99",
+      "code": "assert(Domain.calculateCadence(100, 120) === 50, '100 steps / 2 min = 50 spm');",
+      "category": "vector",
+      "vector": "calculateCadence#100-pasos-en-2min"
+    },
+    {
+      "site": "test/gapestimator-tests.js:100",
+      "code": "assertThrows(() => Domain.calculateCadence(-1, 60), RangeError, 'negative steps → RangeError');",
+      "category": "vector",
+      "vector": "calculateCadence#pasos-negativos"
+    },
+    {
+      "site": "test/gapestimator-tests.js:101",
+      "code": "assertThrows(() => Domain.calculateCadence(100, -1), RangeError, 'negative seconds → RangeError');",
+      "category": "vector",
+      "vector": "calculateCadence#segundos-negativos"
+    }
+  ]
+}
