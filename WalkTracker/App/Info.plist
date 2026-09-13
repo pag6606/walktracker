@@ -32,6 +32,11 @@
 	     sistema mata la app al pedir el permiso. -->
 	<key>NSMotionUsageDescription</key>
 	<string>WalkTracker usa el podómetro para contar tus pasos y estimar la distancia de cada caminata. Sin este permiso no hay producto.</string>
+	<!-- Apple exige esta clave a toda app con el permiso de HealthKit, aunque solo
+	     escriba: sin ella App Store Connect rechaza el binario (8.3, validación del
+	     2026-09-13). WalkTracker no lee datos de Salud (non-goal de CAP-11). -->
+	<key>NSHealthShareUsageDescription</key>
+	<string>WalkTracker no lee tus datos de Salud: solo guarda tus caminatas como entrenamientos. Si algún día necesitara leer algo, te lo pedirá antes.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>WalkTracker guarda tus caminatas en Apple Salud como entrenamientos. Si no lo permites, la sesión se guarda igual en el dispositivo.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
