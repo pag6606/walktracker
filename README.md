@@ -254,6 +254,9 @@ HealthKit exige también `NSHealthShareUsageDescription`, aunque la app solo esc
    (unos minutos; llega un correo).
 2. La primera vez, añadirse como **tester interno** (grupo de pruebas interno con tu Apple ID). Los
    testers internos no necesitan revisión de Apple.
+   **El grupo tiene que tener el build asignado** (grupo → Compilaciones → +, o activar la
+   distribución automática): con el tester dentro pero sin build, TestFlight no envía la invitación y
+   el tester aparece con «No hay compilaciones disponibles».
 3. Si pregunta por el cumplimiento de exportación, no debería: `ITSAppUsesNonExemptEncryption = NO`
    ya va en el `Info.plist`. Se basa en la suposición de que la app solo usará el HTTPS del sistema;
    la historia del clima la revisa cuando entre la primera llamada de red.

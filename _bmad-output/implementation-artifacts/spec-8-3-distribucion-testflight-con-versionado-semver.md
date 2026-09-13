@@ -99,7 +99,7 @@ el commit con una versión SemVer coherente con la del binario.
       rama equivocada, Xcode con otra versión mayor, etiqueta existente.
 - [x] `README.md` — política SemVer, cómo hacer un release, qué hace a mano Paul en App Store Connect
       y en TestFlight.
-- [ ] Primera subida real desde `main`, tras fusionar esta historia y con el registro de App Store
+- [x] Primera subida real desde `main`, tras fusionar esta historia y con el registro de App Store
       Connect creado por Paul; con su confirmación en el momento. Después, la etiqueta.
 
 **Acceptance Criteria:**
@@ -155,6 +155,14 @@ el commit con una versión SemVer coherente con la del binario.
   `NSHealthShareUsageDescription` (obligatoria con el entitlement de HealthKit aunque la app solo
   escriba); corregido en `fix/8-3-health-share-usage` y revalidado con éxito sobre `WalkTracker 4.0.0
   (36)`. El ensayo local no puede detectar esto: solo lo comprueba App Store Connect.
+
+- **Primera subida real (2026-09-13).** Tras fusionar el PR #8, `release-testflight.sh --confirm
+  v4.0.0-build.38` desde `main` (`f031dfe`, `HEAD == origin/main`): gates en verde, archivo
+  `WalkTracker 4.0.0 (38)`, "Upload succeeded"; etiqueta `v4.0.0-build.38` creada y publicada en
+  GitHub con el visto bueno de Paul. App Store Connect: "En pruebas, caduca en 90 días".
+- **Instalación en el iPhone 14 desde TestFlight (Paul): hecha.** Lo que costó: el tester interno
+  estaba en el grupo pero el grupo no tenía el build asignado ("No hay compilaciones disponibles"), y
+  sin build asignado TestFlight no invita. Queda en el README como paso de "En cada release".
 
 ## Spec Change Log
 
