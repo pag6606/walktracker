@@ -241,7 +241,12 @@ la distribución.
 
 **En App Store Connect, una sola vez, antes de la primera subida:** Apps → **+** → Nueva app →
 plataforma iOS, idioma principal español, bundle id `com.walktracker.app`, un SKU cualquiera. El
-nombre de la ficha es el que quede disponible (no tiene que ser «WalkTracker»).
+nombre de la ficha es el que quede disponible (no tiene que ser «WalkTracker»). **Creado el
+2026-09-13 con el nombre `walktracker`.**
+
+**Validar antes de gastar un build:** abrir el `.xcarchive` de un `--dry-run` en Xcode (Organizer) →
+**Validate App**. Comprueba el binario contra App Store Connect sin subirlo. Así se descubrió que
+HealthKit exige también `NSHealthShareUsageDescription`, aunque la app solo escriba.
 
 **En cada release:**
 
