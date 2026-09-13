@@ -31,6 +31,8 @@ settings:
     SWIFT_STRICT_CONCURRENCY: complete
     SWIFT_EMIT_LOC_STRINGS: YES
     CODE_SIGN_STYLE: Automatic
+    # Equipo de pago de Paul (A-1). El ID de equipo va en todo binario firmado: no es secreto.
+    DEVELOPMENT_TEAM: Z3M45B4K6D
     MARKETING_VERSION: "4.0.0"
     CURRENT_PROJECT_VERSION: "1"
     ENABLE_USER_SCRIPT_SANDBOXING: YES
