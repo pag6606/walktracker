@@ -10,9 +10,11 @@
  *     o el motivo de la exclusión;
  *   - un vector cita como fuente un sitio que el inventario no le atribuye (o al revés);
  *   - los totales declarados no cuadran con los contados;
- *   - las ejecuciones declaradas no cuadran con las que cuenta la propia suite al correr.
+ *   - las ejecuciones declaradas no cuadran con las que cuenta la propia suite al correr;
+ *   - un escenario de una historia ya portada no tiene un `@Test` que lo cite en
+ *     `WalkTrackerTests/Scenarios/`, o una cita apunta a un sitio que no es escenario de esa historia.
  *
- * Uso: node Scripts/vectors/check-inventory.js [--root DIR] [--vectors DIR] [--quiet]
+ * Uso: node Scripts/vectors/check-inventory.js [--root DIR] [--vectors DIR] [--scenarios DIR] [--quiet]
  */
 
 const path = require('path');
@@ -117,6 +119,29 @@ for (const [ref, sources] of vectorSources) {
   for (const s of sources) {
     if (actual.has(s) && byVector.get(s) !== ref) {
       fail(`${ref}: cita ${s}, pero el inventario lo atribuye a ${byVector.get(s) ? `'${byVector.get(s)}'` : 'otra categoría'}`);
+    }
+  }
+}
+
+// ── Escenarios portados: cada sitio de la historia, citado; cada cita, un sitio suyo ──
+// Solo para las historias que ya tienen alguna cita: las demás aún no se han portado.
+// Sin esto, borrar un test portado o reasignar su sitio a otra historia dejaba el gate verde.
+{
+  const { citations, errors: citeErrors } = lib.scanScenarioCitations(args.scenarios);
+  citeErrors.forEach(fail);
+  const scenarioStory = new Map();
+  for (const e of inventory.sites || []) if (e.category === 'scenario') scenarioStory.set(e.site, e.story);
+  const portedStories = new Set(citations.map(c => c.story));
+  for (const c of citations) {
+    if (scenarioStory.get(c.site) !== c.story) {
+      const actualCategory = scenarioStory.has(c.site) ? `escenario de la ${scenarioStory.get(c.site)}` : 'no es un escenario del inventario';
+      fail(`${c.where}: cita ${c.site} como escenario de la ${c.story}, pero ${actualCategory}`);
+    }
+  }
+  for (const story of [...portedStories].sort()) {
+    const cited = new Set(citations.filter(c => c.story === story).map(c => c.site));
+    for (const [site, s] of scenarioStory) {
+      if (s === story && !cited.has(site)) fail(`${site}: escenario de la ${story} sin ningún @Test que lo cite en Scenarios/`);
     }
   }
 }

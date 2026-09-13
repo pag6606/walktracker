@@ -8,6 +8,7 @@
 # los scripts reciben la copia por `--vectors`. Cubre las filas de la matriz de la
 # 8.7 que son del lado JS: vector roto, divergencia esperada, divergencia obsoleta,
 # divergente que falla fuera de su familia, e inventario incompleto o duplicado.
+# Y los escenarios portados: una cita borrada o un sitio citado reasignado.
 #
 # Uso:  bash Scripts/vectors/red-path-tests.sh
 
@@ -138,6 +139,21 @@ dir="$(fresh_copy inventory-executions)"
 mutate "$dir/inventory.json" 'd.sites.find(s => s.site === "test/session-v3-tests.js:345").executions = 99;'
 assert_run "executions erróneas en session-v3-tests.js:345 rompen contra la suite real" nonzero \
     "test/session-v3-tests.js: la suite ejecuta 184 aserciones y el inventario declara 183" \
+    -- "$CHECK_INVENTORY" --vectors "$dir"
+
+# ── Escenarios portados: una cita borrada ───────────────────────────────────
+dir="$(fresh_copy scenario-citation-removed)"
+cp -R "$ROOT/WalkTrackerTests/Scenarios" "$dir/Scenarios"
+sed -i '' 's/@Test("session-v3-tests.js:73 · /@Test("/' "$dir/Scenarios/SessionStartScenarios.swift"
+assert_run "escenario de la 1.1 sin @Test que lo cite rompe" nonzero \
+    "test/session-v3-tests.js:73: escenario de la 1.1 sin ningún @Test que lo cite" \
+    -- "$CHECK_INVENTORY" --vectors "$dir" --scenarios "$dir/Scenarios"
+
+# ── Escenarios portados: un sitio citado reasignado a otra historia ─────────
+dir="$(fresh_copy scenario-retagged)"
+mutate "$dir/inventory.json" 'd.sites.find(s => s.site === "test/session-v3-tests.js:73").story = "1.3";'
+assert_run "cita de la 1.1 a un sitio reasignado a la 1.3 rompe" nonzero \
+    "cita test/session-v3-tests.js:73 como escenario de la 1.1, pero escenario de la 1.3" \
     -- "$CHECK_INVENTORY" --vectors "$dir"
 
 # ── Cobertura: un logro sin ningún vector que lo cubra ───────────────────────

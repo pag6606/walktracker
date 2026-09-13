@@ -15,3 +15,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-3-distribucion-testflight-con-versionado-semver.md`
   summary: Comprobar en `release-testflight.sh`, tras archivar, que `PrivacyInfo.xcprivacy` está dentro de `WalkTracker.app` y que su `Info.plist` lleva `ITSAppUsesNonExemptEncryption = false`.
   evidence: Hueco de verificación de la revisión de la 8.3 (V4): hoy solo se comprobó a mano en el archivo real. Se vuelve importante con la primera historia que use una API con motivo obligatorio (el manifiesto deja de estar vacío) o que añada red (clima).
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-1-iniciar-sesion-cronometro-wall-clock.md`
+  summary: Test automático de interfaz que compruebe que "Iniciar caminata" presenta la sesión a pantalla completa y que el tiempo en pantalla avanza cada segundo.
+  evidence: Hueco de verificación de la revisión de la 1.1 (V2): sustituir el `TimelineView` por una lectura única congelaría el tiempo en 0:00 sin romper ningún test. El proyecto no tiene target de UI tests (XCUITest diferido en el spine); hoy lo cubre la verificación manual en el iPhone.
