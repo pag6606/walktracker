@@ -2,7 +2,7 @@
 title: '8.3 — Distribución TestFlight con versionado SemVer'
 type: 'feature'
 created: '2026-09-12'
-status: 'in-review'
+status: 'done'
 route: 'dispatch'
 review_loop_iteration: 0
 baseline_commit: '2b19ecd29cfa6ee4629503a5884817fc085ed5a3'
@@ -140,6 +140,15 @@ el commit con una versión SemVer coherente con la del binario.
   `iOS Team Store Provisioning Profile: com.walktracker.app`, sin dispositivos, `get-task-allow`
   falso, `beta-reports-active` verdadero, HealthKit presente; la extensión firmada igual y
   `PrivacyInfo.xcprivacy` dentro de la app.
+
+- **Tras la revisión (11 correcciones, 1 diferida):** release real con `git fetch --tags` y
+  `HEAD == origin/main`; HEAD y árbol revalidados tras gates, tras archivo y antes de subir; aviso y
+  recuperación de subida a medias; progreso con `tee`; la suite de tests aborta si falla el montaje
+  (antes podía tocar el repositorio real). Camino rojo 31/31. Segundo ensayo real sobre `5cff7b2`:
+  `WalkTracker 4.0.0 (33)`, `.ipa` firmado con Apple Distribution.
+- **Pendiente tras fusionar:** primera subida desde `main` con confirmación de Paul, etiqueta
+  `v4.0.0-build.N`, e instalación desde TestFlight en el iPhone 14. Requiere el registro en App Store
+  Connect. La historia queda en `review` hasta entonces.
 
 ## Spec Change Log
 
