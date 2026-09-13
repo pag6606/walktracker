@@ -12,3 +12,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-7-sustrato-de-verificacion-del-dominio.md`
   summary: Probar que el arranque termina (y nunca devuelve un catálogo parcial o vacío) cuando `achievements.json` no valida.
   evidence: Hueco de verificación de la revisión de la 8.7 (V3): sustituir el `fatalError` de `CompositionRoot.bundledAchievementCatalogOrTerminate()` por un catálogo vacío deja todos los tests en verde. Hace falta una costura (bundle y terminación inyectables); encaja cuando el Epic 3 lea el catálogo por primera vez.
+- source_spec: `_bmad-output/implementation-artifacts/spec-8-3-distribucion-testflight-con-versionado-semver.md`
+  summary: Comprobar en `release-testflight.sh`, tras archivar, que `PrivacyInfo.xcprivacy` está dentro de `WalkTracker.app` y que su `Info.plist` lleva `ITSAppUsesNonExemptEncryption = false`.
+  evidence: Hueco de verificación de la revisión de la 8.3 (V4): hoy solo se comprobó a mano en el archivo real. Se vuelve importante con la primera historia que use una API con motivo obligatorio (el manifiesto deja de estar vacío) o que añada red (clima).

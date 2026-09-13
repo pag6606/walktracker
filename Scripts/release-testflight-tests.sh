@@ -17,7 +17,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT="$SCRIPT_DIR/release-testflight.sh"
 OPTIONS="$SCRIPT_DIR/ExportOptions-testflight.plist"
 
-WORK="$(mktemp -d -t release-testflight-tests)"
+# Un fallo de montaje aborta TODA la suite: con una ruta vacía, `git -C ""` actuaría
+# sobre el repositorio real.
+WORK="$(mktemp -d -t release-testflight-tests)" || exit 1
+[ -n "$WORK" ] && [ -d "$WORK" ] || { echo "  ⚠️  no se pudo crear el directorio temporal" >&2; exit 1; }
 trap 'rm -rf "$WORK"' EXIT
 
 pass=0
@@ -28,7 +31,9 @@ report_fail() { echo "  ❌ $1"; fail=$((fail + 1)); }
 # ── Herramientas falsas ──────────────────────────────────────────────────────
 # `xcodebuild` falso. Versión por FAKE_XCODE_VERSION. `archive` crea un archivo con
 # los Info.plist que diría el real (versión FAKE_MARKETING o 4.0.0, build el de
-# CURRENT_PROJECT_VERSION=); con FAKE_GENERIC_ARCHIVE=1, un archivo genérico.
+# CURRENT_PROJECT_VERSION= o FAKE_BUILD); la extensión, FAKE_EXT_MARKETING y
+# FAKE_EXT_BUILD si se dan; con FAKE_GENERIC_ARCHIVE=1, un archivo genérico; con
+# FAKE_ARCHIVE_DIRTY=1, ensucia el árbol mientras archiva.
 # `-exportArchive` apunta el `destination` de sus opciones y falla si
 # FAKE_EXPORT_FAIL=1, como un rechazo de App Store Connect (=accounts: Xcode sin cuenta).
 FAKE_BIN="$WORK/bin"
@@ -56,13 +61,16 @@ done
 case "$action" in
     archive)
         echo "archive build=$build" >> "$LOG"
-        for p in "Products/Applications/WalkTracker.app" \
-                 "Products/Applications/WalkTracker.app/PlugIns/WalkTrackerActivity.appex"; do
-            mkdir -p "$archive/$p"
-            plutil -create xml1 "$archive/$p/Info.plist"
-            plutil -insert CFBundleShortVersionString -string "${FAKE_MARKETING:-4.0.0}" "$archive/$p/Info.plist"
-            plutil -insert CFBundleVersion -string "$build" "$archive/$p/Info.plist"
-        done
+        app="$archive/Products/Applications/WalkTracker.app"
+        ext="$app/PlugIns/WalkTrackerActivity.appex"
+        mkdir -p "$ext"
+        plutil -create xml1 "$app/Info.plist"
+        plutil -insert CFBundleShortVersionString -string "${FAKE_MARKETING:-4.0.0}" "$app/Info.plist"
+        plutil -insert CFBundleVersion -string "${FAKE_BUILD:-$build}" "$app/Info.plist"
+        plutil -create xml1 "$ext/Info.plist"
+        plutil -insert CFBundleShortVersionString -string "${FAKE_EXT_MARKETING:-${FAKE_MARKETING:-4.0.0}}" "$ext/Info.plist"
+        plutil -insert CFBundleVersion -string "${FAKE_EXT_BUILD:-$build}" "$ext/Info.plist"
+        [ "${FAKE_ARCHIVE_DIRTY:-0}" = "1" ] && touch "$PWD/editado-durante-el-archivo.swift"
         plutil -create xml1 "$archive/Info.plist"
         if [ "${FAKE_GENERIC_ARCHIVE:-0}" != "1" ]; then
             plutil -insert ApplicationProperties -dictionary "$archive/Info.plist"
@@ -99,12 +107,20 @@ FAKE
 chmod +x "$FAKE_BIN/xcodebuild" "$FAKE_BIN/xcodegen"
 
 # ── Fixture: un repositorio mínimo con la forma que el script lee ────────────
-# Gates de mentira: salen con el código de GATE_SHAPE_EXIT / GATE_DOMAIN_EXIT.
+# Gates de mentira: salen con el código de GATE_SHAPE_EXIT / GATE_DOMAIN_EXIT. Con
+# GATE_DIRTY=1 el gate de forma ensucia el árbol; con GATE_COMMIT=1, hace un commit.
+# `origin` es un repositorio bare local con `main` empujado.
 make_repo() {
     local root="$WORK/repo-$1"
     mkdir -p "$root/Scripts"
     cp "$SCRIPT" "$OPTIONS" "$root/Scripts/"
-    printf '#!/bin/bash\necho "gate forma" >> "$FAKE_LOG"\nexit "${GATE_SHAPE_EXIT:-0}"\n' > "$root/Scripts/check-project-shape.sh"
+    cat > "$root/Scripts/check-project-shape.sh" <<'GATE'
+#!/bin/bash
+echo "gate forma" >> "$FAKE_LOG"
+[ "${GATE_DIRTY:-0}" = "1" ] && touch "$1/tocado-durante-los-gates.swift"
+[ "${GATE_COMMIT:-0}" = "1" ] && git -C "$1" commit -q --allow-empty -m "commit durante los gates"
+exit "${GATE_SHAPE_EXIT:-0}"
+GATE
     printf '#!/bin/bash\necho "gate dominio" >> "$FAKE_LOG"\nexit "${GATE_DOMAIN_EXIT:-0}"\n' > "$root/Scripts/verify-domain.sh"
     cat > "$root/project.yml" <<'YAML'
 name: WalkTracker
@@ -124,9 +140,22 @@ YAML
         git add -A &&
         git commit -q -m uno &&
         git commit -q --allow-empty -m dos &&
-        git commit -q --allow-empty -m tres
+        git commit -q --allow-empty -m tres &&
+        git init -q --bare "$root-origin.git" &&
+        git remote add origin "$root-origin.git" &&
+        git push -q origin main
     ) || { echo "  ⚠️  no se pudo montar el fixture" >&2; exit 1; }
     echo "$root"
+}
+
+# new_repo NOMBRE — deja el fixture en $R. Sin subshell: si el montaje falla, el
+# `exit` aborta la suite en vez de dejar R vacío.
+new_repo() {
+    R="$(make_repo "$1")"
+    if [ -z "$R" ] || [ ! -d "$R/.git" ]; then
+        echo "  ⚠️  fixture '$1' sin montar: se aborta la suite" >&2
+        exit 1
+    fi
 }
 
 # run_case NOMBRE REPO -- ARGS...   (el entorno FAKE_*/GATE_* lo pone quien llama)
@@ -137,6 +166,25 @@ run_case() {
     export FAKE_LOG="$repo.log"
     : > "$FAKE_LOG"
     OUT="$(PATH="$FAKE_BIN:$PATH" bash "$repo/Scripts/release-testflight.sh" "$@" </dev/null 2>&1)"
+    STATUS=$?
+}
+
+# run_case_tty REPO RESPUESTA -- ARGS...  Igual, pero en un pseudo-terminal con la
+# respuesta en su entrada. La entrada se mantiene abierta hasta que el script
+# termina: un EOF temprano llegaría como ^D antes que la respuesta.
+run_case_tty() {
+    local repo="$1" answer="$2"
+    shift 2
+    export FAKE_LOG="$repo.log"
+    : > "$FAKE_LOG"
+    local done_marker="$repo.done"
+    rm -f "$done_marker"
+    OUT="$(
+        { printf '%s\n' "$answer"; while [ ! -e "$done_marker" ]; do sleep 0.1; done; } |
+            PATH="$FAKE_BIN:$PATH" script -q /dev/null bash -c \
+                'bash "$0" "$@"; s=$?; touch "'"$done_marker"'"; exit $s' \
+                "$repo/Scripts/release-testflight.sh" "$@" 2>&1
+    )"
     STATUS=$?
 }
 
@@ -185,96 +233,160 @@ echo "  Camino rojo de release-testflight.sh"
 echo "══════════════════════════════════════════════════════════"
 
 # ── Árbol sucio ──────────────────────────────────────────────────────────────
-R="$(make_repo sucio)"
+new_repo sucio
 echo cambio >> "$R/project.yml"
 run_case "$R" --confirm v4.0.0-build.3
 expect "árbol con cambios sin commit no archiva" "$R" nonzero "árbol sucio" no-gates no-archive no-upload no-tag
 
-R="$(make_repo sin-seguimiento)"
+new_repo sin-seguimiento
 touch "$R/nuevo.swift"
 run_case "$R" --dry-run
 expect "fichero sin seguimiento no archiva (tampoco en ensayo)" "$R" nonzero "árbol sucio" no-gates no-archive no-upload no-tag
 
 # ── Rama equivocada ──────────────────────────────────────────────────────────
-R="$(make_repo rama)"
+new_repo rama
 git -C "$R" checkout -q -b feature/algo
 run_case "$R" --confirm v4.0.0-build.3
 expect "rama de feature no archiva y nombra main" "$R" nonzero "Solo se sube desde 'main'" no-gates no-archive no-upload no-tag
 
 # ── Toolchain equivocado ─────────────────────────────────────────────────────
-R="$(make_repo xcode27)"
+new_repo xcode27
 FAKE_XCODE_VERSION=27.0 run_case "$R" --confirm v4.0.0-build.3
 expect "Xcode 27 no archiva y nombra la versión encontrada" "$R" nonzero "Xcode 27.0" no-gates no-archive no-upload no-tag
 
-R="$(make_repo xcode16)"
+new_repo xcode16
 FAKE_XCODE_VERSION=16.4 run_case "$R" --dry-run
 expect "Xcode 16 no archiva ni en ensayo" "$R" nonzero "Xcode 16.4" no-gates no-archive no-upload no-tag
 
 # ── Etiqueta ya existe ───────────────────────────────────────────────────────
-R="$(make_repo etiqueta)"
+new_repo etiqueta
 git -C "$R" tag -a v4.0.0-build.3 -m previa
 PRE_TAG=v4.0.0-build.3
 run_case "$R" --confirm v4.0.0-build.3
 expect "etiqueta existente no archiva" "$R" nonzero "ya existe" no-gates no-archive no-upload no-tag
 PRE_TAG=""
 
-R="$(make_repo monotonia)"
+new_repo monotonia
 git -C "$R" tag -a v4.0.0-build.9 -m "historial reescrito"
 PRE_TAG=v4.0.0-build.9
 run_case "$R" --confirm v4.0.0-build.3
 expect "build menor que uno ya etiquetado no archiva" "$R" nonzero "no supera el mayor ya etiquetado" no-gates no-archive no-upload no-tag
 PRE_TAG=""
 
+# La etiqueta nace en otro clon, sobre un commit que este no tiene: así solo la trae
+# `fetch --tags` (una que apuntara a algo local llegaría sola por auto-follow).
+new_repo etiqueta-remota
+git clone -q "$R-origin.git" "$R-otro-clon" || exit 1
+git -C "$R-otro-clon" -c user.name=Otro -c user.email=otro@example.invalid \
+    commit -q --allow-empty -m "build desde otro clon" || exit 1
+git -C "$R-otro-clon" -c user.name=Otro -c user.email=otro@example.invalid \
+    tag -a v4.0.0-build.9 -m "subida desde otro clon" || exit 1
+git -C "$R-otro-clon" push -q origin v4.0.0-build.9 || exit 1
+PRE_TAG=v4.0.0-build.9
+run_case "$R" --confirm v4.0.0-build.3
+expect "build etiquetado en otro clon (solo en origin) no archiva" "$R" nonzero "no supera el mayor ya etiquetado (v4.0.0-build.9)" no-gates no-archive no-upload
+PRE_TAG=""
+
+# ── HEAD distinto de origin/main ─────────────────────────────────────────────
+new_repo sin-empujar
+git -C "$R" commit -q --allow-empty -m "local, sin empujar"
+run_case "$R" --confirm v4.0.0-build.4
+expect "HEAD distinto de origin/main no archiva" "$R" nonzero "no es origin/main" no-gates no-archive no-upload no-tag
+
+new_repo sin-pull
+git -C "$R" commit -q --allow-empty -m "fusionado en GitHub"
+git -C "$R" push -q origin main
+git -C "$R" reset -q --hard HEAD~1
+run_case "$R" --confirm v4.0.0-build.3
+expect "main sin pull (origin/main por delante) no archiva" "$R" nonzero "no es origin/main" no-gates no-archive no-upload no-tag
+
 # ── Confirmación ─────────────────────────────────────────────────────────────
-R="$(make_repo sin-confirmacion)"
+new_repo sin-confirmacion
 run_case "$R"
 expect "sin terminal y sin --confirm no archiva" "$R" nonzero "--confirm v4.0.0-build.3" no-gates no-archive no-upload no-tag
 
-R="$(make_repo confirmacion-otra)"
+new_repo confirmacion-otra
 run_case "$R" --confirm v4.0.0-build.2
 expect "--confirm de otro build no archiva" "$R" nonzero "no coincide" no-gates no-archive no-upload no-tag
 
+new_repo tty-respuesta-mala
+run_case_tty "$R" "si"
+expect "confirmación interactiva equivocada cancela la subida" "$R" nonzero "subida cancelada" no-upload no-tag
+
+new_repo tty-respuesta-buena
+run_case_tty "$R" "v4.0.0-build.3"
+expect "confirmación interactiva correcta sube y etiqueta" "$R" 0 "etiqueta: v4.0.0-build.3" dest=upload tag=v4.0.0-build.3
+
+# ── HEAD o árbol cambian durante el release ──────────────────────────────────
+new_repo gate-ensucia
+GATE_DIRTY=1 run_case "$R" --confirm v4.0.0-build.3
+expect "árbol ensuciado durante los gates no archiva" "$R" nonzero "el árbol quedó sucio mientras corrían los gates" no-archive no-upload no-tag
+
+new_repo gate-commit
+GATE_COMMIT=1 run_case "$R" --confirm v4.0.0-build.3
+expect "commit durante los gates no archiva" "$R" nonzero "HEAD cambió mientras corrían los gates" no-archive no-upload no-tag
+
+new_repo archivo-ensucia
+FAKE_ARCHIVE_DIRTY=1 run_case "$R" --confirm v4.0.0-build.3
+expect "árbol ensuciado durante el archivo no se sube" "$R" nonzero "el árbol quedó sucio mientras se archivaba" no-upload no-tag
+
 # ── Gate rojo ────────────────────────────────────────────────────────────────
-R="$(make_repo gate-forma)"
+new_repo gate-forma
 GATE_SHAPE_EXIT=1 run_case "$R" --confirm v4.0.0-build.3
 expect "check-project-shape.sh en rojo no archiva" "$R" nonzero "check-project-shape.sh en rojo" no-archive no-upload no-tag
 
-R="$(make_repo gate-dominio)"
+new_repo gate-dominio
 GATE_DOMAIN_EXIT=1 run_case "$R" --dry-run
 expect "verify-domain.sh en rojo no archiva (tampoco en ensayo)" "$R" nonzero "verify-domain.sh en rojo" no-archive no-upload no-tag
 
 # ── Versión ──────────────────────────────────────────────────────────────────
-R="$(make_repo semver)"
+new_repo semver
 sed -i '' 's/"4.0.0"/"4.0"/' "$R/project.yml"
 git -C "$R" commit -q -am "versión rota"
 run_case "$R" --dry-run
 expect "MARKETING_VERSION no SemVer no archiva" "$R" nonzero "no es SemVer" no-gates no-archive no-upload no-tag
 
-R="$(make_repo binario-otra-version)"
+new_repo binario-otra-version
 FAKE_MARKETING=3.9.9 run_case "$R" --confirm v4.0.0-build.3
 expect "binario con otra versión que la etiqueta no se sube" "$R" nonzero "se esperaba 4.0.0 (3)" no-upload no-tag
 
-R="$(make_repo archivo-generico)"
+new_repo extension-otra-version
+FAKE_EXT_MARKETING=3.9.9 run_case "$R" --confirm v4.0.0-build.3
+expect "solo la extensión con otra versión no se sube" "$R" nonzero "WalkTrackerActivity.appex/Info.plist dice versión '3.9.9'" no-upload no-tag
+
+new_repo extension-otro-build
+FAKE_EXT_BUILD=2 run_case "$R" --confirm v4.0.0-build.3
+expect "solo la extensión con otro build no se sube" "$R" nonzero "WalkTrackerActivity.appex/Info.plist dice versión '4.0.0' build '2'" no-upload no-tag
+
+new_repo app-otro-build
+FAKE_BUILD=99 run_case "$R" --confirm v4.0.0-build.3
+expect "app con la versión bien y el build mal no se sube" "$R" nonzero "WalkTracker.app/Info.plist dice versión '4.0.0' build '99'" no-upload no-tag
+
+new_repo archivo-generico
 FAKE_GENERIC_ARCHIVE=1 run_case "$R" --confirm v4.0.0-build.3
 expect "archivo genérico (framework instalado fuera de la app) no se sube" "$R" nonzero "el archivo es genérico" no-upload no-tag
 
 # ── Subida rechazada ─────────────────────────────────────────────────────────
-R="$(make_repo rechazo)"
+new_repo rechazo
 FAKE_EXPORT_FAIL=1 run_case "$R" --confirm v4.0.0-build.3
-expect "subida rechazada no etiqueta y muestra el error" "$R" nonzero "bundle version must be higher" dest=upload no-tag
+expect "subida rechazada no etiqueta, muestra el error y avisa del build gastado" "$R" nonzero "bundle version must be higher" dest=upload no-tag
+grep -qF "puede haber llegado ya a App Store Connect" <<< "$OUT" &&
+    report_pass "el aviso de subida fallida pide un commit nuevo en origin/main" ||
+    report_fail "el aviso de subida fallida no dice que el build puede estar gastado"
 
-R="$(make_repo sin-cuenta)"
+
+new_repo sin-cuenta
 FAKE_EXPORT_FAIL=accounts run_case "$R" --dry-run
 expect "Xcode sin cuenta de Apple falla y dice dónde añadirla" "$R" nonzero "Ajustes → Cuentas" no-upload no-tag
 
 # ── Caminos verdes (con herramientas falsas) ─────────────────────────────────
 # Sin ellos, un script que fallara siempre pasaría todo el camino rojo.
-R="$(make_repo ensayo)"
+new_repo ensayo
 git -C "$R" checkout -q -b feature/ensayo
 run_case "$R" --dry-run
 expect "ensayo en rama de feature exporta .ipa sin subir ni etiquetar" "$R" 0 "WalkTracker.ipa" dest=export no-upload no-tag
 
-R="$(make_repo release)"
+new_repo release
 run_case "$R" --confirm v4.0.0-build.3
 expect "release correcta sube y etiqueta v4.0.0-build.3" "$R" 0 "etiqueta: v4.0.0-build.3" dest=upload tag=v4.0.0-build.3
 if [ "$(git -C "$R" rev-list -n 1 v4.0.0-build.3 2>/dev/null)" = "$(git -C "$R" rev-parse HEAD)" ] &&

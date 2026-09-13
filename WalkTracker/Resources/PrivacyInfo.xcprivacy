@@ -7,9 +7,11 @@
   - Sin rastreo y sin dominios de rastreo: no hay analítica, ni crash reporting, ni SDK
     de terceros.
   - Sin datos recogidos: pasos, sesiones y salud se quedan en el dispositivo (y en
-    Apple Salud, que es del usuario). La consulta del clima envía coordenadas
-    redondeadas a Open-Meteo solo para responder en el momento; no se guardan ni se
-    vinculan a nadie, así que no cuenta como recogida.
+    Apple Salud, que es del usuario). HOY la app no hace ninguna llamada de red.
+    SUPOSICIÓN, a revisar por la historia del clima cuando entre: la consulta del
+    clima enviará coordenadas redondeadas a Open-Meteo solo para responder en el
+    momento, sin guardarlas ni vincularlas a nadie, y eso no cuenta como recogida. Si
+    el diseño final no es así, este manifiesto cambia antes de subir.
   - Tipos de API con motivo: vacío porque HOY el código no usa ninguno (UserDefaults,
     marcas de tiempo de ficheros, tiempo desde el arranque, espacio en disco, teclados
     activos). La primera historia que use uno lo declara aquí con su motivo, o App Store

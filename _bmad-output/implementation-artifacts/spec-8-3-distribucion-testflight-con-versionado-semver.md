@@ -2,7 +2,7 @@
 title: '8.3 — Distribución TestFlight con versionado SemVer'
 type: 'feature'
 created: '2026-09-12'
-status: 'in-progress'
+status: 'in-review'
 route: 'dispatch'
 review_loop_iteration: 0
 baseline_commit: '2b19ecd29cfa6ee4629503a5884817fc085ed5a3'
@@ -134,9 +134,38 @@ el commit con una versión SemVer coherente con la del binario.
   (`DVTDeveloperAccountManagerAppleIDLists` vacío). Hace falta que Paul la añada (Xcode → Ajustes →
   Cuentas) antes de que el `--dry-run` produzca el `.ipa`; el script ya lo detecta y lo dice.
 
+- **Ensayo real (2026-09-13), con la cuenta de Apple ya en Xcode:** `release-testflight.sh --dry-run`
+  sobre `ce561d7` → precondiciones, `check-project-shape` y `verify-domain` en verde; archivo
+  `WalkTracker 4.0.0 (32)`; `.ipa` firmado con **Apple Distribution (Z3M45B4K6D)**, perfil
+  `iOS Team Store Provisioning Profile: com.walktracker.app`, sin dispositivos, `get-task-allow`
+  falso, `beta-reports-active` verdadero, HealthKit presente; la extensión firmada igual y
+  `PrivacyInfo.xcprivacy` dentro de la app.
+
 ## Spec Change Log
 
 ## Review Triage Log
+
+| # | Capa | Hallazgo | Veredicto | Evidencia | Ruta |
+|---|---|---|---|---|---|
+| B1 · B2 · E4 | blind · edge | No se comprueba `HEAD == origin/main` ni se traen las etiquetas remotas antes de las comprobaciones de etiqueta y monotonía | medium | Los PRs se fusionan en GitHub: un `main` local sin `pull` sube un commit que no es el fusionado, y las etiquetas de otro clon no se ven | patch |
+| E6 | edge | HEAD o el árbol pueden cambiar durante el archivo (~10 min) o mientras espera la confirmación | medium | La comprobación de HEAD y árbol solo corre tras los gates; si Paul edita durante el archivo, lo subido difiere del commit etiquetado | patch |
+| E1 · E2 | edge | El arnés de tests sigue si falla el montaje del fixture o `mktemp` | medium | `exit 1` dentro de `$(make_repo …)` deja `R=""`; `git -C "" tag/checkout/commit` actúa sobre el repositorio real (verificado leyendo `make_repo`) | patch |
+| B5 · E3 | blind · edge | Una subida que falla después de que App Store Connect recibió el build no tiene salida: reintentar recalcula el mismo N | low | El mensaje "(o se intentó)" sugiere que los intentos fallidos se etiquetan y no es así; falta decir que hace falta un commit nuevo. Corrección de texto | patch |
+| B4 | blind | El README promete que "si App Store Connect rechaza, no etiqueta", pero muchos rechazos llegan por correo tras procesar | low | La etiqueta ya existe cuando llega el correo. Corrección de texto | patch |
+| B9 | blind | Los comentarios de `PrivacyInfo.xcprivacy` e `ITSAppUsesNonExemptEncryption` describen URLSession y Open-Meteo, que aún no existen | low | Presentan como hecho un supuesto que la historia del clima debe revalidar. Corrección de texto | patch |
+| B10 | blind | La subida y el archivo no muestran progreso: minutos en silencio | low | Frecuente en cada release, y un Ctrl-C a mitad deja el build gastado sin etiqueta. `tee` es directo | patch |
+| B12 | blind | El ensayo en rama de feature imprime una etiqueta con un N que no será el de `main` | low | Corrección de texto | patch |
+| V1 | verif | La comprobación de versión y build del archivo no se prueba con solo la extensión distinta ni con el build distinto | gap | Filed: quitar la extensión del bucle o la comparación del build deja 19/19 | patch |
+| V2 | verif | La confirmación interactiva nunca se ejecuta en los tests | gap | Filed: aceptar cualquier respuesta deja 19/19 | patch |
+| V3 | verif | La comprobación de HEAD y árbol tras los gates no se prueba | gap | Filed: convertir los `die` en no-op deja 19/19 | patch |
+| V4 | verif | Nada comprueba en el archivo que `PrivacyInfo.xcprivacy` y el indicador de cifrado lleguen a la app | gap | Filed con disposición defer: comprobado a mano en el archivo real y el manifiesto no declara aún APIs con motivo | defer |
+| B3 · E5 | blind · edge | Un clon superficial da un número de build falso | low | Todos los clones de trabajo son completos; la guarda añade una rama | rechazado |
+| B6 | blind | Nada vigila `SKIP_INSTALL: YES` antes de archivar | low | El script lo detecta tras el archivo con mensaje claro; regresión improbable | rechazado |
+| B7 (resto) | blind | Faltan casos: `MARKETING_VERSION` ausente o duplicada, archivo fallido, sin `xcodegen`, `--confirm` con `--dry-run`, argumento desconocido, aserciones extra | low | Ramas triviales de mensaje; las que protegen la subida van en V1–V3 | rechazado |
+| B8 | blind | `release-testflight-tests.sh` no corre automáticamente | low | Se ejecuta al tocar el script de release; los fakes no dependen del estado del repo | rechazado |
+| B11 | blind | La regex SemVer acepta ceros a la izquierda | low | `MARKETING_VERSION` lo escribe Paul en `project.yml`; improbable | rechazado |
+| E7 | edge | Ficheros ignorados por git bajo las carpetas de fuentes entrarían en el build | low | Solo hay `.DS_Store`/`xcuserdata` ignorados ahí; improbable | rechazado |
+| E8 | edge | Repositorio sin commits deja `BUILD` vacío | false | El repositorio del producto tiene historia; el caso no es alcanzable en el uso previsto | rechazado |
 
 ## Verification
 

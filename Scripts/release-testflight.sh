@@ -6,16 +6,18 @@
 # congelado, sube el build a App Store Connect y etiqueta el commit con una versión
 # SemVer que coincide con la del binario subido.
 #
-#   1. Precondiciones — Xcode 26.x, rama `main`, árbol limpio, versión SemVer única en
-#      `project.yml`, etiqueta libre y número de build mayor que cualquier build ya
-#      etiquetado. Se comprueban TODAS y se dice qué falta de una vez.
+#   1. Precondiciones — Xcode 26.x, rama `main`, árbol limpio, HEAD == origin/main
+#      (tras `git fetch --tags origin`), versión SemVer única en `project.yml`, etiqueta
+#      libre y número de build mayor que cualquier build ya etiquetado. Se comprueban
+#      TODAS y se dice qué falta de una vez. El ensayo no va a la red.
 #   2. Gates — `check-project-shape.sh` y `verify-domain.sh` en verde.
 #   3. Archivo — `xcodegen generate` y `xcodebuild archive` en Release, con
 #      `CURRENT_PROJECT_VERSION` = número de build. El Info.plist del archivo tiene que
 #      decir la versión y el build esperados, en la app y en la extensión.
 #   4. Subida — `xcodebuild -exportArchive` con `Scripts/ExportOptions-testflight.plist`
 #      (`destination: upload`, cuenta de Apple configurada en Xcode). Pide confirmación
-#      explícita justo antes: un número de build subido no se puede reutilizar.
+#      explícita justo antes: un número de build subido no se puede reutilizar. HEAD y
+#      el árbol se vuelven a comprobar tras los gates, tras el archivo y antes de subir.
 #   5. Etiqueta — `v<MARKETING_VERSION>-build.<N>`, anotada, sobre el commit archivado.
 #      Solo si la subida terminó bien. No se empuja: eso lo decide quien publica.
 #
@@ -136,8 +138,20 @@ TAG="v${VERSION}-build.${BUILD}"
 say "rama: $branch · commit: ${HEAD_SHA:0:12} · versión: $VERSION · build: $BUILD · etiqueta: $TAG."
 
 if [ "$DRY_RUN" -eq 0 ]; then
+    # Los PR se fusionan en GitHub: un `main` sin pull subiría un commit que no es el
+    # fusionado, y las etiquetas creadas en otro clon no se verían. El ensayo no va a
+    # la red.
+    if ! git -C "$ROOT" fetch --quiet --tags origin "+refs/heads/$RELEASE_BRANCH:refs/remotes/origin/$RELEASE_BRANCH"; then
+        problems+=("no se pudo hacer git fetch --tags de origin: sin él no se sabe si este commit es el de GitHub ni qué builds están ya etiquetados.")
+    else
+        origin_sha="$(git -C "$ROOT" rev-parse --quiet --verify "refs/remotes/origin/$RELEASE_BRANCH" 2>/dev/null)"
+        if [ "$origin_sha" != "$HEAD_SHA" ]; then
+            problems+=("HEAD (${HEAD_SHA:0:12}) no es origin/$RELEASE_BRANCH (${origin_sha:0:12}): se subiría un commit que no es el fusionado en GitHub. git pull o git push, y otra vez.")
+        fi
+    fi
+
     if git -C "$ROOT" rev-parse --quiet --verify "refs/tags/$TAG" >/dev/null; then
-        problems+=("la etiqueta $TAG ya existe: ese build ya se subió (o se intentó). Un número de build no se reutiliza.")
+        problems+=("la etiqueta $TAG ya existe: ese build ya se subió. Un número de build no se reutiliza: hace falta un commit nuevo en $RELEASE_BRANCH.")
     fi
 
     # Monotonía: ningún build ya etiquetado puede igualar o superar este.
@@ -184,14 +198,19 @@ if ! bash "$ROOT/Scripts/verify-domain.sh"; then
     die "verify-domain.sh en rojo: no se archiva."
 fi
 
-# Los gates no pueden haber movido el commit ni ensuciado el árbol: lo que se
-# archiva es exactamente lo que se etiqueta.
-if [ "$(git -C "$ROOT" rev-parse HEAD)" != "$HEAD_SHA" ]; then
-    die "HEAD cambió mientras corrían los gates: no se archiva."
-fi
-if [ -n "$(git -C "$ROOT" status --porcelain --untracked-files=all)" ]; then
-    die "el árbol quedó sucio tras los gates: no se archiva."
-fi
+# Nada puede mover el commit ni ensuciar el árbol entre las precondiciones y la
+# subida: lo que se sube es exactamente lo que se etiqueta. Se comprueba tras los
+# gates, tras el archivo y justo antes de exportar.
+assert_unchanged() {
+    local when="$1" what="$2"
+    if [ "$(git -C "$ROOT" rev-parse HEAD)" != "$HEAD_SHA" ]; then
+        die "HEAD cambió $when: no se $what."
+    fi
+    if [ -n "$(git -C "$ROOT" status --porcelain --untracked-files=all)" ]; then
+        die "el árbol quedó sucio $when: no se $what."
+    fi
+}
+assert_unchanged "mientras corrían los gates" "archiva"
 
 # ── 3. Archivo ───────────────────────────────────────────────────────────────
 section "3/5 · Archivo Release"
@@ -214,8 +233,8 @@ say "archivando (log: $OUT/archive.log)…"
     -destination 'generic/platform=iOS' \
     -archivePath "$ARCHIVE" \
     -allowProvisioningUpdates \
-    CURRENT_PROJECT_VERSION="$BUILD") >"$OUT/archive.log" 2>&1
-status=$?
+    CURRENT_PROJECT_VERSION="$BUILD") 2>&1 | tee "$OUT/archive.log"
+status=${PIPESTATUS[0]}
 if [ "$status" -ne 0 ] || ! grep -q '\*\* ARCHIVE SUCCEEDED \*\*' "$OUT/archive.log"; then
     grep -E 'error:|\*\* ARCHIVE' "$OUT/archive.log" | head -n 30 | sed 's/^/  /' >&2
     die "xcodebuild archive salió con $status. Log completo: $OUT/archive.log"
@@ -245,6 +264,7 @@ for bundle in \
     fi
 done
 say "archivo correcto: $APP_NAME $VERSION ($BUILD)."
+assert_unchanged "mientras se archivaba" "exporta"
 
 # ── 4. Exportación / subida ──────────────────────────────────────────────────
 OPTIONS="$OUT/ExportOptions.plist"
@@ -262,14 +282,21 @@ else
         [ "$answer" = "$TAG" ] || die "subida cancelada. Nada subido ni etiquetado."
     fi
 fi
+assert_unchanged "antes de exportar" "exporta"
+
+SPENT="el build $BUILD puede haber llegado ya a App Store Connect y quedar gastado. Para reintentar hace falta un commit nuevo en origin/$RELEASE_BRANCH (vale git commit --allow-empty, empujado) y otro release."
+if [ "$DRY_RUN" -eq 0 ]; then
+    trap 'echo; echo "release-testflight: subida interrumpida: NO se etiqueta; $SPENT" >&2; exit 130' INT TERM
+fi
 
 say "exportando (log: $OUT/export.log)…"
 xcodebuild -exportArchive \
     -archivePath "$ARCHIVE" \
     -exportOptionsPlist "$OPTIONS" \
     -exportPath "$EXPORT_DIR" \
-    -allowProvisioningUpdates >"$OUT/export.log" 2>&1
-status=$?
+    -allowProvisioningUpdates 2>&1 | tee "$OUT/export.log"
+status=${PIPESTATUS[0]}
+trap - INT TERM
 if [ "$status" -ne 0 ] || ! grep -q '\*\* EXPORT SUCCEEDED \*\*' "$OUT/export.log"; then
     grep -iE 'error|rejected|failed|invalid' "$OUT/export.log" | head -n 30 | sed 's/^/  /' >&2
     if grep -q 'No Accounts' "$OUT/export.log"; then
@@ -278,14 +305,15 @@ if [ "$status" -ne 0 ] || ! grep -q '\*\* EXPORT SUCCEEDED \*\*' "$OUT/export.lo
     if [ "$DRY_RUN" -eq 1 ]; then
         die "la exportación salió con $status. Log completo: $OUT/export.log"
     fi
-    die "la subida salió con $status: NO se etiqueta. Log completo: $OUT/export.log"
+    die "la subida salió con $status: NO se etiqueta; $SPENT Log completo: $OUT/export.log"
 fi
 
 if [ "$DRY_RUN" -eq 1 ]; then
     ipa="$(find "$EXPORT_DIR" -maxdepth 1 -name '*.ipa' -type f | head -n 1)"
     [ -n "$ipa" ] || die "la exportación dijo que terminó pero no hay .ipa en $EXPORT_DIR."
     section "5/5 · Resultado del ensayo"
-    say "versión: $VERSION · build: $BUILD · etiqueta que tendría: $TAG."
+    say "versión: $VERSION · build provisional: $BUILD · etiqueta provisional: $TAG."
+    say "el número es una vista previa: el real se calcula en $RELEASE_BRANCH al hacer el release."
     say ".ipa: $ipa"
     say "ensayo: sin subida ni etiqueta."
     exit 0

@@ -190,6 +190,8 @@ Antes de archivar, el script exige **todo** esto y, si falta algo, dice qué y s
 
 - Xcode **26.x** (se niega con otra versión mayor; 26.3 es el verificado).
 - Rama `main` y árbol **limpio**, sin ficheros sin seguimiento.
+- Tras `git fetch --tags origin`, **HEAD igual a `origin/main`**: los PR se fusionan en GitHub, y un
+  `main` sin pull subiría un commit que no es el fusionado. Las etiquetas de otros clones cuentan.
 - `MARKETING_VERSION` SemVer y definida una sola vez.
 - La etiqueta `v<versión>-build.<N>` libre y `N` mayor que cualquier build ya etiquetado.
 - `Scripts/check-project-shape.sh` y `Scripts/verify-domain.sh` en verde.
@@ -199,9 +201,13 @@ queda gastado para siempre, suba bien o no. Sin terminal interactiva (p. ej. cua
 Claude) se pasa `--confirm v4.0.0-build.N`, **solo con la confirmación de Paul en ese momento**, y
 tiene que coincidir con la etiqueta calculada o no se archiva.
 
-Si App Store Connect rechaza el build, el script muestra el error de `xcodebuild` y **no etiqueta**.
-El `--dry-run` vale en cualquier rama con árbol limpio: exporta un `.ipa` firmado para distribución
-en `build/release/<etiqueta>-ensayo/export/` y no sube ni etiqueta nada. Archivos y logs quedan en
+HEAD y el árbol se vuelven a comprobar tras los gates, tras el archivo y justo antes de subir: si
+alguien edita o hace commit mientras tanto, el script se detiene. El archivo y la subida muestran su
+progreso en la terminal y lo guardan en los logs.
+
+El `--dry-run` vale en cualquier rama con árbol limpio y no va a la red: exporta un `.ipa` firmado
+para distribución en `build/release/<etiqueta>-ensayo/export/` y no sube ni etiqueta nada. El número
+de build que muestra es **provisional**: el real se calcula en `main` al hacer el release. Archivos y logs quedan en
 `build/release/` (ignorado por git).
 
 La subida usa la cuenta de Apple **configurada en Xcode** (Ajustes → Cuentas) con
@@ -222,6 +228,17 @@ bash Scripts/release-testflight-tests.sh
 `--dry-run`: los perfiles de desarrollo que ya hay en disco sirven para archivar, pero no para firmar
 la distribución.
 
+### Cuando una subida falla o App Store Connect rechaza el build
+
+- **La subida falla o se interrumpe** (error de `xcodebuild`, Ctrl-C, red): el script **no
+  etiqueta**, pero el build `N` puede haber llegado ya a App Store Connect y quedar gastado. Repetir
+  desde el mismo commit da el mismo `N` y se rechazaría. Para reintentar hace falta un **commit nuevo
+  en `origin/main`** —vale uno vacío: `git commit --allow-empty -m "release: reintento"`, empujado o
+  fusionado— y otro release, que calculará `N+1`.
+- **App Store Connect lo rechaza después de procesarlo** (llega por correo, minutos después): la
+  subida ya terminó bien y **la etiqueta ya existe**. No se borra: queda como registro de un build
+  gastado. El arreglo entra como un commit nuevo en `main` y sale en un build nuevo.
+
 **En App Store Connect, una sola vez, antes de la primera subida:** Apps → **+** → Nueva app →
 plataforma iOS, idioma principal español, bundle id `com.walktracker.app`, un SKU cualquiera. El
 nombre de la ficha es el que quede disponible (no tiene que ser «WalkTracker»).
@@ -233,14 +250,16 @@ nombre de la ficha es el que quede disponible (no tiene que ser «WalkTracker»)
 2. La primera vez, añadirse como **tester interno** (grupo de pruebas interno con tu Apple ID). Los
    testers internos no necesitan revisión de Apple.
 3. Si pregunta por el cumplimiento de exportación, no debería: `ITSAppUsesNonExemptEncryption = NO`
-   ya va en el `Info.plist` (solo HTTPS del sistema).
+   ya va en el `Info.plist`. Se basa en la suposición de que la app solo usará el HTTPS del sistema;
+   la historia del clima la revisa cuando entre la primera llamada de red.
 4. iPhone 14 → app **TestFlight** → WalkTracker → Instalar. La app abre; la pantalla de diagnóstico
    de la 8.6 **no** aparece, porque es solo `DEBUG` y TestFlight instala Release.
 
 Un build de TestFlight caduca a los **90 días**: antes de eso, otro release.
 
 **Privacidad:** `WalkTracker/Resources/PrivacyInfo.xcprivacy` declara cero rastreo y cero datos
-recogidos. La primera historia que use una API con motivo obligatorio (`UserDefaults`, fechas de
+recogidos. Hoy la app no hace ninguna llamada de red; lo que dice sobre el clima es una suposición
+que la historia del clima tiene que revisar cuando entre. La primera historia que use una API con motivo obligatorio (`UserDefaults`, fechas de
 ficheros, tiempo desde el arranque, espacio en disco) la declara ahí o App Store Connect rechaza el
 build.
 
