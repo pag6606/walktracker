@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "achievements": [
+    { "key": "first_km", "name": "Tu primer kilómetro", "description": "Completa 1 km en una sesión", "icon": "🏅", "metric": "sessionDistanceM", "threshold": 1000, "comparison": "gte" },
+    { "key": "first_5km", "name": "Cinco kilómetros", "description": "Completa 5 km en una sesión", "icon": "🥉", "metric": "sessionDistanceM", "threshold": 5000, "comparison": "gte" },
+    { "key": "first_10km", "name": "Diez kilómetros", "description": "Completa 10 km en una sesión", "icon": "🥈", "metric": "sessionDistanceM", "threshold": 10000, "comparison": "gte" },
+    { "key": "first_session", "name": "Primera caminata", "description": "Completa tu primera sesión", "icon": "🚶", "metric": "sessionCount", "threshold": 1, "comparison": "gte" },
+    { "key": "weekly_goal", "name": "Meta semanal cumplida", "description": "Cumple tu meta de la semana", "icon": "🏆", "metric": "weeklyGoalMet", "threshold": 1, "comparison": "eq" },
+    { "key": "rain_walker", "name": "Caminata bajo la lluvia", "description": "Camina con clima lluvioso", "icon": "🌧️", "metric": "weatherCategory", "threshold": "rain", "comparison": "eq" },
+    { "key": "7_days_streak", "name": "7 días consecutivos", "description": "Camina 7 días seguidos", "icon": "🔥", "metric": "consecutiveDays", "threshold": 7, "comparison": "gte" },
+    { "key": "marathon_42km", "name": "Maratonista", "description": "Acumula 42 km en total", "icon": "🏃", "metric": "totalDistanceM", "threshold": 42000, "comparison": "gte" },
+    { "key": "speed_walker", "name": "Caminante rápido", "description": "Ritmo menor a 8:00 /km", "icon": "⚡", "metric": "paceSecPerKm", "threshold": 480, "comparison": "lt" },
+    { "key": "early_bird", "name": "Madrugador", "description": "Camina antes de las 7:00", "icon": "🌅", "metric": "startHourLocal", "threshold": [5, 7], "comparison": "between" },
+    { "key": "night_walker", "name": "Caminante nocturno", "description": "Camina después de las 21:00", "icon": "🌙", "metric": "startHourLocal", "threshold": [21, 23], "comparison": "between" },
+    { "key": "hot_walker", "name": "Caminante del sol", "description": "Camina con temperatura >30 °C", "icon": "☀️", "metric": "tempC", "threshold": 30, "comparison": "gt" },
+    { "key": "cold_walker", "name": "Caminante del frío", "description": "Camina con temperatura <5 °C", "icon": "❄️", "metric": "tempC", "threshold": 5, "comparison": "lt" },
+    { "key": "consistency_30", "name": "Constancia", "description": "Acumula 30 sesiones en total", "icon": "💪", "metric": "sessionCount", "threshold": 30, "comparison": "gte" }
+  ]
+}

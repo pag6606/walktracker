@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "function": "v3distance",
+  "reference": "domain.js:299",
+  "vectors": [
+    {
+      "id": "cero-pasos",
+      "sources": ["test/session-v3-tests.js:359"],
+      "input": { "stepsMeasured": 0, "stepsEstimated": 0, "strideM": 0.655 },
+      "expected": 0,
+      "tolerance": 0.001
+    },
+    {
+      "id": "un-paso-medido",
+      "sources": ["test/session-v3-tests.js:360"],
+      "input": { "stepsMeasured": 1, "stepsEstimated": 0, "strideM": 0.655 },
+      "expected": 0.66,
+      "tolerance": 0.01
+    },
+    {
+      "id": "un-paso-estimado",
+      "sources": ["test/session-v3-tests.js:361"],
+      "input": { "stepsMeasured": 0, "stepsEstimated": 1, "strideM": 0.655 },
+      "expected": 0.66,
+      "tolerance": 0.01
+    },
+    {
+      "id": "mil-pasos",
+      "sources": ["test/session-v3-tests.js:362"],
+      "input": { "stepsMeasured": 1000, "stepsEstimated": 0, "strideM": 0.655 },
+      "expected": 655,
+      "tolerance": 0.01
+    },
+    {
+      "id": "mil-medidos-mas-quinientos-estimados",
+      "sources": ["test/session-v3-tests.js:363"],
+      "input": { "stepsMeasured": 1000, "stepsEstimated": 500, "strideM": 0.655 },
+      "expected": 982.5,
+      "tolerance": 0.01
+    },
+    {
+      "id": "medidos-negativos",
+      "sources": ["test/session-v3-tests.js:364"],
+      "input": { "stepsMeasured": -1, "stepsEstimated": 0, "strideM": 0.655 },
+      "throws": { "field": "stepsMeasured", "js": "RangeError" }
+    },
+    {
+      "id": "estimados-negativos",
+      "sources": ["test/session-v3-tests.js:365"],
+      "input": { "stepsMeasured": 0, "stepsEstimated": -1, "strideM": 0.655 },
+      "throws": { "field": "stepsEstimated", "js": "RangeError" }
+    },
+    {
+      "id": "zancada-cero",
+      "sources": ["test/session-v3-tests.js:366"],
+      "input": { "stepsMeasured": 0, "stepsEstimated": 0, "strideM": 0 },
+      "throws": { "field": "strideM", "js": "RangeError" }
+    }
+  ]
+}

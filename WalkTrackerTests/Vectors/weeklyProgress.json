@@ -1,0 +1,232 @@
+{
+  "schemaVersion": 1,
+  "function": "weeklyProgress",
+  "reference": "motivation.js:195",
+  "vectors": [
+    {
+      "id": "sin-sesiones",
+      "sources": ["test/motivation-tests.js:100", "test/motivation-tests.js:101", "test/motivation-tests.js:102"],
+      "timeZone": "UTC",
+      "input": { "sessions": [], "weeklyGoalKm": 10, "now": "2026-07-08T00:00:00Z" },
+      "expected": { "completedKm": 0, "goalKm": 10, "percentage": 0, "isComplete": false },
+      "covers": { "weekly_goal": false }
+    },
+    {
+      "id": "una-sesion-el-lunes",
+      "sources": ["test/motivation-tests.js:109", "test/motivation-tests.js:110"],
+      "timeZone": "UTC",
+      "input": {
+        "sessions": [{ "startedAt": "2026-07-06T10:00:00Z", "distanceM": 5000 }],
+        "weeklyGoalKm": 10,
+        "now": "2026-07-08T12:00:00Z"
+      },
+      "expected": { "completedKm": 5, "goalKm": 10, "percentage": 50, "isComplete": false }
+    },
+    {
+      "id": "tres-sesiones-12km",
+      "sources": ["test/motivation-tests.js:119", "test/motivation-tests.js:120"],
+      "timeZone": "UTC",
+      "input": {
+        "sessions": [
+          { "startedAt": "2026-07-06T10:00:00Z", "distanceM": 3000 },
+          { "startedAt": "2026-07-07T10:00:00Z", "distanceM": 4000 },
+          { "startedAt": "2026-07-08T10:00:00Z", "distanceM": 5000 }
+        ],
+        "weeklyGoalKm": 10,
+        "now": "2026-07-08T12:00:00Z"
+      },
+      "expected": { "completedKm": 12, "goalKm": 10, "percentage": 100, "isComplete": true },
+      "covers": { "weekly_goal": true }
+    },
+    {
+      "id": "lunes-y-martes-a-medianoche",
+      "sources": ["test/motivation-tests.js:126"],
+      "timeZone": "UTC",
+      "input": {
+        "sessions": [
+          { "startedAt": "2026-07-06T00:00:00Z", "distanceM": 1000 },
+          { "startedAt": "2026-07-07T00:00:00Z", "distanceM": 2000 }
+        ],
+        "weeklyGoalKm": 10,
+        "now": "2026-07-08T12:00:00Z"
+      },
+      "expected": { "completedKm": 3, "goalKm": 10, "percentage": 30, "isComplete": false }
+    },
+    {
+      "id": "semana-anterior-excluida",
+      "sources": ["test/motivation-tests.js:132"],
+      "timeZone": "UTC",
+      "input": {
+        "sessions": [
+          { "startedAt": "2026-06-28T10:00:00Z", "distanceM": 10000 },
+          { "startedAt": "2026-07-06T10:00:00Z", "distanceM": 2000 }
+        ],
+        "weeklyGoalKm": 10,
+        "now": "2026-07-08T12:00:00Z"
+      },
+      "expected": { "completedKm": 2, "goalKm": 10, "percentage": 20, "isComplete": false }
+    },
+    {
+      "id": "lunes-00-00-entra-domingo-23-59-59-no",
+      "sources": [],
+      "timeZone": "UTC",
+      "note": "La semana ISO empieza el lunes a las 00:00:00, inclusive.",
+      "input": {
+        "sessions": [
+          { "startedAt": "2026-07-05T23:59:59Z", "distanceM": 4000 },
+          { "startedAt": "2026-07-06T00:00:00Z", "distanceM": 1000 }
+        ],
+        "weeklyGoalKm": 10,
+        "now": "2026-07-08T12:00:00Z"
+      },
+      "expected": { "completedKm": 1, "goalKm": 10, "percentage": 10, "isComplete": false }
+    },
+    {
+      "id": "ahora-domingo-23-59-59",
+      "sources": [],
+      "timeZone": "UTC",
+      "note": "El último segundo del domingo sigue en la semana; el lunes siguiente ya no.",
+      "input": {
+        "sessions": [
+          { "startedAt": "2026-07-06T00:00:00Z", "distanceM": 1000 },
+          { "startedAt": "2026-07-12T23:59:59Z", "distanceM": 2000 },
+          { "startedAt": "2026-07-13T00:00:00Z", "distanceM": 4000 }
+        ],
+        "weeklyGoalKm": 10,
+        "now": "2026-07-12T23:59:59Z"
+      },
+      "expected": { "completedKm": 3, "goalKm": 10, "percentage": 30, "isComplete": false }
+    },
+    {
+      "id": "ahora-lunes-00-00-empieza-semana-nueva",
+      "sources": [],
+      "timeZone": "UTC",
+      "input": {
+        "sessions": [
+          { "startedAt": "2026-07-12T23:59:59Z", "distanceM": 2000 },
+          { "startedAt": "2026-07-13T00:00:00Z", "distanceM": 4000 }
+        ],
+        "weeklyGoalKm": 10,
+        "now": "2026-07-13T00:00:00Z"
+      },
+      "expected": { "completedKm": 4, "goalKm": 10, "percentage": 40, "isComplete": false }
+    },
+    {
+      "id": "semana-iso-que-cruza-el-anio",
+      "sources": [],
+      "timeZone": "UTC",
+      "note": "El jueves 1 de enero de 2026 pertenece a la semana que empieza el lunes 29 de diciembre de 2025.",
+      "input": {
+        "sessions": [
+          { "startedAt": "2025-12-28T23:59:59Z", "distanceM": 3000 },
+          { "startedAt": "2025-12-29T00:00:00Z", "distanceM": 6000 }
+        ],
+        "weeklyGoalKm": 10,
+        "now": "2026-01-01T12:00:00Z"
+      },
+      "expected": { "completedKm": 6, "goalKm": 10, "percentage": 60, "isComplete": false }
+    },
+    {
+      "id": "meta-exacta-cumple",
+      "sources": [],
+      "timeZone": "UTC",
+      "input": {
+        "sessions": [
+          { "startedAt": "2026-07-06T10:00:00Z", "distanceM": 4000 },
+          { "startedAt": "2026-07-07T10:00:00Z", "distanceM": 6000 }
+        ],
+        "weeklyGoalKm": 10,
+        "now": "2026-07-08T12:00:00Z"
+      },
+      "expected": { "completedKm": 10, "goalKm": 10, "percentage": 100, "isComplete": true },
+      "covers": { "weekly_goal": true }
+    },
+    {
+      "id": "nueve-995-km-no-cumplen-10",
+      "sources": [],
+      "timeZone": "UTC",
+      "note": "isComplete compara los metros sin redondear (decisión de Paul, 8.7): 9 995 m no cumplen una meta de 10 km. Solo se fija isComplete: completedKm y percentage dependen de cómo redondee cada runtime.",
+      "input": {
+        "sessions": [
+          { "startedAt": "2026-07-06T10:00:00Z", "distanceM": 5000 },
+          { "startedAt": "2026-07-07T10:00:00Z", "distanceM": 4995 }
+        ],
+        "weeklyGoalKm": 10,
+        "now": "2026-07-08T12:00:00Z"
+      },
+      "expected": { "isComplete": false },
+      "covers": { "weekly_goal": false }
+    },
+    {
+      "id": "diez-km-exactos-en-seis-sesiones",
+      "sources": [],
+      "timeZone": "UTC",
+      "note": "10 000 m exactos repartidos en seis sesiones cumplen la meta. Sumar km fraccionarios da 9,999999… y no la cumplía: se suma en metros.",
+      "input": {
+        "sessions": [
+          { "startedAt": "2026-07-06T08:00:00Z", "distanceM": 8806 },
+          { "startedAt": "2026-07-06T19:00:00Z", "distanceM": 603 },
+          { "startedAt": "2026-07-07T08:00:00Z", "distanceM": 456 },
+          { "startedAt": "2026-07-07T19:00:00Z", "distanceM": 1 },
+          { "startedAt": "2026-07-08T08:00:00Z", "distanceM": 68 },
+          { "startedAt": "2026-07-08T10:00:00Z", "distanceM": 66 }
+        ],
+        "weeklyGoalKm": 10,
+        "now": "2026-07-08T12:00:00Z"
+      },
+      "expected": { "completedKm": 10, "goalKm": 10, "percentage": 100, "isComplete": true },
+      "covers": { "weekly_goal": true }
+    },
+    {
+      "id": "domingo-noche-local-no-entra",
+      "sources": [],
+      "divergence": "localTime",
+      "timeZone": "America/Guayaquil",
+      "note": "El domingo 21:00 local ya es lunes en UTC: domain.js lo cuenta en la semana.",
+      "input": {
+        "sessions": [
+          { "startedAt": "2026-07-05T21:00:00-05:00", "distanceM": 4000 },
+          { "startedAt": "2026-07-06T00:00:00-05:00", "distanceM": 1000 }
+        ],
+        "weeklyGoalKm": 10,
+        "now": "2026-07-08T12:00:00-05:00"
+      },
+      "expected": { "completedKm": 1, "goalKm": 10, "percentage": 10, "isComplete": false },
+      "expectedJs": { "completedKm": 5, "goalKm": 10, "percentage": 50, "isComplete": false }
+    },
+    {
+      "id": "ahora-domingo-noche-local",
+      "sources": [],
+      "divergence": "localTime",
+      "timeZone": "America/Guayaquil",
+      "note": "Domingo 22:00 local es lunes 03:00 UTC: domain.js ya calcula la semana siguiente.",
+      "input": {
+        "sessions": [
+          { "startedAt": "2026-07-06T10:00:00-05:00", "distanceM": 3000 },
+          { "startedAt": "2026-07-12T20:00:00-05:00", "distanceM": 2000 }
+        ],
+        "weeklyGoalKm": 10,
+        "now": "2026-07-12T22:00:00-05:00"
+      },
+      "expected": { "completedKm": 5, "goalKm": 10, "percentage": 50, "isComplete": false },
+      "expectedJs": { "completedKm": 2, "goalKm": 10, "percentage": 20, "isComplete": false }
+    },
+    {
+      "id": "ahora-lunes-00-00-local",
+      "sources": [],
+      "divergence": "localTime",
+      "timeZone": "America/Guayaquil",
+      "note": "El domingo 23:59:59 local es lunes en UTC: domain.js lo cuenta en la semana nueva.",
+      "input": {
+        "sessions": [
+          { "startedAt": "2026-07-12T23:59:59-05:00", "distanceM": 2000 },
+          { "startedAt": "2026-07-13T00:00:00-05:00", "distanceM": 4000 }
+        ],
+        "weeklyGoalKm": 10,
+        "now": "2026-07-13T00:00:00-05:00"
+      },
+      "expected": { "completedKm": 4, "goalKm": 10, "percentage": 40, "isComplete": false },
+      "expectedJs": { "completedKm": 6, "goalKm": 10, "percentage": 60, "isComplete": false }
+    }
+  ]
+}

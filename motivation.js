@@ -208,22 +208,26 @@
     const weekStart = monday.getTime();
     const weekEnd = weekStart + 7 * 24 * 60 * 60 * 1000;
 
-    const weekKm = (sessions || []).reduce((sum, s) => {
+    // Se suma en METROS: sumar km fraccionarios acumula error de coma flotante y una
+    // meta exacta (10 000 m repartidos en varias sesiones) quedaba en 9,999999… km.
+    const weekM = (sessions || []).reduce((sum, s) => {
       const t = new Date(s.startedAt).getTime();
       if (t >= weekStart && t < weekEnd) {
-        return sum + ((s.distanceM || 0) / 1000);
+        return sum + (s.distanceM || 0);
       }
       return sum;
     }, 0);
 
-    const completedKm = +(weekKm.toFixed(2));
+    const completedKm = +((weekM / 1000).toFixed(2));
     const percentage = weeklyGoalKm > 0 ? Math.min(100, +(completedKm / weeklyGoalKm * 100).toFixed(1)) : 0;
 
     return {
       completedKm,
       goalKm: weeklyGoalKm,
       percentage,
-      isComplete: completedKm >= weeklyGoalKm,
+      // Sobre los metros SIN redondear: 9 995 m redondeaban a 10,00 km y daban por
+      // cumplida una meta de 10 (decisión de Paul, historia 8.7).
+      isComplete: weekM >= weeklyGoalKm * 1000,
     };
   }
 

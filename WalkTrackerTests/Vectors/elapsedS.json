@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "function": "elapsedS",
+  "reference": "domain.js:69",
+  "vectors": [
+    {
+      "id": "62min-menos-2min-de-pausa",
+      "sources": ["test/domain-tests.js:101"],
+      "note": "El test original ancla en Date.now(); el vector fija el instante: es la misma resta.",
+      "input": { "startedAtMs": 1000000, "totalPausesMs": 120000, "nowMs": 4720000, "pausedAtMs": null },
+      "expected": 3600,
+      "tolerance": 0.1
+    }
+  ]
+}

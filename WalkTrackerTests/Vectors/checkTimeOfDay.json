@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "function": "checkTimeOfDay",
+  "reference": "motivation.js:178",
+  "vectors": [
+    {
+      "id": "06-30-utc-es-madrugada",
+      "sources": ["test/motivation-tests.js:155"],
+      "timeZone": "UTC",
+      "input": { "startedAt": "2026-07-08T06:30:00Z", "hourStart": 5, "hourEnd": 7 },
+      "expected": true
+    },
+    {
+      "id": "22-00-utc-es-noche",
+      "sources": ["test/motivation-tests.js:158"],
+      "timeZone": "UTC",
+      "input": { "startedAt": "2026-07-08T22:00:00Z", "hourStart": 21, "hourEnd": 23 },
+      "expected": true
+    },
+    {
+      "id": "14-00-utc-no-es-madrugada",
+      "sources": ["test/motivation-tests.js:161"],
+      "timeZone": "UTC",
+      "input": { "startedAt": "2026-07-08T14:00:00Z", "hourStart": 5, "hourEnd": 7 },
+      "expected": false
+    },
+    {
+      "id": "06-30-local-guayaquil-es-madrugada",
+      "sources": [],
+      "divergence": "localTime",
+      "timeZone": "America/Guayaquil",
+      "note": "06:30 local son 11:30 UTC: domain.js mira getUTCHours y no lo reconoce.",
+      "input": { "startedAt": "2026-07-08T06:30:00-05:00", "hourStart": 5, "hourEnd": 7 },
+      "expected": true,
+      "expectedJs": false
+    },
+    {
+      "id": "22-00-local-guayaquil-es-noche",
+      "sources": [],
+      "divergence": "localTime",
+      "timeZone": "America/Guayaquil",
+      "note": "22:00 local son las 03:00 UTC del día siguiente.",
+      "input": { "startedAt": "2026-07-08T22:00:00-05:00", "hourStart": 21, "hourEnd": 23 },
+      "expected": true,
+      "expectedJs": false
+    }
+  ]
+}

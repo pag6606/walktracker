@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "function": "updateRecentIds",
+  "reference": "motivation.js:48",
+  "vectors": [
+    {
+      "id": "tope-de-20",
+      "sources": ["test/motivation-tests.js:40", "test/motivation-tests.js:41", "test/motivation-tests.js:42"],
+      "note": "El test pliega 25 llamadas desde []. El vector fija la última: la entrada es el estado tras las 24 primeras.",
+      "input": { "recentIds": [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23], "selectedId": 24 },
+      "expected": [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]
+    }
+  ]
+}

@@ -1,0 +1,827 @@
+{
+  "schemaVersion": 1,
+  "function": "evaluateAchievements",
+  "reference": "motivation.js:86",
+  "vectors": [
+    {
+      "id": "primera-sesion-500m-sin-clima",
+      "sources": ["test/motivation-tests.js:60", "test/motivation-tests.js:70", "test/motivation-tests.js:80"],
+      "timeZone": "UTC",
+      "note": "Tres aserciones sobre la misma entrada (sesiones s1, s3 y s5 del test, idénticas salvo el id). Sin clima, ningún logro climático.",
+      "input": {
+        "session": { "startedAt": "2026-07-07T10:00:00Z", "distanceM": 500, "paceSecPerKm": null, "weather": null },
+        "history": [],
+        "alreadyUnlocked": []
+      },
+      "expected": { "newlyUnlocked": ["first_session"] },
+      "covers": {
+        "first_session": true,
+        "first_km": false,
+        "rain_walker": false,
+        "hot_walker": false,
+        "cold_walker": false
+      }
+    },
+    {
+      "id": "primera-sesion-1200m",
+      "sources": ["test/motivation-tests.js:65"],
+      "timeZone": "UTC",
+      "input": {
+        "session": { "startedAt": "2026-07-07T10:00:00Z", "distanceM": 1200, "paceSecPerKm": null, "weather": null },
+        "history": [],
+        "alreadyUnlocked": []
+      },
+      "expected": { "newlyUnlocked": ["first_km", "first_session"] },
+      "covers": { "first_km": true }
+    },
+    {
+      "id": "lluvia-ligera-wmo-61",
+      "sources": ["test/motivation-tests.js:75"],
+      "timeZone": "UTC",
+      "note": "El test usa el texto 'Lluvia ligera'; el vector lleva su código WMO (61). tempC 18 es neutro: ni calor ni frío.",
+      "input": {
+        "session": {
+          "startedAt": "2026-07-07T10:00:00Z",
+          "distanceM": 500,
+          "paceSecPerKm": null,
+          "weather": { "wmoCode": 61, "tempC": 18 }
+        },
+        "history": [],
+        "alreadyUnlocked": []
+      },
+      "expected": { "newlyUnlocked": ["first_session", "rain_walker"] },
+      "covers": { "rain_walker": true }
+    },
+    {
+      "id": "ritmo-400",
+      "sources": ["test/motivation-tests.js:85"],
+      "timeZone": "UTC",
+      "input": {
+        "session": { "startedAt": "2026-07-07T10:00:00Z", "distanceM": 1000, "paceSecPerKm": 400, "weather": null },
+        "history": [],
+        "alreadyUnlocked": []
+      },
+      "expected": { "newlyUnlocked": ["first_km", "first_session", "speed_walker"] },
+      "covers": { "speed_walker": true }
+    },
+    {
+      "id": "primera-sesion-ya-desbloqueada",
+      "sources": ["test/motivation-tests.js:90"],
+      "timeZone": "UTC",
+      "note": "Un logro desbloqueado no se re-dispara.",
+      "input": {
+        "session": { "startedAt": "2026-07-07T10:00:00Z", "distanceM": 500, "paceSecPerKm": null, "weather": null },
+        "history": [],
+        "alreadyUnlocked": ["first_session"]
+      },
+      "expected": { "newlyUnlocked": [] },
+      "covers": { "first_session": false }
+    },
+    {
+      "id": "first-km-exacto-1000m",
+      "sources": [],
+      "timeZone": "UTC",
+      "input": {
+        "session": { "startedAt": "2026-07-08T10:00:00Z", "distanceM": 1000, "paceSecPerKm": null, "weather": null },
+        "history": [{ "startedAt": "2026-07-01T10:00:00Z", "distanceM": 500 }],
+        "alreadyUnlocked": ["first_session"]
+      },
+      "expected": { "newlyUnlocked": ["first_km"] },
+      "covers": { "first_km": true }
+    },
+    {
+      "id": "first-km-999m",
+      "sources": [],
+      "timeZone": "UTC",
+      "input": {
+        "session": { "startedAt": "2026-07-08T10:00:00Z", "distanceM": 999, "paceSecPerKm": null, "weather": null },
+        "history": [{ "startedAt": "2026-07-01T10:00:00Z", "distanceM": 500 }],
+        "alreadyUnlocked": ["first_session"]
+      },
+      "expected": { "newlyUnlocked": [] },
+      "covers": { "first_km": false }
+    },
+    {
+      "id": "first-5km-exacto-5000m",
+      "sources": [],
+      "timeZone": "UTC",
+      "note": "first_5km es por sesión, no acumulado: el logro que cambió de semántica en Dart.",
+      "input": {
+        "session": { "startedAt": "2026-07-08T10:00:00Z", "distanceM": 5000, "paceSecPerKm": null, "weather": null },
+        "history": [{ "startedAt": "2026-07-01T10:00:00Z", "distanceM": 500 }],
+        "alreadyUnlocked": ["first_session", "first_km"]
+      },
+      "expected": { "newlyUnlocked": ["first_5km"] },
+      "covers": { "first_5km": true }
+    },
+    {
+      "id": "first-5km-4999m",
+      "sources": [],
+      "timeZone": "UTC",
+      "input": {
+        "session": { "startedAt": "2026-07-08T10:00:00Z", "distanceM": 4999, "paceSecPerKm": null, "weather": null },
+        "history": [{ "startedAt": "2026-07-01T10:00:00Z", "distanceM": 500 }],
+        "alreadyUnlocked": ["first_session", "first_km"]
+      },
+      "expected": { "newlyUnlocked": [] },
+      "covers": { "first_5km": false }
+    },
+    {
+      "id": "first-5km-no-acumula",
+      "sources": [],
+      "timeZone": "UTC",
+      "note": "9 km acumulados en tres sesiones de 3 km no desbloquean first_5km.",
+      "input": {
+        "session": { "startedAt": "2026-07-08T10:00:00Z", "distanceM": 3000, "paceSecPerKm": null, "weather": null },
+        "history": [
+          { "startedAt": "2026-07-06T10:00:00Z", "distanceM": 3000 },
+          { "startedAt": "2026-07-07T10:00:00Z", "distanceM": 3000 }
+        ],
+        "alreadyUnlocked": ["first_session", "first_km"]
+      },
+      "expected": { "newlyUnlocked": [] },
+      "covers": { "first_5km": false }
+    },
+    {
+      "id": "first-10km-exacto-10000m",
+      "sources": [],
+      "timeZone": "UTC",
+      "input": {
+        "session": { "startedAt": "2026-07-08T10:00:00Z", "distanceM": 10000, "paceSecPerKm": null, "weather": null },
+        "history": [{ "startedAt": "2026-07-01T10:00:00Z", "distanceM": 500 }],
+        "alreadyUnlocked": ["first_session", "first_km", "first_5km"]
+      },
+      "expected": { "newlyUnlocked": ["first_10km"] },
+      "covers": { "first_10km": true }
+    },
+    {
+      "id": "first-10km-9999m",
+      "sources": [],
+      "timeZone": "UTC",
+      "input": {
+        "session": { "startedAt": "2026-07-08T10:00:00Z", "distanceM": 9999, "paceSecPerKm": null, "weather": null },
+        "history": [{ "startedAt": "2026-07-01T10:00:00Z", "distanceM": 500 }],
+        "alreadyUnlocked": ["first_session", "first_km", "first_5km"]
+      },
+      "expected": { "newlyUnlocked": [] },
+      "covers": { "first_10km": false }
+    },
+    {
+      "id": "weekly-goal-no-se-evalua-al-cierre",
+      "sources": [],
+      "timeZone": "UTC",
+      "note": "22 km en la semana y no se desbloquea aquí: weekly_goal lo decide GoalEngine (ver weeklyProgress.json).",
+      "input": {
+        "session": { "startedAt": "2026-07-08T10:00:00Z", "distanceM": 12000, "paceSecPerKm": null, "weather": null },
+        "history": [
+          { "startedAt": "2026-07-06T10:00:00Z", "distanceM": 5000 },
+          { "startedAt": "2026-07-07T10:00:00Z", "distanceM": 5000 }
+        ],
+        "alreadyUnlocked": ["first_session", "first_km", "first_5km", "first_10km"]
+      },
+      "expected": { "newlyUnlocked": [] },
+      "covers": { "weekly_goal": false }
+    },
+    {
+      "id": "lluvia-wmo-51-llovizna",
+      "sources": [],
+      "timeZone": "UTC",
+      "input": {
+        "session": {
+          "startedAt": "2026-07-08T10:00:00Z",
+          "distanceM": 500,
+          "paceSecPerKm": null,
+          "weather": { "wmoCode": 51, "tempC": 18 }
+        },
+        "history": [{ "startedAt": "2026-07-01T10:00:00Z", "distanceM": 500 }],
+        "alreadyUnlocked": ["first_session"]
+      },
+      "expected": { "newlyUnlocked": ["rain_walker"] },
+      "covers": { "rain_walker": true }
+    },
+    {
+      "id": "lluvia-wmo-67-lluvia-helada",
+      "sources": [],
+      "timeZone": "UTC",
+      "input": {
+        "session": {
+          "startedAt": "2026-07-08T10:00:00Z",
+          "distanceM": 500,
+          "paceSecPerKm": null,
+          "weather": { "wmoCode": 67, "tempC": 18 }
+        },
+        "history": [{ "startedAt": "2026-07-01T10:00:00Z", "distanceM": 500 }],
+        "alreadyUnlocked": ["first_session"]
+      },
+      "expected": { "newlyUnlocked": ["rain_walker"] },
+      "covers": { "rain_walker": true }
+    },
+    {
+      "id": "lluvia-wmo-95-tormenta",
+      "sources": [],
+      "timeZone": "UTC",
+      "input": {
+        "session": {
+          "startedAt": "2026-07-08T10:00:00Z",
+          "distanceM": 500,
+          "paceSecPerKm": null,
+          "weather": { "wmoCode": 95, "tempC": 18 }
+        },
+        "history": [{ "startedAt": "2026-07-01T10:00:00Z", "distanceM": 500 }],
+        "alreadyUnlocked": ["first_session"]
+      },
+      "expected": { "newlyUnlocked": ["rain_walker"] },
+      "covers": { "rain_walker": true }
+    },
+    {
+      "id": "lluvia-wmo-99-tormenta-con-granizo",
+      "sources": [],
+      "timeZone": "UTC",
+      "input": {
+        "session": {
+          "startedAt": "2026-07-08T10:00:00Z",
+          "distanceM": 500,
+          "paceSecPerKm": null,
+          "weather": { "wmoCode": 99, "tempC": 18 }
+        },
+        "history": [{ "startedAt": "2026-07-01T10:00:00Z", "distanceM": 500 }],
+        "alreadyUnlocked": ["first_session"]
+      },
+      "expected": { "newlyUnlocked": ["rain_walker"] },
+      "covers": { "rain_walker": true }
+    },
+    {
+      "id": "chubascos-wmo-80-son-lluvia",
+      "sources": [],
+      "divergence": "wmoCategory",
+      "timeZone": "UTC",
+      "note": "achievements.md: 80–82 es lluvia. domain.js aplica la regex al texto 'Chubascos …' y no lo reconoce.",
+      "input": {
+        "session": {
+          "startedAt": "2026-07-08T10:00:00Z",
+          "distanceM": 500,
+          "paceSecPerKm": null,
+          "weather": { "wmoCode": 80, "tempC": 18 }
+        },
+        "history": [{ "startedAt": "2026-07-01T10:00:00Z", "distanceM": 500 }],
+        "alreadyUnlocked": ["first_session"]
+      },
+      "expected": { "newlyUnlocked": ["rain_walker"] },
+      "covers": { "rain_walker": true }
+    },
+    {
+      "id": "chubascos-wmo-81-son-lluvia",
+      "sources": [],
+      "divergence": "wmoCategory",
+      "timeZone": "UTC",
+      "note": "achievements.md: 80–82 es lluvia. domain.js aplica la regex al texto 'Chubascos …' y no lo reconoce.",
+      "input": {
+        "session": {
+          "startedAt": "2026-07-08T10:00:00Z",
+          "distanceM": 500,
+          "paceSecPerKm": null,
+          "weather": { "wmoCode": 81, "tempC": 18 }
+        },
+        "history": [{ "startedAt": "2026-07-01T10:00:00Z", "distanceM": 500 }],
+        "alreadyUnlocked": ["first_session"]
+      },
+      "expected": { "newlyUnlocked": ["rain_walker"] },
+      "covers": { "rain_walker": true }
+    },
+    {
+      "id": "chubascos-wmo-82-son-lluvia",
+      "sources": [],
+      "divergence": "wmoCategory",
+      "timeZone": "UTC",
+      "note": "achievements.md: 80–82 es lluvia. domain.js aplica la regex al texto 'Chubascos …' y no lo reconoce.",
+      "input": {
+        "session": {
+          "startedAt": "2026-07-08T10:00:00Z",
+          "distanceM": 500,
+          "paceSecPerKm": null,
+          "weather": { "wmoCode": 82, "tempC": 18 }
+        },
+        "history": [{ "startedAt": "2026-07-01T10:00:00Z", "distanceM": 500 }],
+        "alreadyUnlocked": ["first_session"]
+      },
+      "expected": { "newlyUnlocked": ["rain_walker"] },
+      "covers": { "rain_walker": true }
+    },
+    {
+      "id": "wmo-3-nublado-no-es-lluvia",
+      "sources": [],
+      "timeZone": "UTC",
+      "input": {
+        "session": {
+          "startedAt": "2026-07-08T10:00:00Z",
+          "distanceM": 500,
+          "paceSecPerKm": null,
+          "weather": { "wmoCode": 3, "tempC": 18 }
+        },
+        "history": [{ "startedAt": "2026-07-01T10:00:00Z", "distanceM": 500 }],
+        "alreadyUnlocked": ["first_session"]
+      },
+      "expected": { "newlyUnlocked": [] },
+      "covers": { "rain_walker": false }
+    },
+    {
+      "id": "wmo-71-nevada-no-es-lluvia",
+      "sources": [],
+      "timeZone": "UTC",
+      "input": {
+        "session": {
+          "startedAt": "2026-07-08T10:00:00Z",
+          "distanceM": 500,
+          "paceSecPerKm": null,
+          "weather": { "wmoCode": 71, "tempC": 18 }
+        },
+        "history": [{ "startedAt": "2026-07-01T10:00:00Z", "distanceM": 500 }],
+        "alreadyUnlocked": ["first_session"]
+      },
+      "expected": { "newlyUnlocked": [] },
+      "covers": { "rain_walker": false }
+    },
+    {
+      "id": "wmo-85-chubascos-de-nieve-no-es-lluvia",
+      "sources": [],
+      "timeZone": "UTC",
+      "input": {
+        "session": {
+          "startedAt": "2026-07-08T10:00:00Z",
+          "distanceM": 500,
+          "paceSecPerKm": null,
+          "weather": { "wmoCode": 85, "tempC": 18 }
+        },
+        "history": [{ "startedAt": "2026-07-01T10:00:00Z", "distanceM": 500 }],
+        "alreadyUnlocked": ["first_session"]
+      },
+      "expected": { "newlyUnlocked": [] },
+      "covers": { "rain_walker": false }
+    },
+    {
+      "id": "racha-7-dias-utc",
+      "sources": [],
+      "timeZone": "UTC",
+      "input": {
+        "session": { "startedAt": "2026-07-08T10:00:00Z", "distanceM": 2000, "paceSecPerKm": null, "weather": null },
+        "history": [
+          { "startedAt": "2026-07-02T10:00:00Z", "distanceM": 2000 },
+          { "startedAt": "2026-07-03T10:00:00Z", "distanceM": 2000 },
+          { "startedAt": "2026-07-04T10:00:00Z", "distanceM": 2000 },
+          { "startedAt": "2026-07-05T10:00:00Z", "distanceM": 2000 },
+          { "startedAt": "2026-07-06T10:00:00Z", "distanceM": 2000 },
+          { "startedAt": "2026-07-07T10:00:00Z", "distanceM": 2000 }
+        ],
+        "alreadyUnlocked": ["first_session", "first_km"]
+      },
+      "expected": { "newlyUnlocked": ["7_days_streak"] },
+      "covers": { "7_days_streak": true }
+    },
+    {
+      "id": "siete-sesiones-con-hueco-utc",
+      "sources": [],
+      "timeZone": "UTC",
+      "input": {
+        "session": { "startedAt": "2026-07-08T10:00:00Z", "distanceM": 2000, "paceSecPerKm": null, "weather": null },
+        "history": [
+          { "startedAt": "2026-07-01T10:00:00Z", "distanceM": 2000 },
+          { "startedAt": "2026-07-02T10:00:00Z", "distanceM": 2000 },
+          { "startedAt": "2026-07-03T10:00:00Z", "distanceM": 2000 },
+          { "startedAt": "2026-07-05T10:00:00Z", "distanceM": 2000 },
+          { "startedAt": "2026-07-06T10:00:00Z", "distanceM": 2000 },
+          { "startedAt": "2026-07-07T10:00:00Z", "distanceM": 2000 }
+        ],
+        "alreadyUnlocked": ["first_session", "first_km"]
+      },
+      "expected": { "newlyUnlocked": [] },
+      "covers": { "7_days_streak": false }
+    },
+    {
+      "id": "racha-7-dias-locales-guayaquil",
+      "sources": [],
+      "divergence": "localTime",
+      "timeZone": "America/Guayaquil",
+      "note": "Siete días locales seguidos. La del 27 a las 19:30 local cae el 28 en UTC: domain.js ve un hueco el 27.",
+      "input": {
+        "session": { "startedAt": "2026-10-01T10:00:00-05:00", "distanceM": 2000, "paceSecPerKm": null, "weather": null },
+        "history": [
+          { "startedAt": "2026-09-25T10:00:00-05:00", "distanceM": 2000 },
+          { "startedAt": "2026-09-26T10:00:00-05:00", "distanceM": 2000 },
+          { "startedAt": "2026-09-27T19:30:00-05:00", "distanceM": 2000 },
+          { "startedAt": "2026-09-28T08:00:00-05:00", "distanceM": 2000 },
+          { "startedAt": "2026-09-29T10:00:00-05:00", "distanceM": 2000 },
+          { "startedAt": "2026-09-30T10:00:00-05:00", "distanceM": 2000 }
+        ],
+        "alreadyUnlocked": ["first_session", "first_km"]
+      },
+      "expected": { "newlyUnlocked": ["7_days_streak"] },
+      "covers": { "7_days_streak": true }
+    },
+    {
+      "id": "maraton-exacto-42km",
+      "sources": [],
+      "timeZone": "UTC",
+      "note": "5 × 8,2 km + 1 km = 42 km justos.",
+      "input": {
+        "session": { "startedAt": "2026-07-11T10:00:00Z", "distanceM": 1000, "paceSecPerKm": null, "weather": null },
+        "history": [
+          { "startedAt": "2026-07-01T10:00:00Z", "distanceM": 8200 },
+          { "startedAt": "2026-07-03T10:00:00Z", "distanceM": 8200 },
+          { "startedAt": "2026-07-05T10:00:00Z", "distanceM": 8200 },
+          { "startedAt": "2026-07-07T10:00:00Z", "distanceM": 8200 },
+          { "startedAt": "2026-07-09T10:00:00Z", "distanceM": 8200 }
+        ],
+        "alreadyUnlocked": ["first_session", "first_km", "first_5km"]
+      },
+      "expected": { "newlyUnlocked": ["marathon_42km"] },
+      "covers": { "marathon_42km": true }
+    },
+    {
+      "id": "maraton-41999m",
+      "sources": [],
+      "timeZone": "UTC",
+      "input": {
+        "session": { "startedAt": "2026-07-11T10:00:00Z", "distanceM": 1000, "paceSecPerKm": null, "weather": null },
+        "history": [
+          { "startedAt": "2026-07-01T10:00:00Z", "distanceM": 8200 },
+          { "startedAt": "2026-07-03T10:00:00Z", "distanceM": 8200 },
+          { "startedAt": "2026-07-05T10:00:00Z", "distanceM": 8200 },
+          { "startedAt": "2026-07-07T10:00:00Z", "distanceM": 8200 },
+          { "startedAt": "2026-07-09T10:00:00Z", "distanceM": 8199 }
+        ],
+        "alreadyUnlocked": ["first_session", "first_km", "first_5km"]
+      },
+      "expected": { "newlyUnlocked": [] },
+      "covers": { "marathon_42km": false }
+    },
+    {
+      "id": "constancia-30-sesiones",
+      "sources": [],
+      "timeZone": "UTC",
+      "note": "29 previas en días alternos (sin racha) + la actual = 30.",
+      "input": {
+        "session": { "startedAt": "2026-07-08T10:00:00Z", "distanceM": 500, "paceSecPerKm": null, "weather": null },
+        "history": [
+          { "startedAt": "2026-05-01T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-05-03T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-05-05T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-05-07T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-05-09T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-05-11T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-05-13T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-05-15T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-05-17T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-05-19T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-05-21T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-05-23T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-05-25T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-05-27T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-05-29T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-05-31T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-06-02T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-06-04T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-06-06T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-06-08T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-06-10T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-06-12T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-06-14T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-06-16T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-06-18T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-06-20T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-06-22T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-06-24T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-06-26T10:00:00Z", "distanceM": 500 }
+        ],
+        "alreadyUnlocked": ["first_session"]
+      },
+      "expected": { "newlyUnlocked": ["consistency_30"] },
+      "covers": { "consistency_30": true }
+    },
+    {
+      "id": "constancia-29-sesiones",
+      "sources": [],
+      "timeZone": "UTC",
+      "input": {
+        "session": { "startedAt": "2026-07-08T10:00:00Z", "distanceM": 500, "paceSecPerKm": null, "weather": null },
+        "history": [
+          { "startedAt": "2026-05-01T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-05-03T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-05-05T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-05-07T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-05-09T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-05-11T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-05-13T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-05-15T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-05-17T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-05-19T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-05-21T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-05-23T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-05-25T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-05-27T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-05-29T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-05-31T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-06-02T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-06-04T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-06-06T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-06-08T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-06-10T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-06-12T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-06-14T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-06-16T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-06-18T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-06-20T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-06-22T10:00:00Z", "distanceM": 500 },
+          { "startedAt": "2026-06-24T10:00:00Z", "distanceM": 500 }
+        ],
+        "alreadyUnlocked": ["first_session"]
+      },
+      "expected": { "newlyUnlocked": [] },
+      "covers": { "consistency_30": false }
+    },
+    {
+      "id": "ritmo-479",
+      "sources": [],
+      "timeZone": "UTC",
+      "input": {
+        "session": { "startedAt": "2026-07-08T10:00:00Z", "distanceM": 1000, "paceSecPerKm": 479, "weather": null },
+        "history": [{ "startedAt": "2026-07-01T10:00:00Z", "distanceM": 500 }],
+        "alreadyUnlocked": ["first_session", "first_km"]
+      },
+      "expected": { "newlyUnlocked": ["speed_walker"] },
+      "covers": { "speed_walker": true }
+    },
+    {
+      "id": "ritmo-480-no-es-rapido",
+      "sources": [],
+      "timeZone": "UTC",
+      "input": {
+        "session": { "startedAt": "2026-07-08T10:00:00Z", "distanceM": 1000, "paceSecPerKm": 480, "weather": null },
+        "history": [{ "startedAt": "2026-07-01T10:00:00Z", "distanceM": 500 }],
+        "alreadyUnlocked": ["first_session", "first_km"]
+      },
+      "expected": { "newlyUnlocked": [] },
+      "covers": { "speed_walker": false }
+    },
+    {
+      "id": "ritmo-ausente",
+      "sources": [],
+      "timeZone": "UTC",
+      "note": "Ritmo ausente (null, AD-4) no desbloquea.",
+      "input": {
+        "session": { "startedAt": "2026-07-08T10:00:00Z", "distanceM": 1000, "paceSecPerKm": null, "weather": null },
+        "history": [{ "startedAt": "2026-07-01T10:00:00Z", "distanceM": 500 }],
+        "alreadyUnlocked": ["first_session", "first_km"]
+      },
+      "expected": { "newlyUnlocked": [] },
+      "covers": { "speed_walker": false }
+    },
+    {
+      "id": "madrugador-05-00-utc",
+      "sources": [],
+      "timeZone": "UTC",
+      "input": {
+        "session": { "startedAt": "2026-07-08T05:00:00Z", "distanceM": 500, "paceSecPerKm": null, "weather": null },
+        "history": [{ "startedAt": "2026-07-01T10:00:00Z", "distanceM": 500 }],
+        "alreadyUnlocked": ["first_session"]
+      },
+      "expected": { "newlyUnlocked": ["early_bird"] },
+      "covers": { "early_bird": true }
+    },
+    {
+      "id": "madrugador-07-59-59-utc",
+      "sources": [],
+      "timeZone": "UTC",
+      "input": {
+        "session": { "startedAt": "2026-07-08T07:59:59Z", "distanceM": 500, "paceSecPerKm": null, "weather": null },
+        "history": [{ "startedAt": "2026-07-01T10:00:00Z", "distanceM": 500 }],
+        "alreadyUnlocked": ["first_session"]
+      },
+      "expected": { "newlyUnlocked": ["early_bird"] },
+      "covers": { "early_bird": true }
+    },
+    {
+      "id": "madrugador-04-59-59-utc",
+      "sources": [],
+      "timeZone": "UTC",
+      "input": {
+        "session": { "startedAt": "2026-07-08T04:59:59Z", "distanceM": 500, "paceSecPerKm": null, "weather": null },
+        "history": [{ "startedAt": "2026-07-01T10:00:00Z", "distanceM": 500 }],
+        "alreadyUnlocked": ["first_session"]
+      },
+      "expected": { "newlyUnlocked": [] },
+      "covers": { "early_bird": false }
+    },
+    {
+      "id": "madrugador-08-00-utc",
+      "sources": [],
+      "timeZone": "UTC",
+      "input": {
+        "session": { "startedAt": "2026-07-08T08:00:00Z", "distanceM": 500, "paceSecPerKm": null, "weather": null },
+        "history": [{ "startedAt": "2026-07-01T10:00:00Z", "distanceM": 500 }],
+        "alreadyUnlocked": ["first_session"]
+      },
+      "expected": { "newlyUnlocked": [] },
+      "covers": { "early_bird": false }
+    },
+    {
+      "id": "madrugador-05-00-local-guayaquil",
+      "sources": [],
+      "divergence": "localTime",
+      "timeZone": "America/Guayaquil",
+      "note": "05:00 local son 10:00 UTC.",
+      "input": {
+        "session": { "startedAt": "2026-07-08T05:00:00-05:00", "distanceM": 500, "paceSecPerKm": null, "weather": null },
+        "history": [{ "startedAt": "2026-07-01T10:00:00Z", "distanceM": 500 }],
+        "alreadyUnlocked": ["first_session"]
+      },
+      "expected": { "newlyUnlocked": ["early_bird"] },
+      "covers": { "early_bird": true }
+    },
+    {
+      "id": "madrugador-07-59-59-local-guayaquil",
+      "sources": [],
+      "divergence": "localTime",
+      "timeZone": "America/Guayaquil",
+      "note": "07:59:59 local son 12:59:59 UTC.",
+      "input": {
+        "session": { "startedAt": "2026-07-08T07:59:59-05:00", "distanceM": 500, "paceSecPerKm": null, "weather": null },
+        "history": [{ "startedAt": "2026-07-01T10:00:00Z", "distanceM": 500 }],
+        "alreadyUnlocked": ["first_session"]
+      },
+      "expected": { "newlyUnlocked": ["early_bird"] },
+      "covers": { "early_bird": true }
+    },
+    {
+      "id": "madrugador-01-30-local-guayaquil-no-lo-es",
+      "sources": [],
+      "divergence": "localTime",
+      "timeZone": "America/Guayaquil",
+      "note": "01:30 local son 06:30 UTC: domain.js lo da por madrugador.",
+      "input": {
+        "session": { "startedAt": "2026-07-08T01:30:00-05:00", "distanceM": 500, "paceSecPerKm": null, "weather": null },
+        "history": [{ "startedAt": "2026-07-01T10:00:00Z", "distanceM": 500 }],
+        "alreadyUnlocked": ["first_session"]
+      },
+      "expected": { "newlyUnlocked": [] },
+      "covers": { "early_bird": false }
+    },
+    {
+      "id": "nocturno-21-00-utc",
+      "sources": [],
+      "timeZone": "UTC",
+      "input": {
+        "session": { "startedAt": "2026-07-08T21:00:00Z", "distanceM": 500, "paceSecPerKm": null, "weather": null },
+        "history": [{ "startedAt": "2026-07-01T10:00:00Z", "distanceM": 500 }],
+        "alreadyUnlocked": ["first_session"]
+      },
+      "expected": { "newlyUnlocked": ["night_walker"] },
+      "covers": { "night_walker": true }
+    },
+    {
+      "id": "nocturno-23-59-59-utc",
+      "sources": [],
+      "timeZone": "UTC",
+      "input": {
+        "session": { "startedAt": "2026-07-08T23:59:59Z", "distanceM": 500, "paceSecPerKm": null, "weather": null },
+        "history": [{ "startedAt": "2026-07-01T10:00:00Z", "distanceM": 500 }],
+        "alreadyUnlocked": ["first_session"]
+      },
+      "expected": { "newlyUnlocked": ["night_walker"] },
+      "covers": { "night_walker": true }
+    },
+    {
+      "id": "nocturno-20-59-59-utc",
+      "sources": [],
+      "timeZone": "UTC",
+      "input": {
+        "session": { "startedAt": "2026-07-08T20:59:59Z", "distanceM": 500, "paceSecPerKm": null, "weather": null },
+        "history": [{ "startedAt": "2026-07-01T10:00:00Z", "distanceM": 500 }],
+        "alreadyUnlocked": ["first_session"]
+      },
+      "expected": { "newlyUnlocked": [] },
+      "covers": { "night_walker": false }
+    },
+    {
+      "id": "nocturno-00-00-utc-no-lo-es",
+      "sources": [],
+      "timeZone": "UTC",
+      "input": {
+        "session": { "startedAt": "2026-07-09T00:00:00Z", "distanceM": 500, "paceSecPerKm": null, "weather": null },
+        "history": [{ "startedAt": "2026-07-01T10:00:00Z", "distanceM": 500 }],
+        "alreadyUnlocked": ["first_session"]
+      },
+      "expected": { "newlyUnlocked": [] },
+      "covers": { "night_walker": false }
+    },
+    {
+      "id": "nocturno-21-00-local-guayaquil",
+      "sources": [],
+      "divergence": "localTime",
+      "timeZone": "America/Guayaquil",
+      "note": "21:00 local son las 02:00 UTC del día siguiente.",
+      "input": {
+        "session": { "startedAt": "2026-07-08T21:00:00-05:00", "distanceM": 500, "paceSecPerKm": null, "weather": null },
+        "history": [{ "startedAt": "2026-07-01T10:00:00Z", "distanceM": 500 }],
+        "alreadyUnlocked": ["first_session"]
+      },
+      "expected": { "newlyUnlocked": ["night_walker"] },
+      "covers": { "night_walker": true }
+    },
+    {
+      "id": "nocturno-23-59-59-local-guayaquil",
+      "sources": [],
+      "divergence": "localTime",
+      "timeZone": "America/Guayaquil",
+      "note": "23:59:59 local son las 04:59:59 UTC del día siguiente.",
+      "input": {
+        "session": { "startedAt": "2026-07-08T23:59:59-05:00", "distanceM": 500, "paceSecPerKm": null, "weather": null },
+        "history": [{ "startedAt": "2026-07-01T10:00:00Z", "distanceM": 500 }],
+        "alreadyUnlocked": ["first_session"]
+      },
+      "expected": { "newlyUnlocked": ["night_walker"] },
+      "covers": { "night_walker": true }
+    },
+    {
+      "id": "nocturno-17-00-local-guayaquil-no-lo-es",
+      "sources": [],
+      "divergence": "localTime",
+      "timeZone": "America/Guayaquil",
+      "note": "17:00 local son 22:00 UTC: domain.js lo da por nocturno.",
+      "input": {
+        "session": { "startedAt": "2026-07-08T17:00:00-05:00", "distanceM": 500, "paceSecPerKm": null, "weather": null },
+        "history": [{ "startedAt": "2026-07-01T10:00:00Z", "distanceM": 500 }],
+        "alreadyUnlocked": ["first_session"]
+      },
+      "expected": { "newlyUnlocked": [] },
+      "covers": { "night_walker": false }
+    },
+    {
+      "id": "calor-30-5",
+      "sources": [],
+      "timeZone": "UTC",
+      "input": {
+        "session": {
+          "startedAt": "2026-07-08T10:00:00Z",
+          "distanceM": 500,
+          "paceSecPerKm": null,
+          "weather": { "wmoCode": 0, "tempC": 30.5 }
+        },
+        "history": [{ "startedAt": "2026-07-01T10:00:00Z", "distanceM": 500 }],
+        "alreadyUnlocked": ["first_session"]
+      },
+      "expected": { "newlyUnlocked": ["hot_walker"] },
+      "covers": { "hot_walker": true }
+    },
+    {
+      "id": "calor-30-justo-no",
+      "sources": [],
+      "timeZone": "UTC",
+      "input": {
+        "session": {
+          "startedAt": "2026-07-08T10:00:00Z",
+          "distanceM": 500,
+          "paceSecPerKm": null,
+          "weather": { "wmoCode": 0, "tempC": 30 }
+        },
+        "history": [{ "startedAt": "2026-07-01T10:00:00Z", "distanceM": 500 }],
+        "alreadyUnlocked": ["first_session"]
+      },
+      "expected": { "newlyUnlocked": [] },
+      "covers": { "hot_walker": false }
+    },
+    {
+      "id": "frio-4-5",
+      "sources": [],
+      "timeZone": "UTC",
+      "input": {
+        "session": {
+          "startedAt": "2026-07-08T10:00:00Z",
+          "distanceM": 500,
+          "paceSecPerKm": null,
+          "weather": { "wmoCode": 3, "tempC": 4.5 }
+        },
+        "history": [{ "startedAt": "2026-07-01T10:00:00Z", "distanceM": 500 }],
+        "alreadyUnlocked": ["first_session"]
+      },
+      "expected": { "newlyUnlocked": ["cold_walker"] },
+      "covers": { "cold_walker": true }
+    },
+    {
+      "id": "frio-5-justo-no",
+      "sources": [],
+      "timeZone": "UTC",
+      "input": {
+        "session": {
+          "startedAt": "2026-07-08T10:00:00Z",
+          "distanceM": 500,
+          "paceSecPerKm": null,
+          "weather": { "wmoCode": 3, "tempC": 5 }
+        },
+        "history": [{ "startedAt": "2026-07-01T10:00:00Z", "distanceM": 500 }],
+        "alreadyUnlocked": ["first_session"]
+      },
+      "expected": { "newlyUnlocked": [] },
+      "covers": { "cold_walker": false }
+    }
+  ]
+}
