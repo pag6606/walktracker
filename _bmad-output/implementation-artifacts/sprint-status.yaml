@@ -43,7 +43,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: '2026-08-01'
-last_updated: 09-14-2026 12:59
+last_updated: 09-14-2026 14:16
 project: walktracker
 project_key: NOKEY
 tracking_system: file-system
@@ -60,7 +60,7 @@ development_status:
   1-6-recuperación-foreground-wall-clock-estimated-banner: done
   # Al terminar 1-6 → gate 8-4 (caminata de 30 min) ANTES de epic-2..epic-7.
   # Reubicación del 2026-09-13: sprint-change-proposal-2026-09-13.md
-  epic-1-retrospective: optional
+  epic-1-retrospective: done
 
   epic-2: backlog
   2-1-clima-snapshot-al-inicio-de-sesión-open-meteo: backlog
@@ -106,3 +106,67 @@ development_status:
   # Se ejecuta DESPUÉS de epic-1 (1-1..1-6). epic-8 sigue in-progress hasta entonces.
   8-4-gate-del-success-signal-batería-y-precisión-en-dispositivo-f: backlog
   epic-8-retrospective: optional
+action_items:
+  - id: "epic-1-retro-item-1-a-1-refactor-antes-del-epic-2-partir-ses"
+    epic: 1
+    action: "A-1 Refactor antes del Epic 2: partir SessionStore por fronteras (inicio/permiso,
+      recuperación/persistencia, reconciliación, FirstResult), centralizar el reset
+      de sesión, unificar fases de escena y partir SessionStoreTests por suite con
+      soporte común"
+    owner: "Dev"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-09-14.md"
+  - id: "epic-1-retro-item-2-a-2-chore-de-correcciones-y-tests-entre"
+    epic: 1
+    action: "A-2 Chore de correcciones y tests entre historias: lastSampleAt con la
+      primera muestra tras volver/restaurar, StorageStub sin apartar con .failed,
+      nombre único del snapshot apartado, tests V1–V4 y prefijo Nativo en escenarios
+      1.5/1.6"
+    owner: "Dev"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-09-14.md"
+  - id: "epic-1-retro-item-3-a-3-instrumentar-la-caminata-de-la-8-4-m"
+    epic: 1
+    action: "A-3 Instrumentar la caminata de la 8.4 (muestras del stream, consultas
+      de reconciliación, estimaciones) para zanjar R1, R2, R11 y la alternancia de
+      distancia"
+    owner: "8.4"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-09-14.md"
+  - id: "epic-1-retro-item-4-a-4-decidir-un-arnés-de-verificación-de"
+    epic: 1
+    action: "A-4 Decidir un arnés de verificación de vistas (XCUITest o lógica de
+      presentación probable) para cerrar los diferidos de vista del epic"
+    owner: "Paul"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-09-14.md"
+  - id: "epic-1-retro-item-5-a-5-reconciliar-epics-md-y-el-spine-con"
+    epic: 1
+    action: "A-5 Reconciliar epics.md y el spine con lo aceptado: descarte global,
+      aviso solo al relanzar, autosave por muestras, sin idle, no se combinan, StoragePort
+      de partida para la 5.1 y criterio de constantes en formulas.json"
+    owner: "Paul"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-09-14.md"
+  - id: "epic-1-retro-item-6-a-6-extender-check-project-shape-sh-core"
+    epic: 1
+    action: "A-6 Extender check-project-shape.sh: CoreMotion solo en Adapters/Motion,
+      sin Date() en Domain, StoragePort solo desde SessionStore, sin frameworks de
+      sistema en UI"
+    owner: "Dev"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-09-14.md"
+  - id: "epic-1-retro-item-7-a-7-lección-de-specs-todo-traspaso-a-otr"
+    epic: 1
+    action: "A-7 Lección de specs: todo traspaso a otra historia va a deferred-work.md
+      y el Code Map lista los campos compartidos de SessionStore y sus invariantes"
+    owner: "Paul"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-09-14.md"
+  - id: "epic-1-retro-item-8-a-8-revisar-el-umbral-de-tamaño-de-spec"
+    epic: 1
+    action: "A-8 Revisar el umbral de tamaño de spec o trocear las historias al crear
+      los epics (6 de 6 lo superaron)"
+    owner: "Paul"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-09-14.md"
