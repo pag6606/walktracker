@@ -1,4 +1,6 @@
 {
   "schemaVersion": 1,
-  "defaultStrideM": 0.655
+  "defaultStrideM": 0.655,
+  "reconciliationTimeoutS": 3,
+  "provisional": ["reconciliationTimeoutS"]
 }

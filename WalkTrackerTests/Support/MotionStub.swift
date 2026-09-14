@@ -7,7 +7,28 @@ import Synchronization
 ///
 /// A diferencia del adapter (`.bufferingNewest(1)`), el stream no descarta muestras:
 /// así un test puede afirmar sobre cada una sin depender de cuándo corre el consumidor.
+///
+/// La consulta por rango responde lo que fije `queryResponse` y registra cada rango
+/// consultado. Con `.hang` queda en vilo hasta `resolvePendingQueries(with:)`, como una
+/// consulta de CoreMotion que no vuelve.
 final class MotionStub: MotionPort {
+
+    /// Qué responde `query(from:to:)`.
+    enum QueryResponse: Sendable {
+        /// Una muestra con esos pasos acumulados en el rango consultado.
+        case sample(steps: Int, distance: Double?)
+        /// El sistema no tiene datos para el rango.
+        case none
+        case failure(CapabilityError)
+        /// No vuelve hasta `resolvePendingQueries(with:)`.
+        case hang
+    }
+
+    /// Un rango consultado.
+    struct QueriedRange: Equatable, Sendable {
+        let start: Date
+        let end: Date
+    }
 
     private struct State {
         var status: PermissionStatus
@@ -19,6 +40,9 @@ final class MotionStub: MotionPort {
         var updateStarts: [Date] = []
         var continuation: AsyncStream<PedometerSample>.Continuation?
         var cancelledStreams = 0
+        var queryResponse: QueryResponse = .none
+        var queriedRanges: [QueriedRange] = []
+        var pendingQueries: [(range: QueriedRange, continuation: CheckedContinuation<QueryResponse, Never>)] = []
     }
 
     private let state: Mutex<State>
@@ -62,7 +86,25 @@ final class MotionStub: MotionPort {
     }
 
     func query(from start: Date, to end: Date) async throws(CapabilityError) -> PedometerSample? {
-        nil
+        let range = QueriedRange(start: start, end: end)
+        let immediate: QueryResponse = state.withLock { state in
+            state.queriedRanges.append(range)
+            return state.queryResponse
+        }
+        var response = immediate
+        if case .hang = immediate {
+            response = await withCheckedContinuation { continuation in
+                state.withLock { $0.pendingQueries.append((range, continuation)) }
+            }
+        }
+        switch response {
+        case .sample(let steps, let distance):
+            return PedometerSample(steps: steps, distance: distance, start: start, end: end)
+        case .none, .hang:
+            return nil
+        case .failure(let error):
+            throw error
+        }
     }
 
     // MARK: - Control del test
@@ -72,6 +114,23 @@ final class MotionStub: MotionPort {
     /// Los `start` con que se abrió cada stream de actualizaciones.
     var updateStarts: [Date] { state.withLock { $0.updateStarts } }
     var cancelledStreams: Int { state.withLock { $0.cancelledStreams } }
+    /// Cada rango consultado, en orden.
+    var queriedRanges: [QueriedRange] { state.withLock { $0.queriedRanges } }
+    var hasPendingQuery: Bool { state.withLock { !$0.pendingQueries.isEmpty } }
+
+    /// Fija la respuesta de las consultas siguientes.
+    func setQueryResponse(_ response: QueryResponse) {
+        state.withLock { $0.queryResponse = response }
+    }
+
+    /// Resuelve las consultas colgadas con `response` (`.hang` cuenta como `.none`).
+    func resolvePendingQueries(with response: QueryResponse) {
+        let pending = state.withLock { state in
+            defer { state.pendingQueries = [] }
+            return state.pendingQueries
+        }
+        pending.forEach { $0.continuation.resume(returning: response) }
+    }
 
     /// Cambia el permiso "en Ajustes", fuera de la app.
     func setStatus(_ status: PermissionStatus) {

@@ -184,11 +184,13 @@ struct VectorHarness: Sendable {
     ///
     /// - `elapsedS` (1.1; la pausa abierta, 1.4): `Chronometer.elapsedS`.
     /// - `v3distance`, `pace` y `calculateCadence` (1.3): `MetricsCalculator`.
+    /// - `estimateSteps` (1.5): `GapEstimator.estimateSteps`.
     static let swiftDomain = VectorHarness(implementations: [
         "elapsedS": SwiftDomainPorts.elapsedS,
         "v3distance": SwiftDomainPorts.v3distance,
         "pace": SwiftDomainPorts.pace,
         "calculateCadence": SwiftDomainPorts.calculateCadence,
+        "estimateSteps": SwiftDomainPorts.estimateSteps,
     ])
 
     let implementations: [String: VectorImplementation]
@@ -305,6 +307,15 @@ enum SwiftDomainPorts {
             activeSeconds: activeSeconds
         )
         return .number(cadence)
+    }
+
+    /// `GapEstimator.estimateSteps`. `NaN` llega como la cadena `"NaN"` del vector.
+    static let estimateSteps: VectorImplementation = { vector in
+        let input = vector.input
+        guard let cadenceSpm = input["cadenceSpm"]?.double, let gapS = input["gapS"]?.double else {
+            throw VectorInputError(description: "estimateSteps: faltan cadenceSpm o gapS")
+        }
+        return .number(Double(try GapEstimator.estimateSteps(cadenceSpm: cadenceSpm, gapS: gapS)))
     }
 
     private static func integer(_ input: JSONValue, _ key: String, in function: String) throws -> Int {

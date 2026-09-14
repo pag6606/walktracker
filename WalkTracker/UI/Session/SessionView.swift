@@ -17,6 +17,11 @@ import SwiftUI
 /// de la entrada como suelo), así que el tick no cuenta nada; en pausa el store da el
 /// tiempo congelado.
 ///
+/// Pasos estimados (1.5): la celda de pasos los desglosa con "~" ("4.100 ~236") y, mientras
+/// haya, el Estimated Banner bajo la rejilla los muestra con "Descartar", que exige
+/// confirmación (AD-20). Mientras el store reconcilia (AD-8) los controles se deshabilitan
+/// siempre; el aviso de reconciliación solo aparece si dura más de 0,5 s, para no parpadear.
+///
 /// Con tamaños de texto grandes la pantalla se desplaza en vertical en lugar de recortar.
 struct SessionView: View {
 
@@ -26,6 +31,12 @@ struct SessionView: View {
     /// cierra: al salir del resumen el store ya no tiene sesión. Solo se usa sin sesión en
     /// el store, para que nunca tape una sesión nueva.
     @State private var lastFinished: FinishedWalk?
+    /// La reconciliación en curso ya dura más de `reconcilingNoticeDelay`.
+    @State private var showsReconcilingNotice = false
+
+    /// Retraso del aviso de reconciliación (decisión de Paul, 1.5): una reconciliación
+    /// rápida solo deshabilita los controles, sin texto que parpadee.
+    private static let reconcilingNoticeDelay: Duration = .milliseconds(500)
 
     var body: some View {
         Group {
@@ -49,6 +60,7 @@ struct SessionView: View {
             distanceM: metrics.distanceM,
             durationS: durationS,
             steps: session.stepsMeasured,
+            estimatedSteps: session.stepsEstimated,
             paceSecPerKm: metrics.paceSecPerKm,
             cadenceSpm: metrics.cadenceSpm
         )
@@ -67,6 +79,13 @@ struct SessionView: View {
                         .accessibilityAddTraits(.isHeader)
                         .padding(.top)
 
+                    if store.isReconciling && showsReconcilingNotice {
+                        Text("Recuperando los pasos del rato en segundo plano. Los controles vuelven en un momento.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+
                     Spacer(minLength: 24)
 
                     DistanceHero(meters: metrics.distanceM, isDimmed: isPaused)
@@ -75,12 +94,23 @@ struct SessionView: View {
 
                     grid(session: session, metrics: metrics)
 
+                    if session.stepsEstimated > 0 {
+                        estimatedBanner(session.stepsEstimated)
+                            .padding(.top, 16)
+                    }
+
                     Spacer(minLength: 24)
 
                     controls(isPaused: isPaused)
                 }
                 .padding()
                 .frame(maxWidth: .infinity, minHeight: proxy.size.height)
+                .task(id: store.isReconciling) {
+                    showsReconcilingNotice = false
+                    guard store.isReconciling else { return }
+                    try? await Task.sleep(for: Self.reconcilingNoticeDelay)
+                    if !Task.isCancelled, store.isReconciling { showsReconcilingNotice = true }
+                }
             }
             .scrollBounceBehavior(.basedOnSize)
         }
@@ -91,7 +121,7 @@ struct SessionView: View {
     private func grid(session: Session, metrics: SessionMetrics) -> some View {
         Grid(horizontalSpacing: 16, verticalSpacing: 24) {
             GridRow {
-                MetricCell.steps(session.stepsMeasured)
+                MetricCell.steps(session.stepsMeasured, estimated: session.stepsEstimated)
                 // Alineado con el inicio desplazado por las pausas cerradas: así el tick cae en
                 // el cambio de segundo del tiempo neto aunque una pausa tenga fracción.
                 TimelineView(.periodic(from: session.startedAt.addingTimeInterval(session.totalPausesS), by: 1)) { context in
@@ -106,6 +136,54 @@ struct SessionView: View {
         .frame(maxWidth: .infinity)
     }
 
+    // MARK: - Estimated Banner
+
+    /// "~N pasos estimados" y "Descartar", visible mientras haya estimados, también en
+    /// pausa. Descartar pide confirmación y es irreversible (AD-20).
+    private func estimatedBanner(_ estimated: Int) -> some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(alignment: .firstTextBaseline, spacing: 0) {
+                    Text(verbatim: "~")
+                        .foregroundStyle(.orange)
+                        .accessibilityHidden(true)
+                    Text("\(estimated) pasos estimados")
+                }
+                .font(.subheadline.weight(.semibold))
+                Text("Del intervalo que el sistema no pudo reconstruir")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
+
+            Button(role: .destructive, action: store.requestDiscardEstimated) {
+                // El marco va en la etiqueta: así el objetivo táctil es ≥ 44 pt (AD-20).
+                Text("Descartar")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(.rect)
+            }
+            .disabled(store.isReconciling)
+            .confirmationDialog("¿Descartar los pasos estimados?", isPresented: confirmingDiscard, titleVisibility: .visible) {
+                Button("Descartar pasos estimados", role: .destructive, action: store.confirmDiscardEstimated)
+                Button("Cancelar", role: .cancel, action: store.cancelDiscardEstimated)
+            } message: {
+                Text("La distancia y el ritmo se recalcularán sin ellos. No se puede deshacer.")
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(.orange.opacity(0.12), in: .rect(cornerRadius: 16))
+    }
+
+    /// La vista no escribe estado del store: cerrar el diálogo es la intención de cancelar.
+    private var confirmingDiscard: Binding<Bool> {
+        Binding(get: { store.isConfirmingDiscard }, set: { presented in
+            if !presented { store.cancelDiscardEstimated() }
+        })
+    }
+
     // MARK: - Controles
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -115,6 +193,8 @@ struct SessionView: View {
     ///
     /// Pausar y Reanudar son **un solo botón** que cambia de título, icono, estilo y
     /// acción: con dos, el que tiene el foco de VoiceOver desaparecería al pulsarlo.
+    ///
+    /// Deshabilitados mientras el store reconcilia (AD-8), que además los rechaza.
     private func controls(isPaused: Bool) -> some View {
         let layout = dynamicTypeSize.isAccessibilitySize
             ? AnyLayout(VStackLayout(spacing: 12))
@@ -136,13 +216,16 @@ struct SessionView: View {
             }
             .buttonStyle(.glass)
             .confirmationDialog("¿Finalizar la caminata?", isPresented: confirmingFinish, titleVisibility: .visible) {
-                Button("Finalizar caminata", role: .destructive, action: store.confirmFinish)
+                Button("Finalizar caminata", role: .destructive) {
+                    Task { await store.confirmFinish() }
+                }
                 Button("Cancelar", role: .cancel, action: store.cancelFinish)
             } message: {
                 Text("No podrás reanudarla.")
             }
         }
         .controlSize(.extraLarge)
+        .disabled(store.isReconciling)
     }
 
     /// La vista no escribe estado del store: cerrar el diálogo es la intención de cancelar.
@@ -190,17 +273,27 @@ struct DistanceHero: View {
 struct MetricCell: View {
 
     let value: String
+    /// Desglose de pasos estimados ("~236"), marcado en naranja. `nil` sin estimados.
+    var estimate: String?
     let unit: LocalizedStringKey?
     let caption: LocalizedStringKey
     let spokenLabel: Text
     let spokenValue: String?
 
-    static func steps(_ steps: Int) -> MetricCell {
-        MetricCell(
+    /// Pasos medidos y, si hay, los estimados desglosados: "4.100 ~236". VoiceOver lee
+    /// "4100 pasos, 236 estimados": nunca los suma.
+    static func steps(_ steps: Int, estimated: Int = 0) -> MetricCell {
+        let measured = String(localized: "\(steps) pasos", comment: "Lectura de VoiceOver de los pasos medidos en la celda de pasos, en la pantalla de sesión y en el resumen: la magnitud completa.")
+        guard estimated > 0 else {
+            return MetricCell(value: steps.formatted(.number), unit: nil, caption: "Pasos", spokenLabel: Text(verbatim: measured), spokenValue: nil)
+        }
+        let estimatedSpoken = String(localized: "\(estimated) estimados", comment: "Lectura de VoiceOver de los pasos estimados en la celda de pasos, en la pantalla de sesión y en el resumen, tras los medidos: \"4100 pasos, 236 estimados\".")
+        return MetricCell(
             value: steps.formatted(.number),
+            estimate: "~" + estimated.formatted(.number),
             unit: nil,
             caption: "Pasos",
-            spokenLabel: Text("\(steps) pasos"),
+            spokenLabel: Text(verbatim: "\(measured), \(estimatedSpoken)"),
             spokenValue: nil
         )
     }
@@ -241,6 +334,12 @@ struct MetricCell: View {
                 Text(verbatim: value)
                     .font(.system(.title, design: .rounded, weight: .bold))
                     .monospacedDigit()
+                if let estimate {
+                    Text(verbatim: estimate)
+                        .font(.system(.title3, design: .rounded, weight: .semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(.orange)
+                }
                 if let unit {
                     Text(unit)
                         .font(.subheadline)

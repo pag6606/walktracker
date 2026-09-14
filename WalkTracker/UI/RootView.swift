@@ -4,8 +4,12 @@ import SwiftUI
 /// Ajustes) y la sesión activa como **modo** a pantalla completa sobre él, nunca como
 /// quinta pestaña.
 ///
-/// La sesión se presenta mientras `SessionStore` tenga una abierta. No hay salida
-/// hasta la 1.4: el enlace de presentación ignora cualquier intento de cerrarla.
+/// La sesión se presenta mientras `SessionStore` tenga una abierta, incluido su resumen
+/// tras finalizar. La única salida es "Volver al inicio" en el resumen: el enlace de
+/// presentación ignora cualquier otro intento de cerrarla (AD-20).
+///
+/// Como está siempre montada, es quien pasa las fases de la escena al store: al ir a
+/// segundo plano abre el gap y al volver lo reconcilia (AD-8). Ninguna de las dos pausa.
 ///
 /// En `DEBUG` Inicio enlaza la pantalla de diagnóstico de la capa nativa (historia 8.6).
 /// Llega ya construida desde la app, así que esta vista no conoce los puertos que usa;
@@ -14,6 +18,8 @@ struct RootView<Diagnostics: View>: View {
 
     let store: SessionStore
     private let diagnostics: Diagnostics?
+
+    @Environment(\.scenePhase) private var scenePhase
 
     init(store: SessionStore, @ViewBuilder diagnostics: () -> Diagnostics) {
         self.store = store
@@ -53,10 +59,23 @@ struct RootView<Diagnostics: View>: View {
         .fullScreenCover(isPresented: sessionPresented) {
             SessionView(store: store)
         }
+        .onChange(of: scenePhase) { _, phase in
+            // `.inactive` (centro de control, el diálogo del sistema) no es un gap: el
+            // podómetro sigue entregando. El store ignora las fases sin sesión activa o sin
+            // gap pendiente.
+            switch phase {
+            case .background:
+                store.appDidEnterBackground()
+            case .active:
+                Task { await store.appDidBecomeActive() }
+            default:
+                break
+            }
+        }
     }
 
     /// Solo lectura: la vista no escribe estado del store. El `set` vacío es a
-    /// propósito, porque no hay salida de la sesión antes de la 1.4.
+    /// propósito: el modo se cierra cuando el store sale del resumen, nunca desde la vista.
     private var sessionPresented: Binding<Bool> {
         Binding(get: { store.hasSession }, set: { _ in })
     }

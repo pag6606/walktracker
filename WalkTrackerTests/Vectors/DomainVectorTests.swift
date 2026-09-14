@@ -185,6 +185,11 @@ struct VectorHarnessTests {
         try Self.expectPorted("calculateCadence")
     }
 
+    @Test("estimateSteps está portado: sus vectores reales pasan y no quedan pendientes")
+    func estimateStepsIsPorted() throws {
+        try Self.expectPorted("estimateSteps")
+    }
+
     @Test("pace: el tiempo en movimiento es durationS − pausesS, no durationS")
     func paceSubtractsPauses() throws {
         let paused = try Self.vector("""

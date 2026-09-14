@@ -6,6 +6,8 @@ struct FinishedWalk: Equatable {
     let distanceM: Double
     let durationS: Int
     let steps: Int
+    /// Pasos estimados, desglosados con "~". En el resumen no se descartan.
+    let estimatedSteps: Int
     let paceSecPerKm: Int?
     let cadenceSpm: Double
 }
@@ -15,7 +17,8 @@ struct FinishedWalk: Equatable {
 /// la sesión. Se muestra dentro del mismo modo de sesión (AD-14).
 ///
 /// Solo pinta magnitudes que produce el dominio (AD-22): nada de Salud, logros, kcal ni
-/// "Nueva caminata"; el resumen completo no tiene aún historia dueña.
+/// "Nueva caminata"; el resumen completo no tiene aún historia dueña. Los pasos estimados
+/// se muestran desglosados con "~", sin descarte: la sesión finalizada es inmutable.
 struct SessionSummaryView: View {
 
     let walk: FinishedWalk
@@ -39,7 +42,7 @@ struct SessionSummaryView: View {
 
                     Grid(horizontalSpacing: 16, verticalSpacing: 24) {
                         GridRow {
-                            MetricCell.steps(walk.steps)
+                            MetricCell.steps(walk.steps, estimated: walk.estimatedSteps)
                             MetricCell.time(TimeInterval(walk.durationS))
                         }
                         GridRow {
