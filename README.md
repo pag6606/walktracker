@@ -271,6 +271,117 @@ que la historia del clima tiene que revisar cuando entre. La primera historia qu
 ficheros, tiempo desde el arranque, espacio en disco) la declara ahí o App Store Connect rechaza el
 build.
 
+## Gate 8.4
+
+Una caminata real de 30 min en el iPhone 14 demuestra precisión y consumo aceptables antes de los
+epics 2–7, y aporta los datos que fijan `reconciliationTimeoutS` y deciden R1, R2 y R11 de la retro
+del Epic 1. La medición de referencia se rellena en
+`_bmad-output/implementation-artifacts/8-4-medicion-referencia.md`.
+
+**Criterios** [fuente: epics.md Story 8.4; SPEC Success signal; NFR-8; CAP-3]:
+
+- pasos y distancia a **≤ 10 %** de Apple Salud;
+- batería con caída **≤ 5 %** en los 30 min y WalkTracker **no destacado** en Ajustes → Batería;
+- **`stepsEstimated = 0`** sin tocar la pantalla.
+
+Si falla uno, se para: se registra y se revisa con `bmad-correct-course` antes de los epics 2–7, sin
+tocar el umbral.
+
+### El registro de medición
+
+La app escribe una línea por evento en el log del sistema (`OSLog`, subsistema
+`com.walktracker.app`, categoría `Medicion`, nivel `notice`), con el formato
+`WTM1 event=… sid=… clave=valor`. `sid` es el inicio de la sesión en ms y la identifica:
+
+- `sample`: cada muestra del stream **que consume el store** (`start`, `end`, `steps`, `distance`).
+  El adapter usa `.bufferingNewest(1)`: una muestra que el buffer descarta no llega al store ni al
+  registro;
+- `query`: cada consulta de reconciliación (`start`, `end`, `result`, `distance`, `seen`, `ms` y
+  `outcome`: `data`, `nil`, `timeout`, `belowSeen` o `error`). `ms` se mide en la tarea que resuelve
+  la carrera, sin la vuelta al hilo principal;
+- `queryLate`: la respuesta de una consulta que llegó después del timeout y se descartó, con los
+  mismos campos y su duración real;
+- `estimate`: cada estimación del `GapEstimator` (`gapStart`, `gapEnd`, `steps`, `skipped`). Con
+  `skipped=streamAdvanced` no se estimó porque el stream avanzó durante la consulta degradada;
+- `session`: cada transición (`start`, `pause`, `resume`, `finish`, `background`, `active`,
+  `restore`, `orphan`, `discardEstimated`, `streamEnded`) con el estado de la sesión. `start` y
+  `restore` llevan además `version` y `build` de la app.
+
+Solo conteo, distancia y tiempos. No hay red, fichero propio ni UI: el registro vive en el
+dispositivo y se extrae a mano. Lo escribe `WalkTracker/Application/MeasurementLog.swift` y lo lee
+`Scripts/walk-report/report.js`. La fixture `WalkTrackerTests/Application/MeasurementLogFixture.txt`
+es la misma en los dos lados: si cambias el formato, cambia los dos.
+
+### Protocolo de la caminata
+
+1. **Build del gate:** release desde `main` (sección anterior), con la confirmación de Paul, e
+   instalado desde TestFlight. Tiene que ser el build de TestFlight (Release), no uno de Xcode: el
+   informe muestra `version` y `build` para comprobarlo.
+2. **Antes de salir:**
+   - iPhone **desconectado del cargador** y **Modo de bajo consumo desactivado**;
+   - **sin Apple Watch** puesto (Salud mezcla fuentes). Si se lleva, en Salud se lee **solo la
+     fuente iPhone**;
+   - anotar la hora, la batería (%) y la versión de iOS;
+   - música sonando y las apps que no hagan falta cerradas.
+3. **Iniciar la caminata** en WalkTracker, bloquear la pantalla y guardar el iPhone en el bolsillo.
+   **No tocar la pantalla** durante 30 min.
+4. **Al volver:** desbloquear, esperar a que WalkTracker muestre los pasos, **Finalizar** y anotar
+   del resumen los pasos y la distancia, la hora y la batería.
+5. **Salud:** Pasos y Distancia (caminata y carrera) del **intervalo exacto** de la caminata, en
+   «Mostrar todos los datos», sumando solo las entradas entre la hora de inicio y la de fin (y solo
+   las del iPhone si hubo otra fuente).
+6. **Ajustes → Batería:** anotar el uso de WalkTracker en las últimas 24 h y si destaca frente al
+   resto de apps.
+
+### Extraer el registro e informe
+
+Dentro de las 2 h siguientes al inicio de la caminata, con el iPhone conectado al Mac por cable,
+desbloqueado y con el Mac marcado como de confianza:
+
+```bash
+sudo log collect --device --last 2h --output ~/caminata-8-4.logarchive
+bash Scripts/walk-report.sh ~/caminata-8-4.logarchive
+```
+
+Con varios dispositivos conectados, `log collect` necesita `--device-name` o `--device-udid`. El
+script también acepta un texto ya exportado con `log show` en estilo `default`, `compact` o `syslog`;
+`json` y `ndjson` se rechazan con un mensaje claro. Sale ≠ 0 si el registro no tiene líneas de
+medición, si los valores salen como `<private>` o si el formato es de otra versión.
+
+### Leer el informe
+
+Por cada sesión del registro, identificada por su `sid` (la ventana de 2 h puede traer sesiones de
+prueba: la de la caminata es la que coincide con su hora de inicio):
+
+- **Build:** `version (build)` de la app que escribió la sesión.
+- **Duración neta y de reloj, pasos (medidos + estimados), distancia y distancia del sistema:**
+  los valores finales, para comparar con Salud. Una sesión cerrada por `orphan` cuenta como
+  finalizada.
+- **`stepsEstimated` frente al criterio:** `cumple` solo con la sesión finalizada, `stepsEstimated`
+  final 0, ninguna estimación con pasos y ningún `discardEstimated`. Si no, `NO CUMPLE` con el motivo;
+  sin transiciones, `sin datos`.
+- **Consultas:** número, duración máxima y p95 en ms (una consulta con timeout cuenta con la duración
+  de su `queryLate`), el recuento por desenlace y las respuestas tardías.
+- **Muestras del stream:** con distancia, sin distancia y alternancias entre las dos (la duda de la
+  1.3).
+- **Avisos:**
+  - `R1`: una consulta dio menos pasos que los ya vistos, lo que hoy estima pasos fantasma;
+  - estimaciones con sus pasos, estimaciones omitidas (`streamAdvanced`) y estimados descartados;
+  - `R2`: tras una consulta degradada, la primera muestra del mismo tramo (inicio a menos de 1 s)
+    que sube por encima de lo visto antes de la consulta siguiente. Se marca «posible doble cuenta»
+    solo si hubo estimación y el salto es al menos la mitad de lo estimado;
+  - consultas con timeout sin respuesta tardía (duración real desconocida);
+  - `R5`: el sistema terminó el stream.
+- **`reconciliationTimeoutS` propuesto, por sesión:** max(1 s, 5 × duración máxima), redondeado
+  hacia arriba al segundo (decisión de Paul, 2026-09-14). No se propone si alguna consulta agotó el
+  timeout sin `queryLate`. `orphanSessionThresholdS` se queda en 6 h como valor decidido, no medido.
+
+El camino rojo del informe es ejecutable:
+
+```bash
+bash Scripts/walk-report-tests.sh
+```
+
 ## Estado
 
 - El proyecto y el árbol limpio son la historia **8.5** (esta).
@@ -279,3 +390,4 @@ build.
   tenga contenido versionado.
 - El arnés de verificación del dominio es la **8.7**: `Scripts/verify-domain.sh`, arriba.
 - La distribución por TestFlight con etiquetas SemVer es la **8.3**: `Scripts/release-testflight.sh`, arriba.
+- El gate del Success signal es la **8.4**: registro de medición, `Scripts/walk-report.sh` y la caminata, arriba.

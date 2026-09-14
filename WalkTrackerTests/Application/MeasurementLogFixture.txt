@@ -1,0 +1,10 @@
+Timestamp               Ty Process[PID:TID]
+2027-01-15 08:00:00.012 Df WalkTracker[412:5f31] [com.walktracker.app:Medicion] WTM1 event=session sid=1800000000000 transition=start at=1800000000000 status=active elapsedS=0 measured=0 estimated=0 systemDistance=nil distance=0.00 version=4.0.0 build=38
+2027-01-15 08:01:00.104 Df WalkTracker[412:5f31] [com.walktracker.app:Medicion] WTM1 event=sample sid=1800000000000 start=1800000000000 end=1800000060000 steps=100 distance=nil
+2027-01-15 08:10:00.087 Df WalkTracker[412:5f31] [com.walktracker.app:Medicion] WTM1 event=sample sid=1800000000000 start=1800000000000 end=1800000600000 steps=820 distance=540.00
+2027-01-15 08:10:00.301 Df WalkTracker[412:5f31] [com.walktracker.app:Medicion] WTM1 event=session sid=1800000000000 transition=background at=1800000600000 status=active elapsedS=600 measured=820 estimated=0 systemDistance=540.00 distance=540.00
+2027-01-15 08:15:00.052 Df WalkTracker[412:5f31] [com.walktracker.app:Medicion] WTM1 event=query sid=1800000000000 start=1800000000000 end=1800000900000 result=900 distance=590.50 seen=820 ms=40 outcome=data
+2027-01-15 08:15:00.053 Df WalkTracker[412:5f31] [com.walktracker.app:Medicion] WTM1 event=session sid=1800000000000 transition=active at=1800000900000 status=active elapsedS=900 measured=900 estimated=0 systemDistance=590.50 distance=590.50
+2027-01-15 08:25:00.140 Df WalkTracker[412:5f31] [com.walktracker.app:Medicion] WTM1 event=sample sid=1800000000000 start=1800000000000 end=1800001500000 steps=1500 distance=1000.25
+2027-01-15 08:30:00.041 Df WalkTracker[412:5f31] [com.walktracker.app:Medicion] WTM1 event=query sid=1800000000000 start=1800000000000 end=1800001800000 result=1800 distance=1200.00 seen=1500 ms=35 outcome=data
+2027-01-15 08:30:00.042 Df WalkTracker[412:5f31] [com.walktracker.app:Medicion] WTM1 event=session sid=1800000000000 transition=finish at=1800001800000 status=finished elapsedS=1800 measured=1800 estimated=0 systemDistance=1200.00 distance=1200.00
