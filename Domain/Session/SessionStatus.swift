@@ -4,7 +4,7 @@ import Foundation
 /// finished`. El "idle" de antes de iniciar no es un estado del agregado: es que no
 /// hay sesión, y lo representa `SessionStore` con `session == nil`.
 ///
-/// La 1.1 solo crea sesiones `active`; pausar, reanudar y finalizar llegan en la 1.4.
+/// Las transiciones las hace cumplir `Session` (`pause`, `resume`, `finish`).
 public enum SessionStatus: String, Equatable, Sendable, Codable {
     case active
     case paused

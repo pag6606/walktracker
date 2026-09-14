@@ -7,8 +7,8 @@ import Testing
 ///
 /// `addSteps` de la v3 es `Session.addMeasuredSteps(_:)`. Los sitios `:102`
 /// (`distanceM` tras 4980 pasos) y `:350` (distancia final) son métricas y están portados
-/// en la 1.3, en `MetricsScenarios` (AD-22); `:351` (`finished`) se porta en la 1.4 con
-/// el cierre.
+/// en la 1.3, en `MetricsScenarios` (AD-22); `:351` (`finished`) está en la 1.4, en
+/// `SessionLifecycleScenarios`.
 @Suite("Escenarios 1.2 · conteo de pasos")
 struct StepCountingScenarios {
 

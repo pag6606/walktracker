@@ -68,8 +68,14 @@
     "Cadencia": {
       "comment": "Etiqueta de la cadencia (pasos por minuto) en la rejilla de la pantalla de sesión."
     },
+    "Caminata completada": {
+      "comment": "Título del resumen que aparece tras finalizar la caminata."
+    },
     "Caminata en curso": {
       "comment": "Única señal de sesión en curso, en la pantalla de sesión."
+    },
+    "Cancelar": {
+      "comment": "Acción del diálogo de confirmación de Finalizar: cierra el diálogo y la sesión sigue igual."
     },
     "Continuar": {
       "comment": "Botón de la pre-pantalla: pide el permiso de Movimiento y forma física al sistema."
@@ -80,8 +86,17 @@
     "Distancia": {
       "comment": "Etiqueta de VoiceOver de la distancia recorrida, la métrica principal de la pantalla de sesión."
     },
+    "En pausa": {
+      "comment": "Señal de estado de la pantalla de sesión con la sesión pausada. Sustituye a \"Caminata en curso\": nunca aparecen a la vez."
+    },
     "Este dispositivo no puede contar pasos: no tiene el sensor de movimiento que WalkTracker necesita.": {
       "comment": "Explicación de la pantalla bloqueante en un dispositivo sin coprocesador de movimiento."
+    },
+    "Finalizar": {
+      "comment": "Botón de la pantalla de sesión: pide confirmación para terminar la caminata."
+    },
+    "Finalizar caminata": {
+      "comment": "Acción destructiva del diálogo de confirmación: termina la caminata y muestra el resumen."
     },
     "Historial": {
       "comment": "Pestaña Historial del TabView (AD-14) y título de su pantalla."
@@ -101,11 +116,20 @@
     "Los logros que desbloquees aparecerán aquí.": {
       "comment": "Descripción de la pestaña de logros vacía."
     },
+    "No podrás reanudarla.": {
+      "comment": "Mensaje del diálogo de confirmación de Finalizar: terminar la caminata es irreversible."
+    },
     "No se pudo iniciar la caminata": {
       "comment": "Alerta si no se abre la sesión: el dominio la rechaza o el permiso de Movimiento y forma física queda sin decidir tras pedirlo."
     },
     "Pasos": {
       "comment": "Etiqueta de los pasos medidos en la pantalla de sesión."
+    },
+    "Pausar": {
+      "comment": "Botón de la pantalla de sesión activa: pausa la caminata y detiene el tiempo."
+    },
+    "Reanudar": {
+      "comment": "Botón de la pantalla de sesión en pausa: reanuda la caminata y el tiempo sigue."
     },
     "Ritmo": {
       "comment": "Etiqueta del ritmo (minutos por kilómetro) en la rejilla de la pantalla de sesión."
@@ -135,7 +159,7 @@
       "comment": "Descripción de la pestaña de ajustes vacía."
     },
     "Volver al inicio": {
-      "comment": "Botón de la pantalla bloqueante: vuelve a Inicio sin sesión."
+      "comment": "Botón que vuelve a Inicio sin sesión: en la pantalla bloqueante y, como único botón, en el resumen de la caminata finalizada."
     },
     "WalkTracker necesita acceso a Movimiento y forma física para contar tus pasos. Actívalo en Ajustes.": {
       "comment": "Explicación de la pantalla bloqueante con el permiso denegado o restringido."
@@ -148,6 +172,9 @@
     },
     "spm": {
       "comment": "Unidad visible de la cadencia en la rejilla de la pantalla de sesión (pasos por minuto)."
+    },
+    "¿Finalizar la caminata?": {
+      "comment": "Título del diálogo de confirmación al pulsar Finalizar en la pantalla de sesión."
     }
   },
   "version": "1.0"

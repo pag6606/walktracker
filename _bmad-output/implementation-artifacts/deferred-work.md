@@ -24,3 +24,12 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-3-metricas-en-vivo.md`
   summary: Comprobar si CoreMotion alterna muestras con y sin `distance` en una misma sesión; si lo hace, la distancia visible puede bajar (pasos → sistema menor) o congelarse (sistema → nil) y hay que reconciliar las dos fuentes.
   evidence: Hallazgos 1, 2 y 26 de la revisión de la 1.3 (maybe-false, medium si es real). `Session.metrics(at:)` usa `systemDistanceM` en cuanto existe y los pasos solo si nunca llegó. Lo zanja registrar las muestras (`steps`, `distance`) de una caminata real en el iPhone 14.
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-4-pausar-reanudar-finalizar.md`
+  summary: El resumen completo tras finalizar (Summary Screen de UX-DR4 con Salud, logros y celebración) no tiene historia dueña en `epics.md`; la 1.4 solo entrega un resumen mínimo (distancia, tiempo, pasos, ritmo, cadencia y "Volver a Inicio"). Hueco para un correct course que le asigne historia.
+  evidence: Decisión de Paul en la 1.4 (2026-09-13). `epics.md:96` lista "Summary Screen" en UX-DR4, pero ninguna historia la pide como entregable; las piezas que la llenarían viven repartidas en los epics 3 (logros, celebración), 5.1 (persistencia) y 6 (Salud).
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-4-pausar-reanudar-finalizar.md`
+  summary: Reconciliar la distancia entre tramos de pausa/reanudación cuando un tramo trae distancia del sistema y otro no: `distanceBaseM = systemDistanceM ?? 0` descarta la distancia derivada de pasos del tramo anterior.
+  evidence: Hallazgos 1 y 5 de la revisión de la 1.4 (maybe-false, medium si es real). Misma causa que el diferido de la 1.3, pero cada reanudación abre un stream nuevo y lo hace alcanzable en cada pausa. Lo zanja registrar las muestras (`steps`, `distance`) de tramos reales en el iPhone 14.
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-4-pausar-reanudar-finalizar.md`
+  summary: Test automático de qué pantalla presenta `SessionView` según el estado (en curso, "En pausa" con Reanudar, resumen con métricas de `durationS`) y del respaldo `lastFinished` al cerrar el cover.
+  evidence: Hallazgo 19 de la revisión de la 1.4 (VG): invertir el orden del `if`, quitar el respaldo o invertir `isPaused` en el título no rompe ningún test. El proyecto no tiene arnés de tests de vista; hoy lo cubre la verificación manual en el iPhone.
