@@ -202,7 +202,12 @@ muestra los controles, con confirmación explícita al finalizar (AD-20).
   `startedAt + totalPausesS`, `lastFinished` solo sin sesión, un único botón Pausar/Reanudar y la clave
   reutilizada "Volver al inicio") y 2 diferidos (distancia entre tramos con fuentes mezcladas; tests de
   vista). Tras los parches: `verify-domain.sh` verde y 207 tests, `TEST SUCCEEDED`, sin warnings propios.
-  **Pendiente:** los checks manuales en el iPhone 14.
+- **Verificación en el iPhone 14 (2026-09-14, Paul): funciona.** Build de desarrollo instalado y lanzado
+  con `devicectl`. Pausar congela el tiempo, atenúa la distancia y muestra "En pausa" con Reanudar; los
+  pasos dados en pausa no se suman y al reanudar el tiempo sigue sin saltos. Finalizar pide confirmación
+  (cancelar deja la sesión igual) y lleva al resumen con métricas congeladas; finalizar desde pausa no
+  cuenta la pausa; "Volver al inicio" y una caminata nueva empiezan en 0. Bloquear la pantalla no pausa y
+  VoiceOver conserva el foco al alternar Pausar/Reanudar. Los diferidos siguen abiertos.
 
 ## Spec Change Log
 
