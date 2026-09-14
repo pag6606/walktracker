@@ -199,6 +199,9 @@ huérfana, la cierra recortada al último dato real y la marca `recovered` (AD-1
     - `CompositionRootTests` comprueba el cableado del umbral y del storage.
   - **Otros:** nombre de `autosaveBySamples` y doc comment de `Session` reajustados.
   - Cada test nuevo falla sin su parche.
+- **Verificación en el iPhone 14 (2026-09-14, Paul): funciona.** Build de desarrollo de `e146a60` instalado y
+  lanzado con `devicectl`. Paul hizo los tres checks manuales (force-quit desde el selector de apps con la sesión
+  activa, pausada y finalizada) y los dio por buenos. El diferido sigue abierto.
 
 ## Spec Change Log
 
