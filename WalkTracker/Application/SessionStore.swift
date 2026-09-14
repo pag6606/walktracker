@@ -11,8 +11,8 @@ import Synchronization
 /// La 1.1 cubre iniciar y el cronómetro; la 1.2, el permiso de Motion & Fitness y el
 /// conteo de pasos del coprocesador; la 1.3, las métricas derivadas; la 1.4, pausar,
 /// reanudar, finalizar y el resumen; la 1.5, la reconstrucción del background por consulta
-/// al sistema y el descarte de pasos estimados. La sesión no se persiste (1.6, 5.1): cerrar
-/// la app la descarta, y la finalizada se descarta al salir del resumen.
+/// al sistema y el descarte de pasos estimados; la 1.6, la recuperación tras un force-quit.
+/// La finalizada se descarta al salir del resumen: el historial es de la 5.1.
 ///
 /// La pausa es solo explícita (CAP-1): pasar a segundo plano o bloquear la pantalla llega
 /// aquí solo para reconciliar los pasos del gap, y nunca pausa.
@@ -24,6 +24,13 @@ import Synchronization
 /// está acotada por `reconciliationTimeoutS`: al agotarse, cuenta como sin dato y libera los
 /// comandos. Sin dato, y solo con un gap de background pendiente, estima con el
 /// `GapEstimator`.
+///
+/// **Recuperación (1.6, AD-9, AD-18).** Es el único escritor de `activeSession.json`: guarda
+/// un snapshot al iniciar, pausar, reanudar, pasar a background y reconciliar, y con la
+/// muestra que llega al menos `autosaveIntervalS` después del último guardado; lo borra al
+/// finalizar. Nunca con un temporizador (AD-21): quieto no hay muestras ni escrituras.
+/// `restoreOnLaunch()` lo lee al arrancar: restaura y reconcilia la sesión antes de
+/// presentarla, o cierra la huérfana en su último dato real.
 @MainActor
 @Observable
 final class SessionStore {
@@ -83,6 +90,10 @@ final class SessionStore {
     private(set) var isReconciling = false
     /// "Descartar" pidió confirmación y el diálogo está en pantalla (AD-20).
     private(set) var isConfirmingDiscard = false
+    /// La sesión se acaba de restaurar al relanzar la app: la vista muestra "Sesión
+    /// recuperada" 3 s y después llama a `dismissRecoveredNotice()`. Volver de background
+    /// nunca lo enciende.
+    private(set) var showsRecoveredNotice = false
 
     @ObservationIgnored private let clock: any ClockPort
     @ObservationIgnored private let motion: any MotionPort
@@ -91,6 +102,10 @@ final class SessionStore {
     @ObservationIgnored private let strideM: Double
     /// Tope de la reconciliación (AD-8), de `formulas.json`. Provisional hasta la 8.4.
     @ObservationIgnored private let reconciliationTimeoutS: TimeInterval
+    /// Snapshot de la sesión viva (AD-9). Este store es su único escritor (AD-16).
+    @ObservationIgnored private let storage: any StoragePort
+    /// Umbral de la sesión huérfana (AD-18), de `formulas.json`. Provisional hasta la 8.4.
+    @ObservationIgnored private let orphanSessionThresholdS: TimeInterval
     /// Inicio del tramo en curso: el de la sesión o el de la última reanudación. La
     /// consulta de la reconciliación cubre `[segmentStart, ahora]`, con la misma semántica
     /// acumulada que el stream.
@@ -105,15 +120,35 @@ final class SessionStore {
     /// distancia desde su propio inicio, así que la de la sesión es esta base más la del
     /// tramo: sigue siendo acumulada desde el inicio y nunca baja.
     @ObservationIgnored private var distanceBaseM: Double = 0
+    /// `end` de la última muestra que sumó pasos: el último dato real del coprocesador, que
+    /// recorta una sesión huérfana (AD-18).
+    @ObservationIgnored private var lastSampleAt: Date?
+    /// Instante del último snapshot guardado, para espaciar el autosave por muestras.
+    @ObservationIgnored private var lastSavedAt: Date?
+    /// `restoreOnLaunch()` ya corrió: relanzar la tarea de la escena no restaura dos veces.
+    @ObservationIgnored private var didAttemptRestore = false
     /// Consumo de `motion.updates(from:)`. Expuesto para que los tests esperen su final.
     @ObservationIgnored private(set) var stepCounting: Task<Void, Never>?
     @ObservationIgnored private let log = Logger(subsystem: "com.walktracker.app", category: "SessionStore")
 
-    init(clock: any ClockPort, motion: any MotionPort, strideM: Double, reconciliationTimeoutS: TimeInterval) {
+    /// Espacio mínimo entre dos guardados por muestras (AD-9, domain-model.md §8: "autosave
+    /// del snapshot cada 10 s").
+    static let autosaveIntervalS: TimeInterval = 10
+
+    init(
+        clock: any ClockPort,
+        motion: any MotionPort,
+        storage: any StoragePort,
+        strideM: Double,
+        reconciliationTimeoutS: TimeInterval,
+        orphanSessionThresholdS: TimeInterval
+    ) {
         self.clock = clock
         self.motion = motion
+        self.storage = storage
         self.strideM = strideM
         self.reconciliationTimeoutS = reconciliationTimeoutS
+        self.orphanSessionThresholdS = orphanSessionThresholdS
     }
 
     /// Tiempo transcurrido **leído del reloj** en cada lectura. El tick de 1 Hz de la
@@ -146,6 +181,7 @@ final class SessionStore {
         stopCountingSteps()
         self.session = session
         metrics = session.metrics(at: now)
+        persist()
     }
 
     /// "Reanudar": el tiempo sigue y se abre un stream nuevo desde el instante de
@@ -163,6 +199,7 @@ final class SessionStore {
         self.session = session
         metrics = session.metrics(at: now)
         countSteps(from: now)
+        persist()
     }
 
     /// "Finalizar": pide confirmación explícita antes de cerrar (AD-20). Solo con la
@@ -205,6 +242,7 @@ final class SessionStore {
         backgroundedAt = nil
         self.session = session
         metrics = session.metrics(at: now)
+        clearSnapshot()
     }
 
     /// "Descartar" en el Estimated Banner: pide confirmación explícita (AD-20). Solo con
@@ -233,14 +271,18 @@ final class SessionStore {
         }
         self.session = session
         metrics = session.metrics(at: clock.now)
+        persist()
     }
 
-    /// La app pasó a segundo plano: con la sesión activa, abre el gap pendiente de
-    /// reconciliar. Nunca pausa (CAP-1). Si ya hay uno pendiente (la app volvió a salir
-    /// mientras reconciliaba), lo conserva.
+    /// La app pasó a segundo plano: guarda el snapshot y, con la sesión activa, abre el gap
+    /// pendiente de reconciliar. Nunca pausa (CAP-1). Si ya hay un gap pendiente (la app
+    /// volvió a salir mientras reconciliaba), lo conserva.
     func appDidEnterBackground() {
-        guard session?.status == .active, backgroundedAt == nil else { return }
-        backgroundedAt = clock.now
+        guard let status = session?.status, status != .finished else { return }
+        if status == .active, backgroundedAt == nil {
+            backgroundedAt = clock.now
+        }
+        persist()
     }
 
     /// La app vuelve a primer plano: con un gap pendiente y la sesión activa, reconcilia
@@ -252,10 +294,17 @@ final class SessionStore {
             await reconcile(until: clock.now)
         }
         backgroundedAt = nil
+        persist()
     }
 
-    /// "Volver a Inicio" en el resumen: descarta la sesión finalizada (aún no hay
-    /// persistencia) y cierra el modo de sesión. Solo con la sesión `finished`.
+    /// "Sesión recuperada" ya estuvo en pantalla sus 3 s.
+    func dismissRecoveredNotice() {
+        showsRecoveredNotice = false
+    }
+
+    /// "Volver a Inicio" en el resumen: descarta la sesión finalizada, también la huérfana
+    /// cerrada al arrancar (el historial es de la 5.1), y cierra el modo de sesión. Solo con
+    /// la sesión `finished`.
     func leaveSummary() {
         guard !isReconciling, session?.status == .finished else { return }
         session = nil
@@ -264,6 +313,9 @@ final class SessionStore {
         isConfirmingDiscard = false
         segmentStart = nil
         backgroundedAt = nil
+        lastSampleAt = nil
+        lastSavedAt = nil
+        showsRecoveredNotice = false
         hasSession = false
     }
 
@@ -348,6 +400,7 @@ final class SessionStore {
             metrics = session.metrics(at: clock.now)
             hasSession = true
             countSteps(from: session.startedAt)
+            persist()
         } catch {
             startFailure = .invalidSession(error)
         }
@@ -356,10 +409,14 @@ final class SessionStore {
     /// Consume las muestras **acumuladas desde `start`** del coprocesador (AD-21): el
     /// inicio de la sesión o el de la reanudación. Lo dado en background entra al volver
     /// por la reconciliación (`appDidBecomeActive()`), sin esperar a la siguiente muestra.
-    private func countSteps(from start: Date) {
+    ///
+    /// Un tramo nuevo empieza sin pasos vistos y con la distancia de la sesión como base. Uno
+    /// restaurado (`restoring`) conserva el máximo visto y la base del snapshot: el stream
+    /// reabierto desde su inicio da acumulados que ya incluyen lo contado, y solo suma lo nuevo.
+    private func countSteps(from start: Date, restoring segment: (steps: Int, distanceBaseM: Double)? = nil) {
         segmentStart = start
-        highestCumulativeSteps = 0
-        distanceBaseM = session?.systemDistanceM ?? 0
+        highestCumulativeSteps = segment?.steps ?? 0
+        distanceBaseM = segment?.distanceBaseM ?? session?.systemDistanceM ?? 0
         isCountingSteps = true
         let updates = motion.updates(from: start)
         stepCounting = Task { [weak self] in
@@ -370,6 +427,152 @@ final class SessionStore {
                 self.record(sample)
             }
             self?.stepCountingEnded()
+        }
+    }
+
+    // MARK: - Recuperación (1.6, AD-9, AD-18)
+
+    /// Al arrancar la app: restaura en silencio la sesión del snapshot, si lo hay.
+    ///
+    /// Orden: leer → validar → huérfana o restaurar → reconciliar (solo activa) → presentar.
+    /// La sesión aparece ya consolidada, sin pantalla de carga: la espera la acota el timeout
+    /// de la reconciliación.
+    ///
+    /// - **Ilegible o inválido:** no se restaura; el snapshot se aparta (nunca se borra), se
+    ///   registra un `fault` e Inicio queda normal.
+    /// - **Huérfana** (`now − startedAt` > `orphanSessionThresholdS`): se cierra en el último
+    ///   dato real (`lastSampleAt`, o `startedAt` sin ninguno), nunca antes de la última
+    ///   reanudación (`segmentStart`), marcada `recovered`, sin
+    ///   consultar ni estimar. Queda en `session` para su resumen y el snapshot se borra.
+    /// - **Pausada:** vuelve pausada, con el tiempo congelado en `pausedAt`, sin consulta.
+    /// - **Activa:** reabre el tramo y reconcilia `[segmentStart, now]` con el gap pendiente
+    ///   desde `savedAt`, como la vuelta de background de la 1.5.
+    ///
+    /// Solo corre una vez, y no hace nada si ya hay una sesión.
+    func restoreOnLaunch() async {
+        guard !didAttemptRestore else { return }
+        didAttemptRestore = true
+        guard session == nil else { return }
+
+        let snapshot: ActiveSessionSnapshot
+        do {
+            guard let loaded = try storage.loadActiveSession() else { return }
+            snapshot = loaded
+        } catch .failed(let operation) {
+            log.fault("No se pudo leer el snapshot de la sesión (\(operation, privacy: .public)); sigue en su sitio")
+            return
+        } catch {
+            log.fault("Snapshot de la sesión ilegible, apartado: \(String(describing: error), privacy: .public)")
+            return
+        }
+
+        let restored: Session
+        do {
+            guard snapshot.segmentSteps >= 0 else { throw DomainError.invalidValue(field: "segmentSteps") }
+            guard snapshot.distanceBaseM.isFinite, snapshot.distanceBaseM >= 0 else {
+                throw DomainError.invalidValue(field: "distanceBaseM")
+            }
+            restored = try Session.restore(
+                startedAt: snapshot.startedAt,
+                stepsMeasured: snapshot.stepsMeasured,
+                stepsEstimated: snapshot.stepsEstimated,
+                totalPausesS: snapshot.totalPausesS,
+                paused: snapshot.paused,
+                pausedAt: snapshot.pausedAt,
+                strideM: snapshot.strideM,
+                systemDistanceM: snapshot.systemDistanceM
+            )
+        } catch {
+            log.fault("Snapshot de la sesión rechazado en la frontera: \(String(describing: error), privacy: .public)")
+            do {
+                try storage.setAsideActiveSession()
+            } catch {
+                log.error("No se pudo apartar el snapshot rechazado: \(String(describing: error), privacy: .public)")
+            }
+            return
+        }
+
+        let now = clock.now
+        if now.timeIntervalSince(snapshot.startedAt) > orphanSessionThresholdS {
+            // Nunca antes de la última reanudación: toda pausa cerrada queda antes del recorte,
+            // y restar `totalPausesS` no se come tiempo andado antes del último dato.
+            closeOrphan(restored, at: max(snapshot.lastSampleAt ?? snapshot.startedAt, snapshot.segmentStart))
+            return
+        }
+
+        session = restored
+        metrics = restored.metrics(at: now)
+        lastSampleAt = snapshot.lastSampleAt
+        segmentStart = snapshot.segmentStart
+        highestCumulativeSteps = snapshot.segmentSteps
+        distanceBaseM = snapshot.distanceBaseM
+        if restored.status == .active {
+            countSteps(from: snapshot.segmentStart, restoring: (snapshot.segmentSteps, snapshot.distanceBaseM))
+            backgroundedAt = snapshot.savedAt
+            await reconcile(until: now)
+            backgroundedAt = nil
+        }
+        guard let current = session, current.status != .finished else { return }
+        metrics = current.metrics(at: clock.now)
+        log.info("Sesión recuperada: \(current.status.rawValue, privacy: .public)")
+        showsRecoveredNotice = true
+        hasSession = true
+        persist()
+    }
+
+    /// Cierra la huérfana en `end` y la deja en `session` para su resumen. El snapshot se
+    /// borra: como la finalizada, se descarta al salir del resumen.
+    private func closeOrphan(_ orphan: Session, at end: Date) {
+        var closed = orphan
+        do {
+            try closed.closeOrphan(at: end)
+        } catch {
+            // Inalcanzable: `restore` solo da sesiones activas o pausadas.
+            log.fault("No se pudo cerrar la sesión huérfana: \(String(describing: error), privacy: .public)")
+            return
+        }
+        log.info("Sesión huérfana cerrada en su último dato real")
+        session = closed
+        metrics = closed.metrics(at: end)
+        hasSession = true
+        clearSnapshot()
+    }
+
+    /// Guarda el snapshot de la sesión viva. Nunca a mitad de una reconciliación, que aún no
+    /// ha consolidado los pasos del gap: al terminar se guarda. Un fallo se registra y el
+    /// siguiente evento lo reintenta.
+    private func persist() {
+        guard !isReconciling, let session, session.status != .finished else { return }
+        let now = clock.now
+        let snapshot = ActiveSessionSnapshot(
+            startedAt: session.startedAt,
+            stepsMeasured: session.stepsMeasured,
+            stepsEstimated: session.stepsEstimated,
+            totalPausesS: session.totalPausesS,
+            paused: session.status == .paused,
+            pausedAt: session.pausedAt,
+            strideM: session.strideM,
+            systemDistanceM: session.systemDistanceM,
+            savedAt: now,
+            lastSampleAt: lastSampleAt,
+            segmentStart: segmentStart ?? session.startedAt,
+            segmentSteps: highestCumulativeSteps,
+            distanceBaseM: distanceBaseM
+        )
+        do {
+            try storage.saveActiveSession(snapshot)
+            lastSavedAt = now
+        } catch {
+            log.error("No se pudo guardar el snapshot de la sesión: \(String(describing: error), privacy: .public)")
+        }
+    }
+
+    /// Borra el snapshot al cerrar la sesión: relanzar ya no la restaura.
+    private func clearSnapshot() {
+        do {
+            try storage.clearActiveSession()
+        } catch {
+            log.error("No se pudo borrar el snapshot de la sesión: \(String(describing: error), privacy: .public)")
         }
     }
 
@@ -407,7 +610,7 @@ final class SessionStore {
         // estado: los comandos están rechazados mientras reconcilia.
         guard var session, session.status == .active else { return }
         if let sample, sample.steps >= seen {
-            record(sample)
+            record(sample, fromQuery: true)
             return
         }
         // Si el stream avanzó durante la consulta, su acumulado ya cubre el gap: el sistema sí
@@ -466,11 +669,16 @@ final class SessionStore {
     /// Aplica pasos y distancia de la muestra y recalcula las métricas en `clock.now`.
     /// Un fallo de una parte no impide la otra: una distancia inválida se registra y el
     /// conteo sigue.
-    private func record(_ sample: PedometerSample) {
+    ///
+    /// Solo una muestra del stream mueve `lastSampleAt`: la de la consulta (`fromQuery`)
+    /// termina en el instante pedido (volver o relanzar), no en el último paso real, y
+    /// recortar ahí una huérfana contaría como caminadas las horas quietas.
+    private func record(_ sample: PedometerSample, fromQuery: Bool = false) {
         guard session?.status == .active else { return }
         if sample.steps > highestCumulativeSteps {
             let increment = sample.steps - highestCumulativeSteps
             highestCumulativeSteps = sample.steps
+            if !fromQuery { lastSampleAt = sample.end }
             do {
                 try session?.addMeasuredSteps(increment)
             } catch {
@@ -486,6 +694,8 @@ final class SessionStore {
             }
         }
         metrics = session?.metrics(at: clock.now)
+        if let lastSavedAt, clock.now.timeIntervalSince(lastSavedAt) < Self.autosaveIntervalS { return }
+        persist()
     }
 
     /// El stream terminó sin que nadie lo cancelara: el sistema detuvo el podómetro.

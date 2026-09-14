@@ -8,19 +8,27 @@ struct WalkTrackerApp: App {
 
     var body: some Scene {
         WindowGroup {
-            #if DEBUG
-            RootView(store: root.sessionStore) {
-                NativeLayerDiagnosticsView(
-                    clock: root.clock,
-                    motion: root.motion,
-                    feedback: root.feedback,
-                    health: root.health,
-                    liveActivity: root.liveActivity
-                )
-            }
-            #else
-            RootView(store: root.sessionStore)
-            #endif
+            rootView
+                // Al arrancar, la sesión del snapshot se restaura en silencio (1.6): el store
+                // la presenta ya reconciliada, sin pantalla de carga.
+                .task { await root.sessionStore.restoreOnLaunch() }
         }
+    }
+
+    @ViewBuilder
+    private var rootView: some View {
+        #if DEBUG
+        RootView(store: root.sessionStore) {
+            NativeLayerDiagnosticsView(
+                clock: root.clock,
+                motion: root.motion,
+                feedback: root.feedback,
+                health: root.health,
+                liveActivity: root.liveActivity
+            )
+        }
+        #else
+        RootView(store: root.sessionStore)
+        #endif
     }
 }

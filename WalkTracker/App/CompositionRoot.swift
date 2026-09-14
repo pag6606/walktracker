@@ -20,6 +20,9 @@ struct CompositionRoot {
     let health: any HealthPort
     /// Live Activity de la sesión (CAP-18).
     let liveActivity: any LiveActivityPort
+    /// Snapshot de la sesión viva en Application Support (AD-9). Solo lo escribe
+    /// `SessionStore` (AD-16).
+    let storage: any StoragePort
     /// Catálogo de los 14 logros, ya validado (AD-5, CAP-8).
     let achievementCatalog: AchievementCatalog
     /// Constantes de fórmula de `formulas.json`, ya validadas.
@@ -33,6 +36,7 @@ struct CompositionRoot {
         feedback: any FeedbackPort = FeedbackAdapter(),
         health: any HealthPort = HealthAdapter(),
         liveActivity: any LiveActivityPort = LiveActivityAdapter(),
+        storage: any StoragePort = ActiveSessionFileAdapter(),
         achievementCatalog: AchievementCatalog? = nil,
         formulas: Formulas? = nil
     ) {
@@ -41,14 +45,17 @@ struct CompositionRoot {
         self.feedback = feedback
         self.health = health
         self.liveActivity = liveActivity
+        self.storage = storage
         self.achievementCatalog = achievementCatalog ?? Self.bundledAchievementCatalogOrTerminate()
         let formulas = formulas ?? Self.bundledFormulasOrTerminate()
         self.formulas = formulas
         self.sessionStore = SessionStore(
             clock: clock,
             motion: motion,
+            storage: storage,
             strideM: formulas.defaultStrideM,
-            reconciliationTimeoutS: formulas.reconciliationTimeoutS
+            reconciliationTimeoutS: formulas.reconciliationTimeoutS,
+            orphanSessionThresholdS: formulas.orphanSessionThresholdS
         )
     }
 

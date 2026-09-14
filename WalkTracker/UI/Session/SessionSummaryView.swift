@@ -10,6 +10,8 @@ struct FinishedWalk: Equatable {
     let estimatedSteps: Int
     let paceSecPerKm: Int?
     let cadenceSpm: Double
+    /// Sesión huérfana que la app cerró sola al arrancar (AD-18).
+    var recovered = false
 }
 
 /// Resumen mínimo tras finalizar (decisión de Paul, 1.4): distancia, tiempo, pasos, ritmo
@@ -19,6 +21,10 @@ struct FinishedWalk: Equatable {
 /// Solo pinta magnitudes que produce el dominio (AD-22): nada de Salud, logros, kcal ni
 /// "Nueva caminata"; el resumen completo no tiene aún historia dueña. Los pasos estimados
 /// se muestran desglosados con "~", sin descarte: la sesión finalizada es inmutable.
+///
+/// Una sesión huérfana cerrada al arrancar (1.6, AD-18) usa el mismo resumen como "Caminata
+/// recuperada", con una nota de que se cerró sola en el último paso registrado. Sin logros
+/// ni celebración.
 struct SessionSummaryView: View {
 
     let walk: FinishedWalk
@@ -28,11 +34,18 @@ struct SessionSummaryView: View {
         GeometryReader { proxy in
             ScrollView {
                 VStack(spacing: 8) {
-                    Text("Caminata completada")
+                    Text(walk.recovered ? "Caminata recuperada" : "Caminata completada")
                         .font(.title2.bold())
                         .multilineTextAlignment(.center)
                         .accessibilityAddTraits(.isHeader)
                         .padding(.top)
+
+                    if walk.recovered {
+                        Text("Se cerró sola en el último paso registrado.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
 
                     Spacer(minLength: 24)
 

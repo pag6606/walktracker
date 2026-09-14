@@ -74,7 +74,8 @@ else
         -only-testing:WalkTrackerTests/StepCountingScenarios \
         -only-testing:WalkTrackerTests/MetricsScenarios \
         -only-testing:WalkTrackerTests/SessionLifecycleScenarios \
-        -only-testing:WalkTrackerTests/GapReconstructionScenarios) >"$LOG" 2>&1
+        -only-testing:WalkTrackerTests/GapReconstructionScenarios \
+        -only-testing:WalkTrackerTests/SessionRecoveryScenarios) >"$LOG" 2>&1
     status=$?
 
     grep -E '^[[:space:]]*(✘|✔ Suite)|AD-6 · Swift|error:|Test run with' "$LOG" | sed 's/^/  /'

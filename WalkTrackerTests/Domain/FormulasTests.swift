@@ -14,7 +14,8 @@ struct FormulasTests {
             "schemaVersion": "1",
             "defaultStrideM": "0.655",
             "reconciliationTimeoutS": "3",
-            "provisional": #"["reconciliationTimeoutS"]"#,
+            "orphanSessionThresholdS": "21600",
+            "provisional": #"["reconciliationTimeoutS", "orphanSessionThresholdS"]"#,
         ]
         fields.merge(overrides) { $1 }
         let body = fields.sorted { $0.key < $1.key }.map { #""\#($0.key)": \#($0.value)"# }.joined(separator: ", ")
@@ -24,9 +25,16 @@ struct FormulasTests {
     private static func formulas(
         defaultStrideM: Double = 0.655,
         reconciliationTimeoutS: Double = 3,
-        provisional: [String] = ["reconciliationTimeoutS"]
+        orphanSessionThresholdS: Double = 21_600,
+        provisional: [String] = ["reconciliationTimeoutS", "orphanSessionThresholdS"]
     ) -> Formulas {
-        Formulas(schemaVersion: 1, defaultStrideM: defaultStrideM, reconciliationTimeoutS: reconciliationTimeoutS, provisional: provisional)
+        Formulas(
+            schemaVersion: 1,
+            defaultStrideM: defaultStrideM,
+            reconciliationTimeoutS: reconciliationTimeoutS,
+            orphanSessionThresholdS: orphanSessionThresholdS,
+            provisional: provisional
+        )
     }
 
     @Test("El fichero real valida y trae la zancada por defecto de domain.js:22")
@@ -42,6 +50,13 @@ struct FormulasTests {
         #expect(formulas.reconciliationTimeoutS == 3)
         #expect(formulas.provisional.contains("reconciliationTimeoutS"))
         #expect(!formulas.provisional.contains("defaultStrideM"), "la zancada es la portada de domain.js, no provisional")
+    }
+
+    @Test("El fichero real trae el umbral de sesión huérfana de AD-18: 6 h, marcado provisional hasta la 8.4")
+    func bundledOrphanThresholdIsProvisional() throws {
+        let formulas = try CompositionRoot.loadFormulas(from: .main)
+        #expect(formulas.orphanSessionThresholdS == 21_600)
+        #expect(formulas.provisional.contains("orphanSessionThresholdS"))
     }
 
     @Test("Un JSON completo decodifica")
@@ -81,8 +96,22 @@ struct FormulasTests {
         }
     }
 
+    @Test("Umbral de sesión huérfana ≤ 0: invalidValue(orphanSessionThresholdS)", arguments: ["0", "-21600"])
+    func nonPositiveOrphanThresholdThrows(value: String) {
+        #expect(throws: FormulasError.invalidValue(field: "orphanSessionThresholdS")) {
+            try Formulas.decode(from: Self.json(["orphanSessionThresholdS": value]))
+        }
+    }
+
+    @Test("Umbral de sesión huérfana no finito: invalidValue(orphanSessionThresholdS)", arguments: [Double.nan, .infinity])
+    func nonFiniteOrphanThresholdThrows(value: Double) {
+        #expect(throws: FormulasError.invalidValue(field: "orphanSessionThresholdS")) {
+            try Self.formulas(orphanSessionThresholdS: value).validate()
+        }
+    }
+
     @Test("provisional con un nombre que no es una constante: invalidValue(provisional)", arguments: [
-        ["reconciliationTimeout"], ["reconciliationTimeoutS", "orphanSessionThresholdS"], ["schemaVersion"],
+        ["reconciliationTimeout"], ["reconciliationTimeoutS", "orphanSessionThreshold"], ["schemaVersion"],
     ])
     func unknownProvisionalThrows(names: [String]) {
         #expect(throws: FormulasError.invalidValue(field: "provisional")) {
@@ -99,10 +128,11 @@ struct FormulasTests {
 
     @Test("Sin una constante o sin JSON: malformed, nunca un valor de reserva", arguments: [
         #"{ "schemaVersion": 1 }"#,
-        #"{ "schemaVersion": 1, "defaultStrideM": "0.655", "reconciliationTimeoutS": 3, "provisional": [] }"#,
-        #"{ "schemaVersion": 1, "defaultStrideM": 0.655, "provisional": [] }"#,
-        #"{ "schemaVersion": 1, "defaultStrideM": 0.655, "reconciliationTimeoutS": 3 }"#,
-        #"{ "schemaVersion": 1, "defaultStrideM": 0.655, "reconciliationTimeoutS": 3, "provisional": "reconciliationTimeoutS" }"#,
+        #"{ "schemaVersion": 1, "defaultStrideM": "0.655", "reconciliationTimeoutS": 3, "orphanSessionThresholdS": 21600, "provisional": [] }"#,
+        #"{ "schemaVersion": 1, "defaultStrideM": 0.655, "orphanSessionThresholdS": 21600, "provisional": [] }"#,
+        #"{ "schemaVersion": 1, "defaultStrideM": 0.655, "reconciliationTimeoutS": 3, "provisional": [] }"#,
+        #"{ "schemaVersion": 1, "defaultStrideM": 0.655, "reconciliationTimeoutS": 3, "orphanSessionThresholdS": 21600 }"#,
+        #"{ "schemaVersion": 1, "defaultStrideM": 0.655, "reconciliationTimeoutS": 3, "orphanSessionThresholdS": 21600, "provisional": "reconciliationTimeoutS" }"#,
         "no es json",
     ])
     func malformedThrows(json: String) {

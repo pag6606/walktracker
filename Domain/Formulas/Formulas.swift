@@ -25,17 +25,28 @@ public struct Formulas: Equatable, Sendable, Codable {
     /// la consulta cuenta como sin dato y los comandos se liberan. > 0 y finito.
     /// **Provisional**: la 8.4 lo sustituye por el medido.
     public let reconciliationTimeoutS: Double
+    /// Umbral en segundos de la sesión huérfana (AD-18): al arrancar, una sesión con
+    /// `now − startedAt` por encima no se restaura, se cierra recortada al último dato real.
+    /// > 0 y finito. **Provisional** (6 h, decisión de Paul en la 1.6): la 8.4 lo sustituye.
+    public let orphanSessionThresholdS: Double
     /// Nombres de las constantes cuyo valor aún es provisional (epic-1-context, Constantes
     /// provisionales). Cada nombre debe ser una constante de este fichero.
     public let provisional: [String]
 
     /// Las constantes que `provisional` puede nombrar.
-    public static let constantNames: Set<String> = ["defaultStrideM", "reconciliationTimeoutS"]
+    public static let constantNames: Set<String> = ["defaultStrideM", "reconciliationTimeoutS", "orphanSessionThresholdS"]
 
-    public init(schemaVersion: Int, defaultStrideM: Double, reconciliationTimeoutS: Double, provisional: [String]) {
+    public init(
+        schemaVersion: Int,
+        defaultStrideM: Double,
+        reconciliationTimeoutS: Double,
+        orphanSessionThresholdS: Double,
+        provisional: [String]
+    ) {
         self.schemaVersion = schemaVersion
         self.defaultStrideM = defaultStrideM
         self.reconciliationTimeoutS = reconciliationTimeoutS
+        self.orphanSessionThresholdS = orphanSessionThresholdS
         self.provisional = provisional
     }
 
@@ -63,6 +74,9 @@ public struct Formulas: Equatable, Sendable, Codable {
         }
         guard reconciliationTimeoutS.isFinite, reconciliationTimeoutS > 0 else {
             throw .invalidValue(field: "reconciliationTimeoutS")
+        }
+        guard orphanSessionThresholdS.isFinite, orphanSessionThresholdS > 0 else {
+            throw .invalidValue(field: "orphanSessionThresholdS")
         }
         guard provisional.allSatisfy(Self.constantNames.contains) else {
             throw .invalidValue(field: "provisional")

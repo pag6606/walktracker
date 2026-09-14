@@ -120,6 +120,9 @@
     "Caminata en curso": {
       "comment": "Única señal de sesión en curso, en la pantalla de sesión."
     },
+    "Caminata recuperada": {
+      "comment": "Título del resumen de una caminata que la app cerró sola al arrancar porque llevaba demasiado tiempo abierta (sesión huérfana)."
+    },
     "Cancelar": {
       "comment": "Acción de los diálogos de confirmación de Finalizar y de Descartar pasos estimados: cierra el diálogo sin cambiar nada."
     },
@@ -195,11 +198,17 @@
     "Ritmo": {
       "comment": "Etiqueta del ritmo (minutos por kilómetro) en la rejilla de la pantalla de sesión."
     },
+    "Se cerró sola en el último paso registrado.": {
+      "comment": "Nota bajo el título del resumen de una caminata recuperada: la app la cerró sola en el último paso que contó el sensor."
+    },
     "Sensor de movimiento no disponible": {
       "comment": "Título de la pantalla bloqueante en un dispositivo sin coprocesador de movimiento."
     },
     "Sensor de movimiento requerido": {
       "comment": "Título de la pantalla bloqueante con el permiso de Movimiento y forma física denegado o restringido."
+    },
+    "Sesión recuperada": {
+      "comment": "Indicador transitorio (3 s) bajo el título de la pantalla de sesión, y anuncio de VoiceOver, al restaurar la caminata tras relanzar la app."
     },
     "Sin ajustes": {
       "comment": "Ajustes vacío: todavía no hay ajustes."
