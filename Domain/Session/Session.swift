@@ -4,7 +4,8 @@ import Foundation
 ///
 /// Siempre válido: solo se materializa por `start(at:strideM:)`, que valida la zancada
 /// en la frontera. Sus campos no se escriben desde fuera; las mutaciones (pasos,
-/// pausas, cierre) entran como operaciones del agregado en las historias 1.2–1.4.
+/// pausas, cierre) entran como operaciones del agregado: pasos en la 1.2, pausas y
+/// cierre en la 1.4.
 ///
 /// `distanceM`, `paceSecPerKm` y `cadenceSpm` son derivadas y llegan con su cálculo en
 /// la 1.3 (AD-22: una métrica nueva exige antes su cálculo en el dominio).
@@ -50,6 +51,27 @@ public struct Session: Equatable, Sendable {
         guard strideM.isFinite, strideM > 0 else {
             throw .invalidValue(field: "strideM")
         }
+    }
+
+    /// Suma pasos medidos por el coprocesador (`domain.js:316` `addSteps`).
+    ///
+    /// Recibe un **incremento**, no el acumulado del podómetro: convertir muestras
+    /// acumuladas en incrementos es de quien las consume (`SessionStore`). `0` no cambia
+    /// nada. La distancia que recalcula el JS no se porta aquí: llega con su cálculo en
+    /// la 1.3 (AD-22).
+    ///
+    /// - Throws: `DomainError.invalidTransition` si la sesión no está `active` (una
+    ///   pausada o finalizada no cuenta pasos); `DomainError.invalidValue(field: "steps")`
+    ///   si `count` es negativo o desbordaría el contador. En ambos casos no muta.
+    public mutating func addMeasuredSteps(_ count: Int) throws(DomainError) {
+        guard status == .active else {
+            throw .invalidTransition(from: status.rawValue, to: "addMeasuredSteps")
+        }
+        guard count >= 0 else { throw .invalidValue(field: "steps") }
+        guard count > 0 else { return }
+        let (total, overflow) = stepsMeasured.addingReportingOverflow(count)
+        guard !overflow else { throw .invalidValue(field: "steps") }
+        stepsMeasured = total
     }
 
     /// Tiempo transcurrido en `now`, que el llamante lee de `ClockPort`.

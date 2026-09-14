@@ -1,14 +1,52 @@
 {
   "sourceLanguage": "es",
   "strings": {
+    "%lld pasos": {
+      "comment": "Lectura de VoiceOver de los pasos medidos en la pantalla de sesión: la magnitud completa.",
+      "localizations": {
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld paso"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld pasos"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Abrir Ajustes": {
+      "comment": "Botón de la pantalla bloqueante: abre los ajustes de la app para conceder Movimiento y forma física."
+    },
     "Aceptar": {
       "comment": "Botón que cierra la alerta de inicio fallido."
+    },
+    "Ahora no": {
+      "comment": "Botón de la pre-pantalla: vuelve a Inicio sin pedir el permiso ni iniciar la caminata."
     },
     "Ajustes": {
       "comment": "Pestaña Ajustes del TabView (AD-14) y título de su pantalla."
     },
     "Caminata en curso": {
       "comment": "Única señal de sesión en curso, en la pantalla de sesión."
+    },
+    "Continuar": {
+      "comment": "Botón de la pre-pantalla: pide el permiso de Movimiento y forma física al sistema."
+    },
+    "Cuenta tus pasos": {
+      "comment": "Título de la pre-pantalla que explica el permiso de Movimiento y forma física antes de pedirlo (AD-11)."
+    },
+    "Este dispositivo no puede contar pasos: no tiene el sensor de movimiento que WalkTracker necesita.": {
+      "comment": "Explicación de la pantalla bloqueante en un dispositivo sin coprocesador de movimiento."
     },
     "Historial": {
       "comment": "Pestaña Historial del TabView (AD-14) y título de su pantalla."
@@ -29,7 +67,16 @@
       "comment": "Descripción de la pestaña de logros vacía."
     },
     "No se pudo iniciar la caminata": {
-      "comment": "Alerta si el dominio rechaza crear la sesión."
+      "comment": "Alerta si no se abre la sesión: el dominio la rechaza o el permiso de Movimiento y forma física queda sin decidir tras pedirlo."
+    },
+    "Pasos": {
+      "comment": "Etiqueta de los pasos medidos en la pantalla de sesión."
+    },
+    "Sensor de movimiento no disponible": {
+      "comment": "Título de la pantalla bloqueante en un dispositivo sin coprocesador de movimiento."
+    },
+    "Sensor de movimiento requerido": {
+      "comment": "Título de la pantalla bloqueante con el permiso de Movimiento y forma física denegado o restringido."
     },
     "Sin ajustes": {
       "comment": "Ajustes vacío: todavía no hay ajustes."
@@ -45,6 +92,15 @@
     },
     "Todavía no hay nada que ajustar.": {
       "comment": "Descripción de la pestaña de ajustes vacía."
+    },
+    "Volver al inicio": {
+      "comment": "Botón de la pantalla bloqueante: vuelve a Inicio sin sesión."
+    },
+    "WalkTracker necesita acceso a Movimiento y forma física para contar tus pasos. Actívalo en Ajustes.": {
+      "comment": "Explicación de la pantalla bloqueante con el permiso denegado o restringido."
+    },
+    "WalkTracker usa el sensor de movimiento del iPhone para contar tus pasos, también con la pantalla bloqueada y el teléfono en el bolsillo. A continuación, iOS te pedirá acceso a Movimiento y forma física.": {
+      "comment": "Explicación de la pre-pantalla del permiso de Movimiento y forma física."
     }
   },
   "version": "1.0"
