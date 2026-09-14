@@ -21,3 +21,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-2-conteo-pasos-coprocesador.md`
   summary: Verificar que `HomeView` relee el permiso de Motion al volver a primer plano desde Ajustes y cierra la pantalla bloqueante a Inicio sin sesión.
   evidence: Hueco de verificación de la revisión de la 1.2 (VG, hallazgo 19): borrar el `.onChange(of: scenePhase)` o cambiar la fase deja todos los tests en verde, porque los tests llaman a `motionStatusMayHaveChanged()` directamente y el proyecto no tiene target de UI tests; los checks manuales de la 1.2 no cubren "denegar → Abrir Ajustes → conceder → volver".
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-3-metricas-en-vivo.md`
+  summary: Comprobar si CoreMotion alterna muestras con y sin `distance` en una misma sesión; si lo hace, la distancia visible puede bajar (pasos → sistema menor) o congelarse (sistema → nil) y hay que reconciliar las dos fuentes.
+  evidence: Hallazgos 1, 2 y 26 de la revisión de la 1.3 (maybe-false, medium si es real). `Session.metrics(at:)` usa `systemDistanceM` en cuanto existe y los pasos solo si nunca llegó. Lo zanja registrar las muestras (`steps`, `distance`) de una caminata real en el iPhone 14.

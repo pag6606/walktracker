@@ -1,6 +1,9 @@
 {
   "sourceLanguage": "es",
   "strings": {
+    "%@ por kilómetro": {
+      "comment": "Lectura de VoiceOver del ritmo: una duración (\"19 minutos y 5 segundos\") por kilómetro."
+    },
     "%lld pasos": {
       "comment": "Lectura de VoiceOver de los pasos medidos en la pantalla de sesión: la magnitud completa.",
       "localizations": {
@@ -24,6 +27,32 @@
         }
       }
     },
+    "%lld pasos por minuto": {
+      "comment": "Lectura de VoiceOver de la cadencia en la pantalla de sesión: la magnitud completa.",
+      "localizations": {
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld paso por minuto"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld pasos por minuto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/km": {
+      "comment": "Unidad visible del ritmo en la rejilla de la pantalla de sesión (por kilómetro)."
+    },
     "Abrir Ajustes": {
       "comment": "Botón de la pantalla bloqueante: abre los ajustes de la app para conceder Movimiento y forma física."
     },
@@ -36,6 +65,9 @@
     "Ajustes": {
       "comment": "Pestaña Ajustes del TabView (AD-14) y título de su pantalla."
     },
+    "Cadencia": {
+      "comment": "Etiqueta de la cadencia (pasos por minuto) en la rejilla de la pantalla de sesión."
+    },
     "Caminata en curso": {
       "comment": "Única señal de sesión en curso, en la pantalla de sesión."
     },
@@ -44,6 +76,9 @@
     },
     "Cuenta tus pasos": {
       "comment": "Título de la pre-pantalla que explica el permiso de Movimiento y forma física antes de pedirlo (AD-11)."
+    },
+    "Distancia": {
+      "comment": "Etiqueta de VoiceOver de la distancia recorrida, la métrica principal de la pantalla de sesión."
     },
     "Este dispositivo no puede contar pasos: no tiene el sensor de movimiento que WalkTracker necesita.": {
       "comment": "Explicación de la pantalla bloqueante en un dispositivo sin coprocesador de movimiento."
@@ -72,6 +107,9 @@
     "Pasos": {
       "comment": "Etiqueta de los pasos medidos en la pantalla de sesión."
     },
+    "Ritmo": {
+      "comment": "Etiqueta del ritmo (minutos por kilómetro) en la rejilla de la pantalla de sesión."
+    },
     "Sensor de movimiento no disponible": {
       "comment": "Título de la pantalla bloqueante en un dispositivo sin coprocesador de movimiento."
     },
@@ -87,6 +125,9 @@
     "Sin logros": {
       "comment": "Logros vacío: aún no hay logros desbloqueados."
     },
+    "Sin ritmo hasta los 100 metros": {
+      "comment": "Lectura de VoiceOver del ritmo cuando aún no existe: por debajo de 100 m."
+    },
     "Tiempo": {
       "comment": "Etiqueta del tiempo transcurrido en la pantalla de sesión."
     },
@@ -101,6 +142,12 @@
     },
     "WalkTracker usa el sensor de movimiento del iPhone para contar tus pasos, también con la pantalla bloqueada y el teléfono en el bolsillo. A continuación, iOS te pedirá acceso a Movimiento y forma física.": {
       "comment": "Explicación de la pre-pantalla del permiso de Movimiento y forma física."
+    },
+    "km": {
+      "comment": "Unidad visible de la distancia en la pantalla de sesión (kilómetros)."
+    },
+    "spm": {
+      "comment": "Unidad visible de la cadencia en la rejilla de la pantalla de sesión (pasos por minuto)."
     }
   },
   "version": "1.0"

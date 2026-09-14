@@ -183,8 +183,12 @@ struct VectorHarness: Sendable {
     /// romper `verify-domain.sh` si fallan.
     ///
     /// - `elapsedS` (1.1): `Chronometer.elapsedS`.
+    /// - `v3distance`, `pace` y `calculateCadence` (1.3): `MetricsCalculator`.
     static let swiftDomain = VectorHarness(implementations: [
         "elapsedS": SwiftDomainPorts.elapsedS,
+        "v3distance": SwiftDomainPorts.v3distance,
+        "pace": SwiftDomainPorts.pace,
+        "calculateCadence": SwiftDomainPorts.calculateCadence,
     ])
 
     let implementations: [String: VectorImplementation]
@@ -255,6 +259,56 @@ enum SwiftDomainPorts {
             now: Date(timeIntervalSince1970: nowMs / 1000)
         )
         return .number(elapsed)
+    }
+
+    /// `MetricsCalculator.distanceM`. Los pasos del vector son enteros: uno que no lo sea
+    /// rompe el vector con su motivo.
+    static let v3distance: VectorImplementation = { vector in
+        let input = vector.input
+        guard let strideM = input["strideM"]?.double else {
+            throw VectorInputError(description: "v3distance: falta strideM")
+        }
+        let distance = try MetricsCalculator.distanceM(
+            stepsMeasured: try integer(input, "stepsMeasured", in: "v3distance"),
+            stepsEstimated: try integer(input, "stepsEstimated", in: "v3distance"),
+            strideM: strideM
+        )
+        return .number(distance)
+    }
+
+    /// `MetricsCalculator.paceSecPerKm`. La v3 recibe `durationS` y `pausesS` por
+    /// separado; el dominio Swift, el tiempo en movimiento: `durationS − pausesS`. Un
+    /// ritmo ausente es `null`.
+    static let pace: VectorImplementation = { vector in
+        let input = vector.input
+        guard let durationS = input["durationS"]?.double,
+              let pausesS = input["pausesS"]?.double,
+              let distanceM = input["distanceM"]?.double
+        else {
+            throw VectorInputError(description: "pace: faltan durationS, pausesS o distanceM")
+        }
+        let pace = try MetricsCalculator.paceSecPerKm(movingS: durationS - pausesS, distanceM: distanceM)
+        return pace.map { .number(Double($0)) } ?? .null
+    }
+
+    /// `MetricsCalculator.cadenceSpm`.
+    static let calculateCadence: VectorImplementation = { vector in
+        let input = vector.input
+        guard let activeSeconds = input["activeSeconds"]?.double else {
+            throw VectorInputError(description: "calculateCadence: falta activeSeconds")
+        }
+        let cadence = try MetricsCalculator.cadenceSpm(
+            stepsMeasured: try integer(input, "stepsMeasured", in: "calculateCadence"),
+            activeSeconds: activeSeconds
+        )
+        return .number(cadence)
+    }
+
+    private static func integer(_ input: JSONValue, _ key: String, in function: String) throws -> Int {
+        guard let value = input[key]?.double, let integer = Int(exactly: value) else {
+            throw VectorInputError(description: "\(function): \(key) falta o no es un entero")
+        }
+        return integer
     }
 }
 
