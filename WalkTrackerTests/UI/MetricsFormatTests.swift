@@ -69,3 +69,23 @@ struct MetricsFormatTests {
         #expect(CadenceFormat.spoken(1, locale: Self.es) == "1 paso por minuto")
     }
 }
+
+/// El desglose de pasos estimados de la celda (1.5): nunca se suman a los medidos.
+@MainActor
+@Suite("Celda de pasos · desglose de estimados")
+struct MetricCellStepsTests {
+
+    @Test("Con estimados: el valor son solo los medidos y el desglose, \"~236\"")
+    func withEstimated() {
+        let cell = MetricCell.steps(4100, estimated: 236)
+        #expect(cell.value == 4100.formatted(.number))
+        #expect(cell.estimate == "~236")
+    }
+
+    @Test("Sin estimados (o tras descartarlos) no hay desglose, ni \"~0\"")
+    func withoutEstimated() {
+        #expect(MetricCell.steps(4100).estimate == nil)
+        #expect(MetricCell.steps(4100, estimated: 0).estimate == nil)
+        #expect(MetricCell.steps(4100, estimated: 0).value == 4100.formatted(.number))
+    }
+}

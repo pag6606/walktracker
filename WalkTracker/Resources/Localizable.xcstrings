@@ -4,8 +4,31 @@
     "%@ por kilómetro": {
       "comment": "Lectura de VoiceOver del ritmo: una duración (\"19 minutos y 5 segundos\") por kilómetro."
     },
+    "%lld estimados": {
+      "comment": "Lectura de VoiceOver de los pasos estimados en la celda de pasos, en la pantalla de sesión y en el resumen, tras los medidos: \"4100 pasos, 236 estimados\".",
+      "localizations": {
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld estimado"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld estimados"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld pasos": {
-      "comment": "Lectura de VoiceOver de los pasos medidos en la pantalla de sesión: la magnitud completa.",
+      "comment": "Lectura de VoiceOver de los pasos medidos en la celda de pasos, en la pantalla de sesión y en el resumen: la magnitud completa.",
       "localizations": {
         "es": {
           "variations": {
@@ -20,6 +43,29 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "%lld pasos"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld pasos estimados": {
+      "comment": "Estimated Banner de la pantalla de sesión: pasos que el GapEstimator estimó porque el sistema no tenía el dato del intervalo en segundo plano. Va precedido de un \"~\" naranja.",
+      "localizations": {
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld paso estimado"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld pasos estimados"
                 }
               }
             }
@@ -75,13 +121,22 @@
       "comment": "Única señal de sesión en curso, en la pantalla de sesión."
     },
     "Cancelar": {
-      "comment": "Acción del diálogo de confirmación de Finalizar: cierra el diálogo y la sesión sigue igual."
+      "comment": "Acción de los diálogos de confirmación de Finalizar y de Descartar pasos estimados: cierra el diálogo sin cambiar nada."
     },
     "Continuar": {
       "comment": "Botón de la pre-pantalla: pide el permiso de Movimiento y forma física al sistema."
     },
     "Cuenta tus pasos": {
       "comment": "Título de la pre-pantalla que explica el permiso de Movimiento y forma física antes de pedirlo (AD-11)."
+    },
+    "Del intervalo que el sistema no pudo reconstruir": {
+      "comment": "Explicación del Estimated Banner: de dónde salen los pasos estimados."
+    },
+    "Descartar": {
+      "comment": "Botón del Estimated Banner: pide confirmación para descartar los pasos estimados."
+    },
+    "Descartar pasos estimados": {
+      "comment": "Acción destructiva del diálogo de confirmación: descarta los pasos estimados y recalcula distancia y ritmo."
     },
     "Distancia": {
       "comment": "Etiqueta de VoiceOver de la distancia recorrida, la métrica principal de la pantalla de sesión."
@@ -107,6 +162,9 @@
     "Inicio": {
       "comment": "Pestaña Inicio del TabView (AD-14) y título de su pantalla."
     },
+    "La distancia y el ritmo se recalcularán sin ellos. No se puede deshacer.": {
+      "comment": "Mensaje del diálogo de confirmación de Descartar: descartar los pasos estimados es irreversible."
+    },
     "Las caminatas que termines aparecerán aquí.": {
       "comment": "Descripción del historial vacío."
     },
@@ -130,6 +188,9 @@
     },
     "Reanudar": {
       "comment": "Botón de la pantalla de sesión en pausa: reanuda la caminata y el tiempo sigue."
+    },
+    "Recuperando los pasos del rato en segundo plano. Los controles vuelven en un momento.": {
+      "comment": "Aviso de la pantalla de sesión mientras se reconcilian los pasos del intervalo en segundo plano (AD-8), solo si tarda más de medio segundo. Los controles están deshabilitados."
     },
     "Ritmo": {
       "comment": "Etiqueta del ritmo (minutos por kilómetro) en la rejilla de la pantalla de sesión."
@@ -172,6 +233,9 @@
     },
     "spm": {
       "comment": "Unidad visible de la cadencia en la rejilla de la pantalla de sesión (pasos por minuto)."
+    },
+    "¿Descartar los pasos estimados?": {
+      "comment": "Título del diálogo de confirmación al pulsar Descartar en el Estimated Banner."
     },
     "¿Finalizar la caminata?": {
       "comment": "Título del diálogo de confirmación al pulsar Finalizar en la pantalla de sesión."

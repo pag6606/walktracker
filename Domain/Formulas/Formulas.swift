@@ -21,10 +21,22 @@ public struct Formulas: Equatable, Sendable, Codable {
     public let schemaVersion: Int
     /// Zancada por defecto en metros (`domain.js:22` `DEFAULT_STRIDE`).
     public let defaultStrideM: Double
+    /// Tope en segundos de la reconciliación atómica del background (AD-8): al agotarse,
+    /// la consulta cuenta como sin dato y los comandos se liberan. > 0 y finito.
+    /// **Provisional**: la 8.4 lo sustituye por el medido.
+    public let reconciliationTimeoutS: Double
+    /// Nombres de las constantes cuyo valor aún es provisional (epic-1-context, Constantes
+    /// provisionales). Cada nombre debe ser una constante de este fichero.
+    public let provisional: [String]
 
-    public init(schemaVersion: Int, defaultStrideM: Double) {
+    /// Las constantes que `provisional` puede nombrar.
+    public static let constantNames: Set<String> = ["defaultStrideM", "reconciliationTimeoutS"]
+
+    public init(schemaVersion: Int, defaultStrideM: Double, reconciliationTimeoutS: Double, provisional: [String]) {
         self.schemaVersion = schemaVersion
         self.defaultStrideM = defaultStrideM
+        self.reconciliationTimeoutS = reconciliationTimeoutS
+        self.provisional = provisional
     }
 
     /// Decodifica y valida. Único punto de entrada desde datos.
@@ -48,6 +60,12 @@ public struct Formulas: Equatable, Sendable, Codable {
             try Session.validateStride(defaultStrideM)
         } catch {
             throw .invalidValue(field: "defaultStrideM")
+        }
+        guard reconciliationTimeoutS.isFinite, reconciliationTimeoutS > 0 else {
+            throw .invalidValue(field: "reconciliationTimeoutS")
+        }
+        guard provisional.allSatisfy(Self.constantNames.contains) else {
+            throw .invalidValue(field: "provisional")
         }
     }
 }

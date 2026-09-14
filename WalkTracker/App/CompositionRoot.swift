@@ -44,7 +44,12 @@ struct CompositionRoot {
         self.achievementCatalog = achievementCatalog ?? Self.bundledAchievementCatalogOrTerminate()
         let formulas = formulas ?? Self.bundledFormulasOrTerminate()
         self.formulas = formulas
-        self.sessionStore = SessionStore(clock: clock, motion: motion, strideM: formulas.defaultStrideM)
+        self.sessionStore = SessionStore(
+            clock: clock,
+            motion: motion,
+            strideM: formulas.defaultStrideM,
+            reconciliationTimeoutS: formulas.reconciliationTimeoutS
+        )
     }
 
     // MARK: - Catálogo de logros (AD-5)

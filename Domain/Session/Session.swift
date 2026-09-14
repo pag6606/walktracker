@@ -93,6 +93,41 @@ public struct Session: Equatable, Sendable {
         stepsMeasured = total
     }
 
+    /// Suma pasos estimados por el `GapEstimator` (`domain.js:330` `addEstimatedSteps`).
+    ///
+    /// Solo es la degradación de la reconstrucción del background: quien llama ya consultó
+    /// al sistema sin dato (CAP-3). Se guardan aparte de `stepsMeasured`, siempre
+    /// desglosados. `0` no cambia nada.
+    ///
+    /// - Throws: `DomainError.invalidTransition` si la sesión no está `active` (no se estima
+    ///   en pausa ni sobre una finalizada); `DomainError.invalidValue(field: "steps")` si
+    ///   `count` es negativo o desbordaría el contador. En ambos casos no muta.
+    public mutating func addEstimatedSteps(_ count: Int) throws(DomainError) {
+        guard status == .active else {
+            throw .invalidTransition(from: status.rawValue, to: "addEstimatedSteps")
+        }
+        guard count >= 0 else { throw .invalidValue(field: "steps") }
+        guard count > 0 else { return }
+        let (total, overflow) = stepsEstimated.addingReportingOverflow(count)
+        guard !overflow else { throw .invalidValue(field: "steps") }
+        stepsEstimated = total
+    }
+
+    /// Descarta todos los pasos estimados: `stepsEstimated` vuelve a 0 y distancia y ritmo,
+    /// que se derivan en `metrics(at:)`, se recalculan sin ellos. Irreversible: la
+    /// confirmación es de la UI (AD-20).
+    ///
+    /// Se permite en `active` y en `paused`, porque el Estimated Banner también se ve en
+    /// pausa (diverge a propósito de la v3, cuyo `addEstimatedSteps(-n)` lanzaba en pausa).
+    ///
+    /// - Throws: `DomainError.invalidTransition` si la sesión está `finished`. No muta.
+    public mutating func discardEstimatedSteps() throws(DomainError) {
+        guard status != .finished else {
+            throw .invalidTransition(from: status.rawValue, to: "discardEstimatedSteps")
+        }
+        stepsEstimated = 0
+    }
+
     /// Registra la distancia **acumulada desde el inicio** que da el sistema, en metros.
     ///
     /// Como los pasos, nunca baja: una muestra menor que la guardada no resta (3400 →

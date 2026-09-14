@@ -8,6 +8,27 @@ import Testing
 @Suite("Constantes de fórmula · validación al arrancar")
 struct FormulasTests {
 
+    /// Un `formulas.json` válido con los campos sustituidos por `overrides` (JSON crudo).
+    private static func json(_ overrides: [String: String] = [:]) -> Data {
+        var fields = [
+            "schemaVersion": "1",
+            "defaultStrideM": "0.655",
+            "reconciliationTimeoutS": "3",
+            "provisional": #"["reconciliationTimeoutS"]"#,
+        ]
+        fields.merge(overrides) { $1 }
+        let body = fields.sorted { $0.key < $1.key }.map { #""\#($0.key)": \#($0.value)"# }.joined(separator: ", ")
+        return Data("{ \(body) }".utf8)
+    }
+
+    private static func formulas(
+        defaultStrideM: Double = 0.655,
+        reconciliationTimeoutS: Double = 3,
+        provisional: [String] = ["reconciliationTimeoutS"]
+    ) -> Formulas {
+        Formulas(schemaVersion: 1, defaultStrideM: defaultStrideM, reconciliationTimeoutS: reconciliationTimeoutS, provisional: provisional)
+    }
+
     @Test("El fichero real valida y trae la zancada por defecto de domain.js:22")
     func bundledFormulasAreValid() throws {
         let formulas = try CompositionRoot.loadFormulas(from: .main)
@@ -15,32 +36,74 @@ struct FormulasTests {
         #expect(formulas.defaultStrideM == 0.655)
     }
 
+    @Test("El fichero real trae el timeout de reconciliación de AD-8, marcado provisional hasta la 8.4")
+    func bundledReconciliationTimeoutIsProvisional() throws {
+        let formulas = try CompositionRoot.loadFormulas(from: .main)
+        #expect(formulas.reconciliationTimeoutS == 3)
+        #expect(formulas.provisional.contains("reconciliationTimeoutS"))
+        #expect(!formulas.provisional.contains("defaultStrideM"), "la zancada es la portada de domain.js, no provisional")
+    }
+
+    @Test("Un JSON completo decodifica")
+    func completeJSONDecodes() throws {
+        #expect(try Formulas.decode(from: Self.json()) == Self.formulas())
+        #expect(try Formulas.decode(from: Self.json(["provisional": "[]"])).provisional.isEmpty)
+    }
+
     @Test("Zancada ≤ 0: invalidValue(defaultStrideM)", arguments: ["0", "-0.655"])
     func nonPositiveStrideThrows(value: String) {
         #expect(throws: FormulasError.invalidValue(field: "defaultStrideM")) {
-            try Formulas.decode(from: Data(#"{ "schemaVersion": 1, "defaultStrideM": \#(value) }"#.utf8))
+            try Formulas.decode(from: Self.json(["defaultStrideM": value]))
         }
     }
 
     @Test("Zancada no finita: invalidValue(defaultStrideM)")
     func nonFiniteStrideThrows() {
         #expect(throws: FormulasError.invalidValue(field: "defaultStrideM")) {
-            try Formulas(schemaVersion: 1, defaultStrideM: .nan).validate()
+            try Self.formulas(defaultStrideM: .nan).validate()
         }
         #expect(throws: FormulasError.invalidValue(field: "defaultStrideM")) {
-            try Formulas(schemaVersion: 1, defaultStrideM: .infinity).validate()
+            try Self.formulas(defaultStrideM: .infinity).validate()
+        }
+    }
+
+    @Test("Timeout de reconciliación ≤ 0: invalidValue(reconciliationTimeoutS)", arguments: ["0", "-3"])
+    func nonPositiveTimeoutThrows(value: String) {
+        #expect(throws: FormulasError.invalidValue(field: "reconciliationTimeoutS")) {
+            try Formulas.decode(from: Self.json(["reconciliationTimeoutS": value]))
+        }
+    }
+
+    @Test("Timeout de reconciliación no finito: invalidValue(reconciliationTimeoutS)", arguments: [Double.nan, .infinity])
+    func nonFiniteTimeoutThrows(value: Double) {
+        #expect(throws: FormulasError.invalidValue(field: "reconciliationTimeoutS")) {
+            try Self.formulas(reconciliationTimeoutS: value).validate()
+        }
+    }
+
+    @Test("provisional con un nombre que no es una constante: invalidValue(provisional)", arguments: [
+        ["reconciliationTimeout"], ["reconciliationTimeoutS", "orphanSessionThresholdS"], ["schemaVersion"],
+    ])
+    func unknownProvisionalThrows(names: [String]) {
+        #expect(throws: FormulasError.invalidValue(field: "provisional")) {
+            try Self.formulas(provisional: names).validate()
         }
     }
 
     @Test("schemaVersion 2: unsupportedSchemaVersion")
     func unsupportedSchemaVersionThrows() {
         #expect(throws: FormulasError.unsupportedSchemaVersion(2)) {
-            try Formulas.decode(from: Data(#"{ "schemaVersion": 2, "defaultStrideM": 0.655 }"#.utf8))
+            try Formulas.decode(from: Self.json(["schemaVersion": "2"]))
         }
     }
 
-    @Test("Sin la constante o sin JSON: malformed, nunca un valor de reserva", arguments: [
-        #"{ "schemaVersion": 1 }"#, #"{ "schemaVersion": 1, "defaultStrideM": "0.655" }"#, "no es json",
+    @Test("Sin una constante o sin JSON: malformed, nunca un valor de reserva", arguments: [
+        #"{ "schemaVersion": 1 }"#,
+        #"{ "schemaVersion": 1, "defaultStrideM": "0.655", "reconciliationTimeoutS": 3, "provisional": [] }"#,
+        #"{ "schemaVersion": 1, "defaultStrideM": 0.655, "provisional": [] }"#,
+        #"{ "schemaVersion": 1, "defaultStrideM": 0.655, "reconciliationTimeoutS": 3 }"#,
+        #"{ "schemaVersion": 1, "defaultStrideM": 0.655, "reconciliationTimeoutS": 3, "provisional": "reconciliationTimeoutS" }"#,
+        "no es json",
     ])
     func malformedThrows(json: String) {
         #expect {
