@@ -182,7 +182,7 @@ struct VectorHarness: Sendable {
     /// aquí, y desde ese momento sus vectores dejan de estar pendientes y pasan a
     /// romper `verify-domain.sh` si fallan.
     ///
-    /// - `elapsedS` (1.1): `Chronometer.elapsedS`.
+    /// - `elapsedS` (1.1; la pausa abierta, 1.4): `Chronometer.elapsedS`.
     /// - `v3distance`, `pace` y `calculateCadence` (1.3): `MetricsCalculator`.
     static let swiftDomain = VectorHarness(implementations: [
         "elapsedS": SwiftDomainPorts.elapsedS,
@@ -246,16 +246,19 @@ enum SwiftDomainPorts {
             guard let ms = value.double else { throw VectorInputError(description: "elapsedS: totalPausesMs no es un número") }
             totalPausesMs = ms
         }
-        // La pausa abierta entra con pausar/reanudar (1.4). Hasta entonces un vector
-        // que la traiga falla con su motivo en lugar de ignorarla en silencio.
+        // Pausa abierta (1.4): `pausedAtMs` ausente o `null` es que no hay ninguna.
+        let pausedAt: Date?
         switch input["pausedAtMs"] {
-        case nil, .null?: break
-        default: throw VectorInputError(description: "elapsedS: pausedAtMs con pausa abierta aún no está portado (1.4)")
+        case nil, .null?: pausedAt = nil
+        case let value?:
+            guard let ms = value.double else { throw VectorInputError(description: "elapsedS: pausedAtMs no es un número") }
+            pausedAt = Date(timeIntervalSince1970: ms / 1000)
         }
 
         let elapsed = Chronometer.elapsedS(
             startedAt: Date(timeIntervalSince1970: startedAtMs / 1000),
             totalPausesS: totalPausesMs / 1000,
+            pausedAt: pausedAt,
             now: Date(timeIntervalSince1970: nowMs / 1000)
         )
         return .number(elapsed)

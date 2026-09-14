@@ -573,7 +573,7 @@
       "site": "test/session-v3-tests.js:200",
       "code": "assertThrows(() => Domain.addEstimatedSteps(f, 1), Error, 'addEstimatedSteps on finished throws');",
       "category": "scenario",
-      "story": "1.4"
+      "story": "1.5"
     },
     {
       "site": "test/session-v3-tests.js:201",
@@ -747,7 +747,7 @@
       "site": "test/session-v3-tests.js:297",
       "code": "assertThrows(() => Domain.addEstimatedSteps(f, 1), Error, 'addEstimatedSteps on finished → Error');",
       "category": "scenario",
-      "story": "1.4"
+      "story": "1.5"
     },
     {
       "site": "test/session-v3-tests.js:308",

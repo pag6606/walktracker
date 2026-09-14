@@ -230,17 +230,22 @@ struct VectorHarnessTests {
         #expect(run.passed == files.reduce(0) { $0 + $1.file.vectors.count }, sourceLocation: sourceLocation)
     }
 
-    @Test("elapsedS: una pausa abierta en el vector falla con su motivo, no se ignora")
-    func elapsedSRejectsOpenPause() throws {
+    @Test("elapsedS: la pausa abierta del vector se resta, no se ignora")
+    func elapsedSAcceptsOpenPause() throws {
         let open = try Self.vector("""
             { "id": "p", "sources": [],
               "input": { "startedAtMs": 0, "totalPausesMs": 0, "nowMs": 60000, "pausedAtMs": 30000 },
               "expected": 30 }
             """)
-        guard case .failed = VectorHarness.swiftDomain.verdict(for: open, of: "elapsedS") else {
-            Issue.record("una pausa abierta sin portar no rompió el vector")
-            return
-        }
+        #expect(VectorHarness.swiftDomain.verdict(for: open, of: "elapsedS") == .passed)
+
+        // Sin restarla daría 60: el vector tiene que romper.
+        let ignoringPause = try Self.vector("""
+            { "id": "p", "sources": [],
+              "input": { "startedAtMs": 0, "totalPausesMs": 0, "nowMs": 60000, "pausedAtMs": 30000 },
+              "expected": 60 }
+            """)
+        #expect(VectorHarness.swiftDomain.verdict(for: ignoringPause, of: "elapsedS") != .passed)
     }
 
     @Test("Un vector sin expected ni throws no decodifica")
