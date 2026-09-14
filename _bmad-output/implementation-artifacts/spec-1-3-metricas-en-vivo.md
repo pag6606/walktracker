@@ -158,6 +158,12 @@ el centro.
   `DistanceFormat.spoken`, renombre de `calculatorRejectsNonFinite` y una línea reenvuelta) y 1 diferido
   (alternancia de `distance` en CoreMotion). Tras los parches: `verify-domain.sh` verde y 154 tests,
   `TEST SUCCEEDED`, sin warnings propios.
+- **Verificación en el iPhone 14 (2026-09-13, Paul): funciona.** Build de desarrollo instalado y lanzado
+  con `devicectl`: al caminar suben la distancia en el centro y pasos, tiempo y cadencia en la rejilla
+  2×2; el ritmo pasa de "—" a `m:ss` tras 100 m; VoiceOver lee cada métrica con su unidad y con el texto
+  de accesibilidad más grande nada se recorta. El diferido de la alternancia de `distance` sigue abierto.
+- Duda de Paul resuelta: agitar el teléfono en la mano sin caminar puede sumar pasos. Es el coprocesador
+  (Salud cuenta lo mismo), no la app; aceptado, sin detección propia (el `StepDetector` está retirado).
 
 ## Spec Change Log
 
