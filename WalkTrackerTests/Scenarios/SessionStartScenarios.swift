@@ -6,7 +6,7 @@ import Testing
 /// test cita el sitio de aserción que porta; `inventory.json` los atribuye a la 1.1.
 ///
 /// Los sitios `:68` (`distanceM`), `:71` (`paceSecPerKm`) y `:72` (`cadenceSpm`) son
-/// métricas derivadas y se portan en la 1.3 con su cálculo (AD-22).
+/// métricas derivadas y están portados en la 1.3, en `MetricsScenarios` (AD-22).
 @Suite("Escenarios 1.1 · crear sesión")
 struct SessionStartScenarios {
 

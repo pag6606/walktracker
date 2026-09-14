@@ -170,6 +170,66 @@ struct VectorHarnessTests {
         #expect(run.passed == files.reduce(0) { $0 + $1.file.vectors.count })
     }
 
+    @Test("v3distance está portado: sus vectores reales pasan y no quedan pendientes")
+    func v3distanceIsPorted() throws {
+        try Self.expectPorted("v3distance")
+    }
+
+    @Test("pace está portado: sus vectores reales pasan y no quedan pendientes")
+    func paceIsPorted() throws {
+        try Self.expectPorted("pace")
+    }
+
+    @Test("calculateCadence está portado: sus vectores reales pasan y no quedan pendientes")
+    func calculateCadenceIsPorted() throws {
+        try Self.expectPorted("calculateCadence")
+    }
+
+    @Test("pace: el tiempo en movimiento es durationS − pausesS, no durationS")
+    func paceSubtractsPauses() throws {
+        let paused = try Self.vector("""
+            { "id": "p", "sources": [], "input": { "durationS": 3720, "pausesS": 120, "distanceM": 3370.63 },
+              "expected": 1068 }
+            """)
+        let ignoringPauses = VectorHarness(implementations: ["pace": { vector in
+            let pace = try MetricsCalculator.paceSecPerKm(
+                movingS: vector.input["durationS"]?.double ?? 0,
+                distanceM: vector.input["distanceM"]?.double ?? 0
+            )
+            return pace.map { .number(Double($0)) } ?? .null
+        }])
+
+        #expect(VectorHarness.swiftDomain.verdict(for: paused, of: "pace") == .passed)
+        #expect(ignoringPauses.verdict(for: paused, of: "pace") != .passed)
+    }
+
+    @Test("v3distance y calculateCadence: un número de pasos no entero rompe el vector con su motivo", arguments: [
+        "v3distance", "calculateCadence",
+    ])
+    func stepsMustBeIntegers(function: String) throws {
+        let fractional = try Self.vector("""
+            { "id": "f", "sources": [],
+              "input": { "stepsMeasured": 1.5, "stepsEstimated": 0, "strideM": 0.655, "activeSeconds": 60 },
+              "expected": 0 }
+            """)
+        guard case .failed(let reason) = VectorHarness.swiftDomain.verdict(for: fractional, of: function) else {
+            Issue.record("\(function): unos pasos fraccionarios no rompieron el vector")
+            return
+        }
+        #expect(reason.contains("stepsMeasured"))
+    }
+
+    private static func expectPorted(_ function: String, sourceLocation: SourceLocation = #_sourceLocation) throws {
+        let files = try VectorBundle.files().filter { $0.file.function == function }
+        #expect(!files.isEmpty, sourceLocation: sourceLocation)
+
+        let run = VectorRun.evaluate(harness: .swiftDomain, files: files)
+
+        #expect(run.failures.isEmpty, "\(run.failures)", sourceLocation: sourceLocation)
+        #expect(run.pending[function] == nil, sourceLocation: sourceLocation)
+        #expect(run.passed == files.reduce(0) { $0 + $1.file.vectors.count }, sourceLocation: sourceLocation)
+    }
+
     @Test("elapsedS: una pausa abierta en el vector falla con su motivo, no se ignora")
     func elapsedSRejectsOpenPause() throws {
         let open = try Self.vector("""

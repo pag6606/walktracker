@@ -4,11 +4,11 @@ import Foundation
 ///
 /// Siempre válido: solo se materializa por `start(at:strideM:)`, que valida la zancada
 /// en la frontera. Sus campos no se escriben desde fuera; las mutaciones (pasos,
-/// pausas, cierre) entran como operaciones del agregado: pasos en la 1.2, pausas y
-/// cierre en la 1.4.
+/// distancia del sistema, pausas, cierre) entran como operaciones del agregado: pasos en
+/// la 1.2, distancia en la 1.3, pausas y cierre en la 1.4.
 ///
-/// `distanceM`, `paceSecPerKm` y `cadenceSpm` son derivadas y llegan con su cálculo en
-/// la 1.3 (AD-22: una métrica nueva exige antes su cálculo en el dominio).
+/// Distancia, ritmo y cadencia son derivadas: no se guardan, se calculan con
+/// `metrics(at:)` y `MetricsCalculator` (AD-22).
 public struct Session: Equatable, Sendable {
 
     public let startedAt: Date
@@ -21,6 +21,9 @@ public struct Session: Equatable, Sendable {
     public private(set) var stepsEstimated: Int
     /// Zancada en metros, > 0 y finita. Congelada: recalibrar nunca reescribe una sesión.
     public let strideM: Double
+    /// Última distancia acumulada del sistema en metros, o `nil` si no la ha dado. Nunca
+    /// baja. Cuando existe, sustituye a la derivada de los pasos medidos (CAP-4).
+    public private(set) var systemDistanceM: Double?
     /// Segundos acumulados en pausas cerradas (`pausesS` en el snapshot).
     public private(set) var totalPausesS: TimeInterval
     public let source: SessionSource
@@ -31,6 +34,7 @@ public struct Session: Equatable, Sendable {
         self.status = .active
         self.stepsMeasured = 0
         self.stepsEstimated = 0
+        self.systemDistanceM = nil
         self.strideM = strideM
         self.totalPausesS = 0
         self.source = .ios
@@ -57,8 +61,8 @@ public struct Session: Equatable, Sendable {
     ///
     /// Recibe un **incremento**, no el acumulado del podómetro: convertir muestras
     /// acumuladas en incrementos es de quien las consume (`SessionStore`). `0` no cambia
-    /// nada. La distancia que recalcula el JS no se porta aquí: llega con su cálculo en
-    /// la 1.3 (AD-22).
+    /// nada. La distancia que recalcula el JS no se guarda aquí: se deriva en
+    /// `metrics(at:)` (AD-22).
     ///
     /// - Throws: `DomainError.invalidTransition` si la sesión no está `active` (una
     ///   pausada o finalizada no cuenta pasos); `DomainError.invalidValue(field: "steps")`
@@ -74,8 +78,54 @@ public struct Session: Equatable, Sendable {
         stepsMeasured = total
     }
 
+    /// Registra la distancia **acumulada desde el inicio** que da el sistema, en metros.
+    ///
+    /// Como los pasos, nunca baja: una muestra menor que la guardada no resta (3400 →
+    /// 3390 sigue en 3400).
+    ///
+    /// - Throws: `DomainError.invalidTransition` si la sesión no está `active`;
+    ///   `DomainError.invalidValue(field: "distanceM")` si `meters` es negativo o no
+    ///   finito. En ambos casos no muta.
+    public mutating func recordSystemDistance(_ meters: Double) throws(DomainError) {
+        guard status == .active else {
+            throw .invalidTransition(from: status.rawValue, to: "recordSystemDistance")
+        }
+        guard meters.isFinite, meters >= 0 else { throw .invalidValue(field: "distanceM") }
+        if let current = systemDistanceM, meters <= current { return }
+        systemDistanceM = meters
+    }
+
     /// Tiempo transcurrido en `now`, que el llamante lee de `ClockPort`.
     public func elapsedS(at now: Date) -> TimeInterval {
         Chronometer.elapsedS(startedAt: startedAt, totalPausesS: totalPausesS, now: now)
+    }
+
+    /// Distancia, ritmo y cadencia en `now`, que el llamante lee de `ClockPort` (CAP-4).
+    ///
+    /// - **Distancia:** la del sistema más los estimados × zancada si el sistema la dio;
+    ///   si no, `(stepsMeasured + stepsEstimated) × strideM`.
+    /// - **Ritmo:** solo con `distanceM ≥ minPaceDistanceM`; si no, `nil`.
+    /// - **Cadencia:** solo `stepsMeasured`, sobre el tiempo neto transcurrido (la v3 y su
+    ///   regresión `session-v3-tests.js:183`).
+    public func metrics(at now: Date) -> SessionMetrics {
+        let elapsed = elapsedS(at: now)
+        do {
+            let distance: Double
+            if let systemDistanceM {
+                let estimated = try MetricsCalculator.distanceM(stepsMeasured: 0, stepsEstimated: stepsEstimated, strideM: strideM)
+                distance = systemDistanceM + estimated
+            } else {
+                distance = try MetricsCalculator.distanceM(stepsMeasured: stepsMeasured, stepsEstimated: stepsEstimated, strideM: strideM)
+            }
+            let pace = distance >= MetricsCalculator.minPaceDistanceM
+                ? try MetricsCalculator.paceSecPerKm(movingS: elapsed, distanceM: distance)
+                : nil
+            let cadence = try MetricsCalculator.cadenceSpm(stepsMeasured: stepsMeasured, activeSeconds: elapsed)
+            return SessionMetrics(distanceM: distance, paceSecPerKm: pace, cadenceSpm: cadence)
+        } catch {
+            // Inalcanzable: el agregado garantiza pasos ≥ 0, zancada > 0 y finita, distancia
+            // del sistema ≥ 0 y finita, y `Chronometer` un tiempo ≥ 0 y finito.
+            preconditionFailure("Session viola sus invariantes al calcular métricas: \(error)")
+        }
     }
 }

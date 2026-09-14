@@ -8,8 +8,8 @@ import OSLog
 /// eventos.
 ///
 /// La 1.1 cubre iniciar y el cronómetro; la 1.2, el permiso de Motion & Fitness y el
-/// conteo de pasos del coprocesador. La sesión no se persiste (1.6, 5.1): cerrar la app
-/// la descarta y se vuelve a Inicio.
+/// conteo de pasos del coprocesador; la 1.3, las métricas derivadas. La sesión no se
+/// persiste (1.6, 5.1): cerrar la app la descarta y se vuelve a Inicio.
 @MainActor
 @Observable
 final class SessionStore {
@@ -53,6 +53,10 @@ final class SessionStore {
     private(set) var startFlow: StartFlow = .idle
     /// Motivo del último inicio fallido, hasta que Inicio lo reconoce.
     private(set) var startFailure: StartFailure?
+    /// Distancia, ritmo y cadencia de la sesión, o `nil` sin sesión. Se fijan al abrirla y
+    /// se recalculan con **cada muestra** del coprocesador, no con el tick de 1 Hz
+    /// (AD-21): con el teléfono quieto no llegan muestras y se quedan en su último valor.
+    private(set) var metrics: SessionMetrics?
     /// El stream del podómetro sigue abierto. Pasa a `false` si el sistema lo termina.
     private(set) var isCountingSteps = false
 
@@ -168,6 +172,7 @@ final class SessionStore {
         do {
             let session = try Session.start(at: clock.now, strideM: strideM)
             self.session = session
+            metrics = session.metrics(at: clock.now)
             hasSession = true
             countSteps(from: session.startedAt)
         } catch {
@@ -190,16 +195,29 @@ final class SessionStore {
         }
     }
 
+    /// Aplica pasos y distancia de la muestra y recalcula las métricas en `clock.now`.
+    /// Un fallo de una parte no impide la otra: una distancia inválida se registra y el
+    /// conteo sigue.
     private func record(_ sample: PedometerSample) {
-        guard sample.steps > highestCumulativeSteps else { return }
-        let increment = sample.steps - highestCumulativeSteps
-        highestCumulativeSteps = sample.steps
-        do {
-            try session?.addMeasuredSteps(increment)
-        } catch {
-            // Inalcanzable en la 1.2: la sesión siempre está activa y el incremento es > 0.
-            log.error("Muestra del podómetro rechazada: \(String(describing: error), privacy: .public)")
+        guard session != nil else { return }
+        if sample.steps > highestCumulativeSteps {
+            let increment = sample.steps - highestCumulativeSteps
+            highestCumulativeSteps = sample.steps
+            do {
+                try session?.addMeasuredSteps(increment)
+            } catch {
+                // Inalcanzable hasta la 1.4: la sesión siempre está activa y el incremento es > 0.
+                log.error("Pasos de la muestra rechazados: \(String(describing: error), privacy: .public)")
+            }
         }
+        if let distance = sample.distance {
+            do {
+                try session?.recordSystemDistance(distance)
+            } catch {
+                log.error("Distancia de la muestra rechazada: \(String(describing: error), privacy: .public)")
+            }
+        }
+        metrics = session?.metrics(at: clock.now)
     }
 
     /// El stream terminó sin que nadie lo cancelara: el sistema detuvo el podómetro.

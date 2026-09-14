@@ -71,7 +71,8 @@ else
         -only-testing:WalkTrackerTests/FormulasTests \
         -only-testing:WalkTrackerTests/ChronometerTests \
         -only-testing:WalkTrackerTests/SessionStartScenarios \
-        -only-testing:WalkTrackerTests/StepCountingScenarios) >"$LOG" 2>&1
+        -only-testing:WalkTrackerTests/StepCountingScenarios \
+        -only-testing:WalkTrackerTests/MetricsScenarios) >"$LOG" 2>&1
     status=$?
 
     grep -E '^[[:space:]]*(✘|✔ Suite)|AD-6 · Swift|error:|Test run with' "$LOG" | sed 's/^/  /'

@@ -6,8 +6,9 @@ import Testing
 /// test cita el sitio de aserción que porta; `inventory.json` los atribuye a la 1.2.
 ///
 /// `addSteps` de la v3 es `Session.addMeasuredSteps(_:)`. Los sitios `:102`
-/// (`distanceM` tras 4980 pasos) y `:350` (distancia final) son métricas y se portan en
-/// la 1.3 con su cálculo (AD-22); `:351` (`finished`) se porta en la 1.4 con el cierre.
+/// (`distanceM` tras 4980 pasos) y `:350` (distancia final) son métricas y están portados
+/// en la 1.3, en `MetricsScenarios` (AD-22); `:351` (`finished`) se porta en la 1.4 con
+/// el cierre.
 @Suite("Escenarios 1.2 · conteo de pasos")
 struct StepCountingScenarios {
 
