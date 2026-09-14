@@ -154,8 +154,14 @@ acceso a Ajustes, y ninguna sesión.
 - Riesgo conocido, fuera de alcance: `NativeLayerDiagnosticsView` (solo `DEBUG`) llama a
   `motion.updates(from:)` del mismo adapter, que admite un único stream; usarla con una sesión abierta
   terminaría el conteo de la sesión (se registraría como fin por el sistema).
-- Pendiente: verificación manual en el iPhone 14 (los tres criterios de aceptación). El simulador no tiene
-  coprocesador: allí "Iniciar caminata" lleva a la bloqueante de "no disponible".
+- El simulador no tiene coprocesador: allí "Iniciar caminata" lleva a la bloqueante de "no disponible".
+- **Verificación en el iPhone 14 (2026-09-13, Paul): funciona.** Build de desarrollo instalado y lanzado
+  con `devicectl`. Pasan los tres criterios de aceptación: pre-pantalla → diálogo → conceder → los pasos
+  suben solos; 10 min con la pantalla bloqueada y música dentro del ±10 % de Salud; permiso denegado en
+  Ajustes → pantalla bloqueante sin sesión. También a mano: conceder desde "Abrir Ajustes" y volver
+  cierra la bloqueante a Inicio sin sesión (hallazgo 19; el test automático sigue diferido), "Ahora no",
+  doble toque, barra de pestañas oculta en ambas pantallas (hallazgo 14), VoiceOver "N pasos" y los
+  pasos nunca bajan.
 
 ## Spec Change Log
 
