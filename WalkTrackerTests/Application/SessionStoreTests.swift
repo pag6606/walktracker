@@ -1433,6 +1433,28 @@ struct SessionStoreReconciliationTests {
         #expect(withEstimated.paceSecPerKm == 1145, "900 s / 0,786 km")
     }
 
+    @Test("Distancia del sistema más estimados: 800 medidos con 500 m del sistema y 400 estimados → 762 m; al descartar, 500 m")
+    func systemDistancePlusEstimated() async throws {
+        let fixture = Fixture()
+        await fixture.startWalking(steps: 800, distance: 500)
+        fixture.clock.advance(by: 600)
+        fixture.store.appDidEnterBackground()
+        fixture.clock.advance(by: 300)
+        fixture.motion.setQueryResponse(.none)
+
+        await fixture.store.appDidBecomeActive()
+
+        #expect(fixture.session?.systemDistanceM == 500)
+        #expect(fixture.session?.stepsEstimated == 400)
+        #expect(fixture.store.metrics?.distanceM == 762, "500 + 400 × 0,655")
+
+        fixture.store.requestDiscardEstimated()
+        fixture.store.confirmDiscardEstimated()
+
+        #expect(fixture.session?.stepsEstimated == 0)
+        #expect(fixture.store.metrics?.distanceM == 500)
+    }
+
     @Test("Cancelar el descarte deja los estimados; sin estimados no se pide confirmación")
     func cancelDiscard() async throws {
         let fixture = Fixture()
@@ -1716,6 +1738,25 @@ struct SessionStoreRecoveryTests {
         #expect(!fixture.store.hasSession)
     }
 
+    @Test("Huérfana cerrada al arrancar: 4000 pasos en 2400 s → el store publica 2620 m, 916 s/km y 100 spm para el resumen")
+    func orphanPublishesMetrics() async throws {
+        let base = Self.snapshot(startedAgoS: 7 * 60 * 60)
+        let fixture = Fixture(snapshot: Self.snapshot(
+            startedAgoS: 7 * 60 * 60, stepsMeasured: 4000, totalPausesS: 0, savedAgoS: 6 * 60 * 60,
+            lastSampleAt: base.startedAt.addingTimeInterval(40 * 60)
+        ))
+
+        await fixture.store.restoreOnLaunch()
+
+        let session = try #require(fixture.session)
+        #expect(session.durationS == 2400)
+        let metrics = try #require(fixture.store.metrics, "sin métricas el resumen quedaría en blanco")
+        #expect(metrics.distanceM == 2620, "4000 × 0,655")
+        #expect(metrics.paceSecPerKm == 916, "2400 s / 2,62 km")
+        #expect(metrics.cadenceSpm == 100, "4000 pasos en 40 min")
+        #expect(metrics == session.metrics(at: try #require(session.endedAt)))
+    }
+
     @Test("Huérfana sin ninguna muestra: se cierra en startedAt con 0 s")
     func orphanWithoutSamples() async throws {
         let fixture = Fixture(snapshot: Self.snapshot(startedAgoS: 8 * 60 * 60, stepsMeasured: 0, totalPausesS: 0))
@@ -1791,20 +1832,39 @@ struct SessionStoreRecoveryTests {
         StorageError.malformed("JSON roto"), .unsupportedSchemaVersion(2),
     ])
     func unreadableSnapshot(error: StorageError) async {
-        let fixture = Fixture(snapshot: Self.snapshot())
+        let snapshot = Self.snapshot()
+        let fixture = Fixture(snapshot: snapshot)
         fixture.storage.failLoad(with: error)
 
         await fixture.store.restoreOnLaunch()
 
         #expect(fixture.session == nil)
         #expect(!fixture.store.hasSession)
-        #expect(fixture.storage.setAside != nil, "apartado, no destruido")
+        #expect(fixture.storage.snapshot == nil)
+        #expect(fixture.storage.setAside == [snapshot], "apartado, no destruido")
         #expect(fixture.storage.clearCount == 0)
         #expect(fixture.motion.queriedRanges.isEmpty)
 
         fixture.storage.failLoad(with: nil)
         await fixture.store.start()
         #expect(fixture.session?.status == .active)
+    }
+
+    @Test("Lectura fallida (failed): Inicio normal y el snapshot sigue en su sitio, sin apartar")
+    func failedReadKeepsSnapshot() async {
+        let snapshot = Self.snapshot()
+        let fixture = Fixture(snapshot: snapshot)
+        fixture.storage.failLoad(with: .failed(operation: "read"))
+
+        await fixture.store.restoreOnLaunch()
+
+        #expect(fixture.session == nil)
+        #expect(!fixture.store.hasSession)
+        #expect(fixture.storage.loadCount == 1)
+        #expect(throws: StorageError.failed(operation: "read")) { try fixture.storage.loadActiveSession() }
+        #expect(fixture.storage.snapshot == snapshot, "no se pudo leer: no se aparta")
+        #expect(fixture.storage.setAside.isEmpty)
+        #expect(fixture.storage.clearCount == 0)
     }
 
     @Test("Snapshot inválido: rechazado en la frontera, apartado sin borrar e Inicio normal", arguments: [
@@ -1823,8 +1883,7 @@ struct SessionStoreRecoveryTests {
 
         #expect(fixture.session == nil)
         #expect(!fixture.store.hasSession)
-        #expect(fixture.storage.setAsideCount == 1)
-        #expect(fixture.storage.setAside == snapshot)
+        #expect(fixture.storage.setAside == [snapshot])
         #expect(fixture.storage.clearCount == 0)
         #expect(fixture.motion.queriedRanges.isEmpty)
         #expect(fixture.motion.updateStarts.isEmpty)
@@ -1925,6 +1984,321 @@ struct SessionStoreRecoveryTests {
 
         #expect(fixture.session?.stepsMeasured == 820)
         #expect(fixture.storage.snapshot?.lastSampleAt == Self.now.addingTimeInterval(60))
+    }
+
+    // MARK: - Tope de lastSampleAt tras un gap (R4)
+
+    /// `Self.now` + `seconds`.
+    private static func at(_ seconds: TimeInterval) -> Date {
+        now.addingTimeInterval(seconds)
+    }
+
+    /// Inicia en `now`, recibe 300 pasos con `end` +60 s y pasa a background a los +600 s: el
+    /// tope queda pendiente en +600 s y el snapshot, con `lastSampleAt` +60 s.
+    private static func walkThenBackground(_ fixture: Fixture) async {
+        await fixture.store.start()
+        fixture.motion.emit(steps: 300, end: at(60))
+        await waitUntil { fixture.session?.stepsMeasured == 300 }
+        fixture.clock.set(at(600))
+        fixture.store.appDidEnterBackground()
+    }
+
+    /// Emite una muestra del stream con el reloj en `end` y espera a su autosave, que deja ver
+    /// `lastSampleAt` en el snapshot. El llamante garantiza ≥ 10 s desde el último guardado.
+    private static func emitAndAutosave(_ fixture: Fixture, steps: Int, end: Date) async {
+        let saves = fixture.storage.saved.count
+        fixture.clock.set(end)
+        fixture.motion.emit(steps: steps, end: end)
+        await waitUntil { fixture.storage.saved.count == saves + 1 }
+    }
+
+    @Test("R4 · la muestra de puesta al día llega antes de la vuelta: lastSampleAt se queda en el inicio del gap y la siguiente lo mueve")
+    func catchUpBeforeReturnIsCapped() async throws {
+        let fixture = Fixture()
+        await Self.walkThenBackground(fixture)
+
+        // La puesta al día del stream (900, `end` = +5 h) se procesa antes que la vuelta.
+        let back = Self.at(5 * 60 * 60)
+        await Self.emitAndAutosave(fixture, steps: 900, end: back)
+        #expect(fixture.session?.stepsMeasured == 900)
+        #expect(fixture.storage.snapshot?.lastSampleAt == Self.at(600), "topado en el inicio del gap")
+
+        fixture.motion.setQueryResponse(.sample(steps: 900, distance: nil))
+        await fixture.store.appDidBecomeActive()
+        #expect(fixture.storage.snapshot?.lastSampleAt == Self.at(600))
+
+        let next = back.addingTimeInterval(30)
+        await Self.emitAndAutosave(fixture, steps: 930, end: next)
+        #expect(fixture.storage.snapshot?.lastSampleAt == next, "el tope ya se liberó")
+    }
+
+    @Test("R4 · la consulta ya cubrió el gap: la puesta al día sin pasos nuevos libera el tope sin mover lastSampleAt; la siguiente lo mueve")
+    func catchUpWithoutStepsReleasesCap() async throws {
+        let fixture = Fixture()
+        await Self.walkThenBackground(fixture)
+        let back = Self.at(5 * 60 * 60)
+        fixture.clock.set(back)
+        fixture.motion.setQueryResponse(.sample(steps: 900, distance: nil))
+        await fixture.store.appDidBecomeActive()
+        #expect(fixture.session?.stepsMeasured == 900)
+
+        await Self.emitAndAutosave(fixture, steps: 900, end: back.addingTimeInterval(10))
+        #expect(fixture.session?.stepsMeasured == 900)
+        #expect(fixture.storage.snapshot?.lastSampleAt == Self.at(60), "no sumó pasos: no lo mueve")
+
+        let next = back.addingTimeInterval(30)
+        await Self.emitAndAutosave(fixture, steps: 930, end: next)
+        #expect(fixture.session?.stepsMeasured == 930)
+        #expect(fixture.storage.snapshot?.lastSampleAt == next, "sin recortar al inicio del gap")
+    }
+
+    @Test("R4 · la consulta no libera el tope: con la consulta por debajo del stream, la puesta al día que suma pasos sigue topada")
+    func queryDoesNotReleaseCap() async throws {
+        let fixture = Fixture()
+        await Self.walkThenBackground(fixture)
+        let back = Self.at(5 * 60 * 60)
+        fixture.clock.set(back)
+        fixture.motion.setQueryResponse(.sample(steps: 820, distance: nil))
+        await fixture.store.appDidBecomeActive()
+        #expect(fixture.session?.stepsMeasured == 820)
+
+        await Self.emitAndAutosave(fixture, steps: 900, end: back.addingTimeInterval(10))
+        #expect(fixture.session?.stepsMeasured == 900)
+        #expect(fixture.storage.snapshot?.lastSampleAt == Self.at(600))
+    }
+
+    @Test("R4 · una muestra del stream durante la consulta colgada no lleva lastSampleAt más allá del inicio del gap")
+    func sampleDuringQueryIsCapped() async throws {
+        let fixture = Fixture()
+        await Self.walkThenBackground(fixture)
+        let back = Self.at(5 * 60 * 60)
+        fixture.clock.set(back)
+        fixture.motion.setQueryResponse(.hang)
+        let returning = Task { await fixture.store.appDidBecomeActive() }
+        await waitUntil { fixture.motion.hasPendingQuery }
+
+        fixture.motion.emit(steps: 900, end: back)
+        await waitUntil { fixture.session?.stepsMeasured == 900 }
+        fixture.motion.resolvePendingQueries(with: .sample(steps: 900, distance: nil))
+        await returning.value
+
+        #expect(fixture.storage.snapshot?.savedAt == back, "guardado tras reconciliar")
+        #expect(fixture.storage.snapshot?.lastSampleAt == Self.at(600))
+    }
+
+    @Test("R4 · una muestra previa al gap procesada tras ir a background (end +590 s) no libera el tope: la puesta al día sigue topada en +600 s")
+    func sampleBeforeGapDoesNotReleaseCap() async throws {
+        let fixture = Fixture()
+        await Self.walkThenBackground(fixture)
+
+        // Encolada antes de la salida a background y consumida después.
+        fixture.clock.set(Self.at(700))
+        fixture.motion.emit(steps: 350, end: Self.at(590))
+        await waitUntil { fixture.session?.stepsMeasured == 350 }
+
+        let back = Self.at(5 * 60 * 60)
+        fixture.clock.set(back)
+        fixture.motion.setQueryResponse(.sample(steps: 820, distance: nil))
+        await fixture.store.appDidBecomeActive()
+        await Self.emitAndAutosave(fixture, steps: 900, end: back.addingTimeInterval(10))
+
+        #expect(fixture.session?.stepsMeasured == 900)
+        #expect(fixture.storage.snapshot?.lastSampleAt == Self.at(600))
+    }
+
+    @Test("R4 · pausada no fija tope: background y vuelta en pausa, reanudar, y la primera muestra mueve lastSampleAt a su end real")
+    func pausedBackgroundDoesNotCap() async throws {
+        let fixture = Fixture()
+        await fixture.store.start()
+        fixture.motion.emit(steps: 300, end: Self.at(60))
+        await waitUntil { fixture.session?.stepsMeasured == 300 }
+        fixture.clock.set(Self.at(100))
+        fixture.store.pause()
+        fixture.clock.set(Self.at(600))
+        fixture.store.appDidEnterBackground()
+        fixture.clock.set(Self.at(5 * 60 * 60))
+        await fixture.store.appDidBecomeActive()
+
+        fixture.clock.set(Self.at(5 * 60 * 60 + 60))
+        fixture.store.resume()
+        let end = Self.at(5 * 60 * 60 + 90)
+        await Self.emitAndAutosave(fixture, steps: 50, end: end)
+
+        #expect(fixture.session?.stepsMeasured == 350)
+        #expect(fixture.storage.snapshot?.lastSampleAt == end)
+    }
+
+    @Test("R4 · restaurar una pausada no fija tope: al reanudar, la primera muestra mueve lastSampleAt a su end real")
+    func restoredPausedDoesNotCap() async throws {
+        let fixture = Fixture(snapshot: Self.snapshot(
+            pausedAgoS: 5 * 60, savedAgoS: 5 * 60, lastSampleAt: Self.at(-6 * 60)
+        ))
+        await fixture.store.restoreOnLaunch()
+        #expect(fixture.session?.status == .paused)
+
+        fixture.clock.set(Self.at(60))
+        fixture.store.resume()
+        let end = Self.at(90)
+        await Self.emitAndAutosave(fixture, steps: 50, end: end)
+
+        #expect(fixture.session?.stepsMeasured == 1550)
+        #expect(fixture.storage.snapshot?.lastSampleAt == end)
+    }
+
+    @Test("R4 · nunca retrocede: un último dato posterior al inicio del gap (+700 s frente a +600 s) se conserva tras la vuelta")
+    func capNeverMovesLastSampleAtBack() async throws {
+        let fixture = Fixture()
+        await fixture.store.start()
+        fixture.motion.emit(steps: 300, end: Self.at(60))
+        await waitUntil { fixture.session?.stepsMeasured == 300 }
+        // Una muestra real con `end` +700 s se procesa justo antes de que llegue la salida a
+        // background, fechada con el reloj en +600 s.
+        fixture.clock.set(Self.at(600))
+        fixture.motion.emit(steps: 400, end: Self.at(700))
+        await waitUntil { fixture.session?.stepsMeasured == 400 }
+        fixture.store.appDidEnterBackground()
+        #expect(fixture.storage.snapshot?.lastSampleAt == Self.at(700))
+
+        let back = Self.at(5 * 60 * 60)
+        await Self.emitAndAutosave(fixture, steps: 900, end: back)
+        fixture.motion.setQueryResponse(.sample(steps: 900, distance: nil))
+        await fixture.store.appDidBecomeActive()
+
+        #expect(fixture.storage.snapshot?.lastSampleAt == Self.at(700), "el tope (+600 s) no lo hace retroceder")
+    }
+
+    @Test("R4 · dos gaps sin muestra entre medias: se conserva el tope más temprano")
+    func twoGapsKeepEarliestCap() async throws {
+        let fixture = Fixture()
+        await Self.walkThenBackground(fixture)
+        fixture.clock.set(Self.at(60 * 60))
+        fixture.motion.setQueryResponse(.sample(steps: 900, distance: nil))
+        await fixture.store.appDidBecomeActive()
+
+        // Vuelve a salir sin que el stream haya entregado nada desde la primera salida.
+        fixture.clock.set(Self.at(2 * 60 * 60))
+        fixture.store.appDidEnterBackground()
+        await Self.emitAndAutosave(fixture, steps: 1000, end: Self.at(3 * 60 * 60))
+
+        #expect(fixture.session?.stepsMeasured == 1000)
+        #expect(fixture.storage.snapshot?.lastSampleAt == Self.at(600), "el tope de la primera salida, no el de la segunda")
+    }
+
+    @Test("R4 · pausar libera el tope pendiente: tras reanudar, la muestra mueve lastSampleAt a su end real")
+    func pauseReleasesCap() async throws {
+        let fixture = Fixture()
+        await Self.walkThenBackground(fixture)
+        let back = Self.at(5 * 60 * 60)
+        fixture.clock.set(back)
+        fixture.motion.setQueryResponse(.sample(steps: 900, distance: nil))
+        await fixture.store.appDidBecomeActive()
+
+        fixture.clock.set(back.addingTimeInterval(60))
+        fixture.store.pause()
+        fixture.clock.set(back.addingTimeInterval(120))
+        fixture.store.resume()
+        let end = back.addingTimeInterval(150)
+        await Self.emitAndAutosave(fixture, steps: 50, end: end)
+
+        #expect(fixture.session?.stepsMeasured == 950)
+        #expect(fixture.storage.snapshot?.lastSampleAt == end)
+    }
+
+    @Test("R4 · finalizar libera el tope pendiente: la sesión siguiente del mismo store mueve lastSampleAt con su end real")
+    func finishReleasesCap() async throws {
+        let fixture = Fixture()
+        await Self.walkThenBackground(fixture)
+        let back = Self.at(5 * 60 * 60)
+        fixture.clock.set(back)
+        fixture.motion.setQueryResponse(.sample(steps: 900, distance: nil))
+        await fixture.store.appDidBecomeActive()
+
+        fixture.store.requestFinish()
+        await fixture.store.confirmFinish()
+        fixture.store.leaveSummary()
+        fixture.clock.set(back.addingTimeInterval(60))
+        await fixture.store.start()
+        let end = back.addingTimeInterval(90)
+        await Self.emitAndAutosave(fixture, steps: 40, end: end)
+
+        #expect(fixture.session?.stepsMeasured == 40)
+        #expect(fixture.storage.snapshot?.lastSampleAt == end)
+    }
+
+    @Test("R4 · restaurar: la primera muestra del stream no lleva lastSampleAt más allá de savedAt (+20 min); la siguiente lo mueve")
+    func firstStreamSampleAfterRestoreIsCapped() async throws {
+        // Empezó hace 30 min, guardada a los +20 min con el último paso a los +19 min.
+        let base = Self.snapshot(startedAgoS: 30 * 60)
+        let savedAt = base.startedAt.addingTimeInterval(20 * 60)
+        let fixture = Fixture(snapshot: Self.snapshot(
+            startedAgoS: 30 * 60, savedAgoS: 10 * 60, lastSampleAt: base.startedAt.addingTimeInterval(19 * 60)
+        ))
+        fixture.motion.setQueryResponse(.sample(steps: 1500, distance: nil))
+        await fixture.store.restoreOnLaunch()
+        #expect(fixture.session?.status == .active)
+        #expect(fixture.storage.snapshot?.lastSampleAt == base.startedAt.addingTimeInterval(19 * 60))
+
+        await Self.emitAndAutosave(fixture, steps: 1600, end: Self.at(10))
+        #expect(fixture.session?.stepsMeasured == 1600)
+        #expect(fixture.storage.snapshot?.lastSampleAt == savedAt)
+
+        await Self.emitAndAutosave(fixture, steps: 1650, end: Self.at(40))
+        #expect(fixture.storage.snapshot?.lastSampleAt == Self.at(40))
+    }
+
+    @Test("Pausar, reanudar y relanzar: el snapshot guarda el tramo que escribe el store y el stream reabierto solo suma lo nuevo")
+    func pausedAndResumedSegmentSurvivesRelaunch() async throws {
+        let first = Fixture()
+        await first.store.start()
+        first.motion.emit(steps: 1000, distance: 700)
+        await waitUntil { first.session?.stepsMeasured == 1000 }
+        first.clock.advance(by: 600)
+        first.store.pause()
+        first.clock.advance(by: 60)
+        first.store.resume()
+        let resumedAt = first.clock.now
+        first.motion.emit(steps: 200, distance: 140)
+        await waitUntil { first.session?.stepsMeasured == 1200 }
+        first.clock.advance(by: 30)
+        first.store.appDidEnterBackground()
+
+        let saved = try #require(first.storage.snapshot)
+        #expect(saved.segmentStart == resumedAt)
+        #expect(saved.segmentSteps == 200)
+        #expect(saved.distanceBaseM == 700)
+        #expect(saved.stepsMeasured == 1200)
+        #expect(saved.systemDistanceM == 840)
+
+        // El sistema mata la app y Paul la reabre en el mismo instante.
+        let relaunched = Fixture(storage: first.storage, at: first.clock.now)
+        relaunched.motion.setQueryResponse(.sample(steps: 200, distance: 140))
+        await relaunched.store.restoreOnLaunch()
+        #expect(relaunched.motion.updateStarts == [resumedAt])
+
+        relaunched.motion.emit(steps: 250, distance: 175)
+        await waitUntil { relaunched.session?.stepsMeasured == 1250 }
+        #expect(relaunched.session?.stepsMeasured == 1250)
+        #expect(relaunched.session?.systemDistanceM == 875, "base 700 + 175")
+        #expect(relaunched.store.metrics?.distanceM == 875)
+    }
+
+    @Test("Restaurar sin dato y volver de background: solo se estima el gap nuevo de 60 s, no [savedAt, ahora]")
+    func backgroundAfterRestoreEstimatesOnlyNewGap() async throws {
+        // 1120 pasos a 80 spm y ~400 estimados al restaurar (como relaunchWithoutData).
+        let snapshot = Self.snapshot(stepsMeasured: 1120, savedAgoS: 300)
+        let fixture = Fixture(snapshot: snapshot)
+        fixture.motion.setQueryResponse(.none)
+        await fixture.store.restoreOnLaunch()
+        #expect(fixture.session?.stepsEstimated == 400)
+
+        fixture.store.appDidEnterBackground()
+        fixture.clock.advance(by: 60)
+        await fixture.store.appDidBecomeActive()
+
+        // Cadencia al salir: 1120 pasos en 1140 s = 58,9 spm; 1 min → 59. Con el gap pendiente
+        // desde savedAt serían 480 más (80 spm × 6 min).
+        #expect(fixture.session?.stepsEstimated == 459)
+        #expect(fixture.motion.queriedRanges.last == .init(start: snapshot.startedAt, end: Self.now.addingTimeInterval(60)))
     }
 
     @Test("Volver de background guarda el snapshot reconciliado")

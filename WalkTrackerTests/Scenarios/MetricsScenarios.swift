@@ -127,6 +127,19 @@ struct MetricsScenarios {
         #expect(metrics.cadenceSpm == 80.3, "la cadencia sigue siendo de los pasos medidos")
     }
 
+    @Test("Nativo · con distancia del sistema, los estimados suman × zancada: 500 m y 400 estimados → 762 m; al descartar, 500 m")
+    func systemDistancePlusEstimated() throws {
+        var session = try Self.started()
+        try session.addMeasuredSteps(800)
+        try session.recordSystemDistance(500)
+        try session.addEstimatedSteps(400)
+
+        #expect(session.metrics(at: Self.at(ms: 900_000)).distanceM == 762, "500 + 400 × 0,655")
+
+        try session.discardEstimatedSteps()
+        #expect(session.metrics(at: Self.at(ms: 900_000)).distanceM == 500)
+    }
+
     @Test("Nativo · la distancia del sistema nunca baja: 3400 → 3390 sigue en 3400")
     func systemDistanceNeverDecreases() throws {
         var session = try Self.started()

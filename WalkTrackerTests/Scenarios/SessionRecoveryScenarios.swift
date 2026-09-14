@@ -131,13 +131,13 @@ struct SessionRecoveryScenarios {
 
     // MARK: - Restaurar
 
-    @Test("Restaurar activa: el tiempo se recalcula desde startedAt; 20 min con 60 s de pausas → 1140 s")
+    @Test("Nativo · restaurar activa: el tiempo se recalcula desde startedAt; 20 min con 60 s de pausas → 1140 s")
     func restoredActiveTimeFromStart() throws {
         let session = try Self.restore(stepsMeasured: 1500, totalPausesS: 60)
         #expect(session.elapsedS(at: Self.now.addingTimeInterval(20 * 60)) == 1140)
     }
 
-    @Test("Restaurar pausada: paused, con el tiempo congelado en pausedAt")
+    @Test("Nativo · restaurar pausada: paused, con el tiempo congelado en pausedAt")
     func restoredPausedIsFrozen() throws {
         let pausedAt = Self.now.addingTimeInterval(600)
         var session = try Self.restore(stepsMeasured: 800, totalPausesS: 60, paused: true, pausedAt: pausedAt)
@@ -151,14 +151,14 @@ struct SessionRecoveryScenarios {
         #expect(session.elapsedS(at: pausedAt.addingTimeInterval(180)) == 600)
     }
 
-    @Test("Restaurar conserva la distancia del sistema")
+    @Test("Nativo · restaurar conserva la distancia del sistema")
     func restoredKeepsSystemDistance() throws {
         let session = try Self.restore(stepsMeasured: 1000, systemDistanceM: 700.5)
         #expect(session.systemDistanceM == 700.5)
         #expect(session.metrics(at: Self.now.addingTimeInterval(600)).distanceM == 700.5)
     }
 
-    @Test("Snapshot inválido: pasos, pausas o distancia fuera de rango → invalidValue con su campo")
+    @Test("Nativo · snapshot inválido: pasos, pausas o distancia fuera de rango → invalidValue con su campo")
     func invalidRangesThrow() {
         #expect(throws: DomainError.invalidValue(field: "stepsMeasured")) { try Self.restore(stepsMeasured: -1) }
         #expect(throws: DomainError.invalidValue(field: "stepsEstimated")) { try Self.restore(stepsEstimated: -1) }
@@ -170,7 +170,7 @@ struct SessionRecoveryScenarios {
         #expect(throws: DomainError.invalidValue(field: "strideM")) { try Self.restore(strideM: .infinity) }
     }
 
-    @Test("Snapshot inválido: pausedAt si y solo si está pausada")
+    @Test("Nativo · snapshot inválido: pausedAt si y solo si está pausada")
     func pausedAtIffPaused() {
         #expect(throws: DomainError.invalidValue(field: "pausedAt")) { try Self.restore(paused: true, pausedAt: nil) }
         #expect(throws: DomainError.invalidValue(field: "pausedAt")) {
@@ -180,7 +180,7 @@ struct SessionRecoveryScenarios {
 
     // MARK: - Sesión huérfana (AD-18)
 
-    @Test("Huérfana activa: se cierra en el último dato real (+40 min), finished y recovered")
+    @Test("Nativo · huérfana activa: se cierra en el último dato real (+40 min), finished y recovered")
     func orphanActiveClosesAtLastData() throws {
         var session = try Self.restore(stepsMeasured: 4000)
         let lastData = Self.now.addingTimeInterval(40 * 60)
@@ -195,7 +195,7 @@ struct SessionRecoveryScenarios {
         #expect(session.stepsEstimated == 0, "sin estimar")
     }
 
-    @Test("Huérfana pausada: la pausa abierta cuenta 0 y la duración queda en el tramo real")
+    @Test("Nativo · huérfana pausada: la pausa abierta cuenta 0 y la duración queda en el tramo real")
     func orphanPausedKeepsRealStretch() throws {
         let lastData = Self.now.addingTimeInterval(30 * 60)
         var session = try Self.restore(
@@ -214,7 +214,7 @@ struct SessionRecoveryScenarios {
         #expect(session.pausedAt == nil)
     }
 
-    @Test("finish normal no marca recovered; cerrar como huérfana una finalizada lanza y no muta")
+    @Test("Nativo · finish normal no marca recovered; cerrar como huérfana una finalizada lanza y no muta")
     func orphanOnFinishedThrows() throws {
         var session = try Self.restore(stepsMeasured: 100)
         try session.finish(at: Self.now.addingTimeInterval(600))
