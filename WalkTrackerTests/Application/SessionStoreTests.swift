@@ -13,7 +13,7 @@ struct SessionStoreTests {
     private static let t0 = Date(timeIntervalSince1970: 1_800_000_000)
 
     private static func store(clock: ClockStub, strideM: Double = 0.655) -> SessionStore {
-        SessionStore(clock: clock, motion: MotionStub(status: .granted), strideM: strideM, reconciliationTimeoutS: 0.05)
+        SessionStore(clock: clock, motion: MotionStub(status: .granted), storage: StorageStub(), strideM: strideM, reconciliationTimeoutS: 0.05, orphanSessionThresholdS: 21_600)
     }
 
     @Test("Iniciar: sesión active con los valores iniciales en el instante del reloj")
@@ -43,7 +43,7 @@ struct SessionStoreTests {
     @Test("Zancada inválida: invalidValue(strideM), ninguna sesión y ningún conteo", arguments: [0, -1, Double.nan, .infinity])
     func invalidStrideCreatesNothing(stride: Double) async {
         let motion = MotionStub(status: .granted)
-        let store = SessionStore(clock: ClockStub(now: Self.t0), motion: motion, strideM: stride, reconciliationTimeoutS: 0.05)
+        let store = SessionStore(clock: ClockStub(now: Self.t0), motion: motion, storage: StorageStub(), strideM: stride, reconciliationTimeoutS: 0.05, orphanSessionThresholdS: 21_600)
 
         await store.start()
 
@@ -107,7 +107,7 @@ struct SessionStoreTests {
     func secondStartIsIgnored() async throws {
         let clock = ClockStub(now: Self.t0)
         let motion = MotionStub(status: .granted)
-        let store = SessionStore(clock: clock, motion: motion, strideM: 0.655, reconciliationTimeoutS: 0.05)
+        let store = SessionStore(clock: clock, motion: motion, storage: StorageStub(), strideM: 0.655, reconciliationTimeoutS: 0.05, orphanSessionThresholdS: 21_600)
         await store.start()
         let first = try #require(store.session)
 
@@ -143,7 +143,7 @@ struct SessionStoreStepCountingTests {
     private static let t0 = Date(timeIntervalSince1970: 1_800_000_000)
 
     private static func store(_ motion: MotionStub) -> SessionStore {
-        SessionStore(clock: ClockStub(now: t0), motion: motion, strideM: 0.655, reconciliationTimeoutS: 0.05)
+        SessionStore(clock: ClockStub(now: t0), motion: motion, storage: StorageStub(), strideM: 0.655, reconciliationTimeoutS: 0.05, orphanSessionThresholdS: 21_600)
     }
 
     private func steps(_ store: SessionStore) -> Int? { store.session?.stepsMeasured }
@@ -451,7 +451,7 @@ struct SessionStoreMetricsTests {
         init() {
             clock = ClockStub(now: SessionStoreMetricsTests.t0)
             motion = MotionStub(status: .granted)
-            store = SessionStore(clock: clock, motion: motion, strideM: 0.655, reconciliationTimeoutS: 0.05)
+            store = SessionStore(clock: clock, motion: motion, storage: StorageStub(), strideM: 0.655, reconciliationTimeoutS: 0.05, orphanSessionThresholdS: 21_600)
         }
 
         /// Emite las muestras, cierra el stream y espera a que el store las consuma todas.
@@ -596,7 +596,7 @@ struct SessionStoreLifecycleTests {
         init() {
             clock = ClockStub(now: SessionStoreLifecycleTests.t0)
             motion = MotionStub(status: .granted)
-            store = SessionStore(clock: clock, motion: motion, strideM: 0.655, reconciliationTimeoutS: 0.05)
+            store = SessionStore(clock: clock, motion: motion, storage: StorageStub(), strideM: 0.655, reconciliationTimeoutS: 0.05, orphanSessionThresholdS: 21_600)
         }
 
         var steps: Int? { store.session?.stepsMeasured }
@@ -964,7 +964,7 @@ struct SessionStoreReconciliationTests {
         init(timeoutS: TimeInterval = 5) {
             clock = ClockStub(now: SessionStoreReconciliationTests.t0)
             motion = MotionStub(status: .granted)
-            store = SessionStore(clock: clock, motion: motion, strideM: 0.655, reconciliationTimeoutS: timeoutS)
+            store = SessionStore(clock: clock, motion: motion, storage: StorageStub(), strideM: 0.655, reconciliationTimeoutS: timeoutS, orphanSessionThresholdS: 21_600)
         }
 
         var session: Session? { store.session }
@@ -1484,5 +1484,556 @@ struct SessionStoreReconciliationTests {
         #expect(fixture.session == finished)
         #expect(fixture.session?.stepsEstimated == 400)
         #expect(fixture.motion.queriedRanges.count == 2, "la del gap y la de finalizar; ninguna tras cerrar")
+    }
+}
+
+/// Matriz de la 1.6 sobre `SessionStore`: el snapshot en un `StorageStub`, el reloj en un
+/// `ClockStub` y el coprocesador en un `MotionStub`. "Relanzar" es construir otro store
+/// sobre el mismo almacenamiento y llamar a `restoreOnLaunch()`.
+@MainActor
+@Suite("SessionStore · recuperación al relanzar")
+struct SessionStoreRecoveryTests {
+
+    /// El instante del relanzamiento.
+    private nonisolated static let now = Date(timeIntervalSince1970: 1_800_000_000)
+    private nonisolated static let orphanThresholdS: TimeInterval = 6 * 60 * 60
+
+    @MainActor
+    private struct Fixture {
+        let clock: ClockStub
+        let motion: MotionStub
+        let storage: StorageStub
+        let store: SessionStore
+
+        /// Timeout largo por defecto, como en la reconciliación: una consulta inmediata nunca
+        /// pierde contra el temporizador.
+        init(snapshot: ActiveSessionSnapshot? = nil, storage: StorageStub? = nil, at instant: Date = SessionStoreRecoveryTests.now) {
+            clock = ClockStub(now: instant)
+            motion = MotionStub(status: .granted)
+            self.storage = storage ?? StorageStub(snapshot: snapshot)
+            store = SessionStore(
+                clock: clock,
+                motion: motion,
+                storage: self.storage,
+                strideM: 0.655,
+                reconciliationTimeoutS: 5,
+                orphanSessionThresholdS: SessionStoreRecoveryTests.orphanThresholdS
+            )
+        }
+
+        var session: Session? { store.session }
+    }
+
+    /// Snapshot relativo a `now`. Por defecto: activa desde hace 20 min, 1500 pasos, 60 s de
+    /// pausas, guardada ahora mismo y con un solo tramo desde el inicio.
+    private nonisolated static func snapshot(
+        startedAgoS: TimeInterval = 20 * 60,
+        stepsMeasured: Int = 1500,
+        stepsEstimated: Int = 0,
+        totalPausesS: TimeInterval = 60,
+        pausedAgoS: TimeInterval? = nil,
+        forcePaused: Bool? = nil,
+        strideM: Double = 0.655,
+        systemDistanceM: Double? = nil,
+        savedAgoS: TimeInterval = 0,
+        lastSampleAt: Date? = nil,
+        segmentStart: Date? = nil,
+        segmentSteps: Int? = nil,
+        distanceBaseM: Double = 0
+    ) -> ActiveSessionSnapshot {
+        let startedAt = now.addingTimeInterval(-startedAgoS)
+        return ActiveSessionSnapshot(
+            startedAt: startedAt,
+            stepsMeasured: stepsMeasured,
+            stepsEstimated: stepsEstimated,
+            totalPausesS: totalPausesS,
+            paused: forcePaused ?? (pausedAgoS != nil),
+            pausedAt: pausedAgoS.map { now.addingTimeInterval(-$0) },
+            strideM: strideM,
+            systemDistanceM: systemDistanceM,
+            savedAt: now.addingTimeInterval(-savedAgoS),
+            lastSampleAt: lastSampleAt,
+            segmentStart: segmentStart ?? startedAt,
+            segmentSteps: segmentSteps ?? stepsMeasured,
+            distanceBaseM: distanceBaseM
+        )
+    }
+
+    // MARK: - Relanzar
+
+    @Test("Relanzar activa: 20 min, 1500 pasos y 60 s de pausas → activa, 1140 s, 1500 + la consulta y \"Sesión recuperada\"")
+    func relaunchActive() async throws {
+        let snapshot = Self.snapshot()
+        let fixture = Fixture(snapshot: snapshot)
+        fixture.motion.setQueryResponse(.sample(steps: 1700, distance: nil))
+
+        await fixture.store.restoreOnLaunch()
+
+        let session = try #require(fixture.session)
+        #expect(session.status == .active)
+        #expect(session.startedAt == snapshot.startedAt)
+        #expect(fixture.store.elapsedS == 1140)
+        #expect(session.stepsMeasured == 1700)
+        #expect(session.stepsEstimated == 0)
+        #expect(fixture.store.metrics == session.metrics(at: Self.now))
+        #expect(fixture.store.hasSession)
+        #expect(fixture.store.showsRecoveredNotice)
+        #expect(!fixture.store.isReconciling)
+        #expect(fixture.motion.queriedRanges == [.init(start: snapshot.startedAt, end: Self.now)])
+        #expect(fixture.motion.updateStarts == [snapshot.startedAt], "el tramo se reabre desde su inicio")
+        #expect(fixture.store.isCountingSteps)
+
+        // El snapshot queda al día con lo reconciliado.
+        let saved = try #require(fixture.storage.snapshot)
+        #expect(saved.stepsMeasured == 1700)
+        #expect(saved.segmentSteps == 1700)
+        #expect(saved.savedAt == Self.now)
+    }
+
+    @Test("El tramo reabierto conserva el máximo visto: sus acumulados solo suman lo nuevo")
+    func restoredSegmentKeepsHighest() async throws {
+        let resumedAt = Self.now.addingTimeInterval(-10 * 60)
+        let fixture = Fixture(snapshot: Self.snapshot(
+            systemDistanceM: 1000, segmentStart: resumedAt, segmentSteps: 900, distanceBaseM: 400
+        ))
+        fixture.motion.setQueryResponse(.sample(steps: 900, distance: 600))
+
+        await fixture.store.restoreOnLaunch()
+        #expect(fixture.session?.stepsMeasured == 1500)
+        #expect(fixture.motion.updateStarts == [resumedAt])
+
+        fixture.motion.emit(steps: 900, distance: 600)
+        fixture.motion.emit(steps: 950, distance: 630)
+        await waitUntil { fixture.session?.stepsMeasured == 1550 }
+        #expect(fixture.session?.stepsMeasured == 1550)
+        #expect(fixture.session?.systemDistanceM == 1030, "base del tramo 400 + 630")
+    }
+
+    @Test("Relanzar sin dato: consulta nil y gap de 300 s desde el último guardado a 80 spm → ~400")
+    func relaunchWithoutData() async throws {
+        // 20 min desde el inicio con 60 s de pausas; guardado hace 300 s con 840 s netos: 1120 pasos son 80 spm.
+        let fixture = Fixture(snapshot: Self.snapshot(stepsMeasured: 1120, savedAgoS: 300))
+        fixture.motion.setQueryResponse(.none)
+
+        await fixture.store.restoreOnLaunch()
+
+        let session = try #require(fixture.session)
+        #expect(session.stepsMeasured == 1120)
+        #expect(session.stepsEstimated == 400)
+        #expect(abs((fixture.store.metrics?.distanceM ?? 0) - (1120 + 400) * 0.655) < 0.01)
+        #expect(fixture.store.hasSession)
+        #expect(fixture.store.showsRecoveredNotice)
+        #expect(fixture.storage.snapshot?.stepsEstimated == 400, "lo estimado queda guardado")
+    }
+
+    @Test("Restaurar v3: {2450, 320, 60000 ms, activa, 0,655} → pasos, zancada y estado; distancia (2450 + 320) × 0,655")
+    func restoreV3Snapshot() async throws {
+        let fixture = Fixture(snapshot: Self.snapshot(stepsMeasured: 2450, stepsEstimated: 320))
+
+        await fixture.store.restoreOnLaunch()
+
+        let session = try #require(fixture.session)
+        #expect(session.stepsMeasured == 2450)
+        #expect(session.stepsEstimated == 320)
+        #expect(session.strideM == 0.655)
+        #expect(session.status == .active)
+        #expect(abs((fixture.store.metrics?.distanceM ?? 0) - (2450 + 320) * 0.655) < 0.01)
+    }
+
+    @Test("Relanzar pausada: pausada, sin consulta ni stream, con el tiempo congelado en pausedAt")
+    func relaunchPaused() async throws {
+        let fixture = Fixture(snapshot: Self.snapshot(stepsMeasured: 800, pausedAgoS: 5 * 60, savedAgoS: 5 * 60))
+
+        await fixture.store.restoreOnLaunch()
+
+        let session = try #require(fixture.session)
+        #expect(session.status == .paused)
+        #expect(fixture.store.elapsedS == 840, "15 min hasta la pausa − 60 s de pausas cerradas")
+        fixture.clock.advance(by: 600)
+        #expect(fixture.store.elapsedS == 840)
+        #expect(fixture.motion.queriedRanges.isEmpty)
+        #expect(fixture.motion.updateStarts.isEmpty)
+        #expect(session.stepsEstimated == 0)
+        #expect(fixture.store.hasSession)
+        #expect(fixture.store.showsRecoveredNotice)
+
+        // Reanudar abre un tramo nuevo desde cero.
+        fixture.store.resume()
+        #expect(fixture.motion.updateStarts == [fixture.clock.now])
+        fixture.motion.emit(steps: 10)
+        await waitUntil { fixture.session?.stepsMeasured == 810 }
+        #expect(fixture.session?.stepsMeasured == 810)
+    }
+
+    @Test("Mientras reconcilia al arrancar no se presenta: la sesión aparece ya consolidada")
+    func presentsOnlyAfterReconciling() async throws {
+        let fixture = Fixture(snapshot: Self.snapshot())
+        fixture.motion.setQueryResponse(.hang)
+        let store = fixture.store
+
+        let restoring = Task { await store.restoreOnLaunch() }
+        await waitUntil { store.isReconciling && fixture.motion.hasPendingQuery }
+        #expect(!store.hasSession)
+        #expect(!store.showsRecoveredNotice)
+        store.pause()
+        #expect(store.session?.status == .active, "los comandos siguen rechazados")
+
+        fixture.motion.resolvePendingQueries(with: .sample(steps: 1600, distance: nil))
+        await restoring.value
+
+        #expect(store.hasSession)
+        #expect(store.session?.stepsMeasured == 1600)
+    }
+
+    // MARK: - Sesión huérfana (AD-18)
+
+    @Test("Huérfana: startedAt por encima del umbral y último dato a +40 min → finished en +40 min, recovered, sin consulta")
+    func orphanIsClosed() async throws {
+        let snapshot = Self.snapshot(startedAgoS: 7 * 60 * 60, stepsMeasured: 4000, totalPausesS: 0, savedAgoS: 6 * 60 * 60)
+        let lastSampleAt = snapshot.startedAt.addingTimeInterval(40 * 60)
+        let fixture = Fixture(snapshot: Self.snapshot(
+            startedAgoS: 7 * 60 * 60, stepsMeasured: 4000, totalPausesS: 0, savedAgoS: 6 * 60 * 60, lastSampleAt: lastSampleAt
+        ))
+
+        await fixture.store.restoreOnLaunch()
+
+        let session = try #require(fixture.session)
+        #expect(session.status == .finished)
+        #expect(session.recovered)
+        #expect(session.endedAt == lastSampleAt)
+        #expect(session.durationS == 2400)
+        #expect(session.stepsMeasured == 4000)
+        #expect(session.stepsEstimated == 0)
+        #expect(fixture.motion.queriedRanges.isEmpty)
+        #expect(fixture.motion.updateStarts.isEmpty)
+        #expect(fixture.store.hasSession, "su resumen se muestra una vez")
+        #expect(!fixture.store.showsRecoveredNotice)
+        #expect(fixture.storage.snapshot == nil)
+        #expect(fixture.storage.clearCount == 1)
+
+        fixture.store.leaveSummary()
+        #expect(fixture.session == nil)
+        #expect(!fixture.store.hasSession)
+    }
+
+    @Test("Huérfana sin ninguna muestra: se cierra en startedAt con 0 s")
+    func orphanWithoutSamples() async throws {
+        let fixture = Fixture(snapshot: Self.snapshot(startedAgoS: 8 * 60 * 60, stepsMeasured: 0, totalPausesS: 0))
+
+        await fixture.store.restoreOnLaunch()
+
+        let session = try #require(fixture.session)
+        #expect(session.status == .finished)
+        #expect(session.recovered)
+        #expect(session.endedAt == session.startedAt)
+        #expect(session.durationS == 0)
+    }
+
+    @Test("Huérfana pausada: se cierra en el último dato y la pausa abierta cuenta 0")
+    func orphanPaused() async throws {
+        let base = Self.snapshot(startedAgoS: 10 * 60 * 60)
+        let fixture = Fixture(snapshot: Self.snapshot(
+            startedAgoS: 10 * 60 * 60, stepsMeasured: 3000, totalPausesS: 120,
+            pausedAgoS: 10 * 60 * 60 - 35 * 60, lastSampleAt: base.startedAt.addingTimeInterval(30 * 60)
+        ))
+
+        await fixture.store.restoreOnLaunch()
+
+        #expect(fixture.session?.durationS == 1680)
+        #expect(fixture.session?.recovered == true)
+    }
+
+    @Test("Huérfana con una pausa cerrada tras el último dato: se recorta en la última reanudación y la pausa no se come tiempo andado")
+    func orphanWithPauseAfterLastData() async throws {
+        // Camina 0–40 min (último dato a +40), pausa 50–60, reanuda a +60 y la app muere.
+        let base = Self.snapshot(startedAgoS: 7 * 60 * 60)
+        let fixture = Fixture(snapshot: Self.snapshot(
+            startedAgoS: 7 * 60 * 60, stepsMeasured: 3000, totalPausesS: 600,
+            lastSampleAt: base.startedAt.addingTimeInterval(40 * 60),
+            segmentStart: base.startedAt.addingTimeInterval(60 * 60), segmentSteps: 0
+        ))
+
+        await fixture.store.restoreOnLaunch()
+
+        let session = try #require(fixture.session)
+        #expect(session.recovered)
+        #expect(session.endedAt == base.startedAt.addingTimeInterval(60 * 60))
+        #expect(session.durationS == 3000, "60 min hasta la reanudación − 10 min de pausa")
+        #expect(session.pausesS == 600)
+    }
+
+    @Test("Justo en el umbral no es huérfana: se restaura")
+    func atThresholdRestores() async {
+        let fixture = Fixture(snapshot: Self.snapshot(startedAgoS: Self.orphanThresholdS))
+
+        await fixture.store.restoreOnLaunch()
+
+        #expect(fixture.session?.status == .active)
+        #expect(fixture.session?.recovered == false)
+    }
+
+    // MARK: - Sin snapshot, ilegible o inválido
+
+    @Test("Sin snapshot: Inicio normal, nada que restaurar")
+    func noSnapshot() async {
+        let fixture = Fixture()
+
+        await fixture.store.restoreOnLaunch()
+
+        #expect(fixture.storage.loadCount == 1)
+        #expect(fixture.session == nil)
+        #expect(!fixture.store.hasSession)
+        #expect(!fixture.store.showsRecoveredNotice)
+        #expect(fixture.storage.saved.isEmpty)
+    }
+
+    @Test("Snapshot ilegible: se aparta, Inicio normal y se puede iniciar", arguments: [
+        StorageError.malformed("JSON roto"), .unsupportedSchemaVersion(2),
+    ])
+    func unreadableSnapshot(error: StorageError) async {
+        let fixture = Fixture(snapshot: Self.snapshot())
+        fixture.storage.failLoad(with: error)
+
+        await fixture.store.restoreOnLaunch()
+
+        #expect(fixture.session == nil)
+        #expect(!fixture.store.hasSession)
+        #expect(fixture.storage.setAside != nil, "apartado, no destruido")
+        #expect(fixture.storage.clearCount == 0)
+        #expect(fixture.motion.queriedRanges.isEmpty)
+
+        fixture.storage.failLoad(with: nil)
+        await fixture.store.start()
+        #expect(fixture.session?.status == .active)
+    }
+
+    @Test("Snapshot inválido: rechazado en la frontera, apartado sin borrar e Inicio normal", arguments: [
+        SessionStoreRecoveryTests.snapshot(strideM: 0),
+        SessionStoreRecoveryTests.snapshot(strideM: -1),
+        SessionStoreRecoveryTests.snapshot(stepsMeasured: -1),
+        SessionStoreRecoveryTests.snapshot(totalPausesS: -1),
+        SessionStoreRecoveryTests.snapshot(forcePaused: true),
+        SessionStoreRecoveryTests.snapshot(segmentSteps: -1),
+        SessionStoreRecoveryTests.snapshot(distanceBaseM: -1),
+    ])
+    func invalidSnapshot(snapshot: ActiveSessionSnapshot) async {
+        let fixture = Fixture(snapshot: snapshot)
+
+        await fixture.store.restoreOnLaunch()
+
+        #expect(fixture.session == nil)
+        #expect(!fixture.store.hasSession)
+        #expect(fixture.storage.setAsideCount == 1)
+        #expect(fixture.storage.setAside == snapshot)
+        #expect(fixture.storage.clearCount == 0)
+        #expect(fixture.motion.queriedRanges.isEmpty)
+        #expect(fixture.motion.updateStarts.isEmpty)
+    }
+
+    @Test("Solo restaura una vez, y nunca sobre una sesión ya abierta")
+    func restoresOnce() async {
+        let fixture = Fixture(snapshot: Self.snapshot())
+        await fixture.store.restoreOnLaunch()
+        await fixture.store.restoreOnLaunch()
+        #expect(fixture.storage.loadCount == 1)
+
+        let other = Fixture(snapshot: Self.snapshot(stepsMeasured: 99))
+        await other.store.start()
+        await other.store.restoreOnLaunch()
+        #expect(other.session?.stepsMeasured == 0)
+        #expect(other.storage.loadCount == 0)
+    }
+
+    // MARK: - Guardar y borrar
+
+    @Test("Autosave: activa con muestras cada 2,5 s durante 25 s → el de iniciar + 2 por muestras (≥ 10 s), no 10")
+    func autosaveBySamples() async {
+        let fixture = Fixture()
+        await fixture.store.start()
+        #expect(fixture.storage.saved.count == 1, "al iniciar")
+
+        for index in 1...10 {
+            fixture.clock.advance(by: 2.5)
+            fixture.motion.emit(steps: index * 4, end: fixture.clock.now)
+            await waitUntil { fixture.session?.stepsMeasured == index * 4 }
+        }
+
+        #expect(fixture.storage.saved.count == 3)
+        #expect(fixture.storage.saved.map(\.savedAt) == [0, 10, 20].map { Self.now.addingTimeInterval($0) })
+        #expect(fixture.storage.saved.last?.stepsMeasured == 32, "la muestra de los 20 s")
+    }
+
+    @Test("Quieto no hay escrituras: sin muestras el reloj no guarda")
+    func noSamplesNoWrites() async {
+        let fixture = Fixture()
+        await fixture.store.start()
+        fixture.clock.advance(by: 600)
+        #expect(fixture.storage.saved.count == 1)
+    }
+
+    @Test("Se guarda al iniciar, pausar, reanudar y pasar a background; al finalizar se borra y relanzar no restaura")
+    func saveMomentsAndClearOnFinish() async throws {
+        let fixture = Fixture()
+        await fixture.store.start()
+        #expect(fixture.storage.saved.count == 1)
+
+        fixture.clock.advance(by: 5)
+        fixture.store.pause()
+        #expect(fixture.storage.saved.count == 2)
+        #expect(fixture.storage.snapshot?.paused == true)
+        #expect(fixture.storage.snapshot?.pausedAt == fixture.clock.now)
+
+        fixture.clock.advance(by: 5)
+        fixture.store.appDidEnterBackground()
+        #expect(fixture.storage.saved.count == 3, "también en pausa")
+
+        fixture.store.resume()
+        #expect(fixture.storage.saved.count == 4)
+        #expect(fixture.storage.snapshot?.paused == false)
+        #expect(fixture.storage.snapshot?.segmentStart == fixture.clock.now)
+        #expect(fixture.storage.snapshot?.totalPausesS == 5)
+
+        fixture.clock.advance(by: 5)
+        fixture.store.appDidEnterBackground()
+        #expect(fixture.storage.saved.count == 5)
+        #expect(fixture.storage.snapshot?.savedAt == fixture.clock.now)
+
+        await fixture.store.appDidBecomeActive()
+        fixture.store.requestFinish()
+        await fixture.store.confirmFinish()
+        #expect(fixture.storage.snapshot == nil)
+        #expect(fixture.storage.clearCount == 1)
+
+        let relaunched = Fixture(storage: fixture.storage, at: fixture.clock.now)
+        await relaunched.store.restoreOnLaunch()
+        #expect(relaunched.session == nil)
+        #expect(!relaunched.store.hasSession)
+    }
+
+    @Test("La consulta de la reconciliación no mueve lastSampleAt: el snapshot conserva el último paso real")
+    func queryDoesNotMoveLastSampleAt() async throws {
+        let fixture = Fixture()
+        await fixture.store.start()
+        fixture.motion.emit(steps: 300, end: Self.now.addingTimeInterval(60))
+        await waitUntil { fixture.session?.stepsMeasured == 300 }
+        fixture.clock.advance(by: 60)
+        fixture.store.appDidEnterBackground()
+        fixture.clock.set(Self.now.addingTimeInterval(5 * 60 * 60))
+        fixture.motion.setQueryResponse(.sample(steps: 820, distance: nil))
+
+        await fixture.store.appDidBecomeActive()
+
+        #expect(fixture.session?.stepsMeasured == 820)
+        #expect(fixture.storage.snapshot?.lastSampleAt == Self.now.addingTimeInterval(60))
+    }
+
+    @Test("Volver de background guarda el snapshot reconciliado")
+    func becomeActiveSavesReconciled() async throws {
+        let fixture = Fixture()
+        await fixture.store.start()
+        fixture.motion.emit(steps: 300)
+        await waitUntil { fixture.session?.stepsMeasured == 300 }
+        fixture.clock.advance(by: 60)
+        fixture.store.appDidEnterBackground()
+        #expect(fixture.storage.snapshot?.stepsMeasured == 300)
+        fixture.clock.advance(by: 300)
+        fixture.motion.setQueryResponse(.sample(steps: 820, distance: nil))
+
+        await fixture.store.appDidBecomeActive()
+
+        let saved = try #require(fixture.storage.snapshot)
+        #expect(saved.stepsMeasured == 820)
+        #expect(saved.segmentSteps == 820)
+        #expect(saved.savedAt == fixture.clock.now)
+    }
+
+    @Test("Descartar los estimados restaurados guarda stepsEstimated = 0: un crash no los resucita")
+    func discardSavesSnapshot() async {
+        let fixture = Fixture(snapshot: Self.snapshot(stepsMeasured: 1120, savedAgoS: 300))
+        await fixture.store.restoreOnLaunch()
+        #expect(fixture.storage.snapshot?.stepsEstimated == 400)
+
+        fixture.store.requestDiscardEstimated()
+        fixture.store.confirmDiscardEstimated()
+
+        #expect(fixture.session?.stepsEstimated == 0)
+        #expect(fixture.storage.snapshot?.stepsEstimated == 0)
+    }
+
+    @Test("Salir del resumen limpia el aviso y lastSampleAt: la sesión nueva del mismo store empieza sin ellos")
+    func leaveSummaryResetsRecoveryState() async throws {
+        let fixture = Fixture(snapshot: Self.snapshot(lastSampleAt: Self.now.addingTimeInterval(-60)))
+        await fixture.store.restoreOnLaunch()
+        #expect(fixture.store.showsRecoveredNotice)
+        #expect(fixture.storage.snapshot?.lastSampleAt == Self.now.addingTimeInterval(-60))
+
+        fixture.store.requestFinish()
+        await fixture.store.confirmFinish()
+        fixture.store.leaveSummary()
+        fixture.clock.advance(by: 60)
+        await fixture.store.start()
+
+        #expect(!fixture.store.showsRecoveredNotice)
+        let first = try #require(fixture.storage.saved.last)
+        #expect(first.startedAt == fixture.clock.now)
+        #expect(first.lastSampleAt == nil)
+    }
+
+    @Test("lastSampleAt es el end de la última muestra que sumó pasos")
+    func lastSampleAtOnlyWhenStepsAdded() async throws {
+        let fixture = Fixture()
+        await fixture.store.start()
+
+        fixture.motion.emit(steps: 100, end: Self.now.addingTimeInterval(30))
+        await waitUntil { fixture.session?.stepsMeasured == 100 }
+        fixture.motion.emit(steps: 100, distance: 70, end: Self.now.addingTimeInterval(60))
+        await waitUntil { fixture.session?.systemDistanceM == 70 }
+        fixture.clock.advance(by: 90)
+        fixture.store.appDidEnterBackground()
+
+        #expect(fixture.storage.snapshot?.lastSampleAt == Self.now.addingTimeInterval(30))
+    }
+
+    @Test("Force-quit y relanzar: la sesión vuelve con el tiempo real y el \"Sesión recuperada\" no sale al volver de background")
+    func forceQuitRoundTrip() async throws {
+        let first = Fixture()
+        await first.store.start()
+        first.motion.emit(steps: 600, end: Self.now.addingTimeInterval(300))
+        await waitUntil { first.session?.stepsMeasured == 600 }
+        first.clock.advance(by: 300)
+        first.store.appDidEnterBackground()
+        #expect(!first.store.showsRecoveredNotice)
+
+        // El sistema mata la app. Dos minutos después, Paul la reabre.
+        let relaunched = Fixture(storage: first.storage, at: Self.now.addingTimeInterval(420))
+        relaunched.motion.setQueryResponse(.sample(steps: 840, distance: nil))
+        await relaunched.store.restoreOnLaunch()
+
+        #expect(relaunched.session?.startedAt == Self.now)
+        #expect(relaunched.store.elapsedS == 420)
+        #expect(relaunched.session?.stepsMeasured == 840)
+        #expect(relaunched.session?.stepsEstimated == 0)
+        #expect(relaunched.store.showsRecoveredNotice)
+
+        relaunched.store.dismissRecoveredNotice()
+        relaunched.store.appDidEnterBackground()
+        relaunched.clock.advance(by: 60)
+        await relaunched.store.appDidBecomeActive()
+        #expect(!relaunched.store.showsRecoveredNotice)
+    }
+
+    @Test("Un guardado fallido no rompe la sesión y la siguiente muestra lo reintenta")
+    func failedSaveRetries() async {
+        let fixture = Fixture()
+        fixture.storage.failSave(with: .failed(operation: "write"))
+        await fixture.store.start()
+        #expect(fixture.session?.status == .active)
+        #expect(fixture.storage.saved.isEmpty)
+
+        fixture.storage.failSave(with: nil)
+        fixture.clock.advance(by: 1)
+        fixture.motion.emit(steps: 5)
+        await waitUntil { fixture.session?.stepsMeasured == 5 }
+        #expect(fixture.storage.saved.count == 1, "sin guardado previo, la muestra guarda")
     }
 }

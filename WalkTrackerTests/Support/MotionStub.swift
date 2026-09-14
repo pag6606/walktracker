@@ -148,11 +148,12 @@ final class MotionStub: MotionPort {
     }
 
     /// Emite una muestra **acumulada** desde el inicio del stream en curso. `distance`, en
-    /// metros, es la distancia acumulada del sistema; `nil` si no la da.
-    func emit(steps: Int, distance: Double? = nil) {
+    /// metros, es la distancia acumulada del sistema; `nil` si no la da. `end` es el fin del
+    /// intervalo de la muestra; sin él, el inicio del stream.
+    func emit(steps: Int, distance: Double? = nil, end: Date? = nil) {
         let (continuation, start) = state.withLock { ($0.continuation, $0.updateStarts.last) }
         let from = start ?? Date(timeIntervalSince1970: 0)
-        continuation?.yield(PedometerSample(steps: steps, distance: distance, start: from, end: from))
+        continuation?.yield(PedometerSample(steps: steps, distance: distance, start: from, end: end ?? from))
     }
 
     /// El sistema termina el stream sin que nadie lo cancele.

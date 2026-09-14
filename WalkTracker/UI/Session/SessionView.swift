@@ -22,6 +22,10 @@ import SwiftUI
 /// confirmación (AD-20). Mientras el store reconcilia (AD-8) los controles se deshabilitan
 /// siempre; el aviso de reconciliación solo aparece si dura más de 0,5 s, para no parpadear.
 ///
+/// Recuperación (1.6): tras restaurar la sesión al relanzar la app, "Sesión recuperada" aparece
+/// bajo el título 3 s, sin bloquear nada, y se anuncia a VoiceOver. Con Reduce Motion entra y
+/// sale con un fundido, sin desplazamiento.
+///
 /// Con tamaños de texto grandes la pantalla se desplaza en vertical en lugar de recortar.
 struct SessionView: View {
 
@@ -37,6 +41,10 @@ struct SessionView: View {
     /// Retraso del aviso de reconciliación (decisión de Paul, 1.5): una reconciliación
     /// rápida solo deshabilita los controles, sin texto que parpadee.
     private static let reconcilingNoticeDelay: Duration = .milliseconds(500)
+    /// Cuánto dura "Sesión recuperada" (CAP-1, EXPERIENCE.md#95: 3 s).
+    private static let recoveredNoticeDuration: Duration = .seconds(3)
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Group {
@@ -62,7 +70,8 @@ struct SessionView: View {
             steps: session.stepsMeasured,
             estimatedSteps: session.stepsEstimated,
             paceSecPerKm: metrics.paceSecPerKm,
-            cadenceSpm: metrics.cadenceSpm
+            cadenceSpm: metrics.cadenceSpm,
+            recovered: session.recovered
         )
     }
 
@@ -78,6 +87,10 @@ struct SessionView: View {
                         .foregroundStyle(.secondary)
                         .accessibilityAddTraits(.isHeader)
                         .padding(.top)
+
+                    if store.showsRecoveredNotice {
+                        recoveredNotice
+                    }
 
                     if store.isReconciling && showsReconcilingNotice {
                         Text("Recuperando los pasos del rato en segundo plano. Los controles vuelven en un momento.")
@@ -105,6 +118,13 @@ struct SessionView: View {
                 }
                 .padding()
                 .frame(maxWidth: .infinity, minHeight: proxy.size.height)
+                .animation(reduceMotion ? .easeInOut(duration: 0.2) : .default, value: store.showsRecoveredNotice)
+                .task(id: store.showsRecoveredNotice) {
+                    guard store.showsRecoveredNotice else { return }
+                    AccessibilityNotification.Announcement(String(localized: "Sesión recuperada", comment: "Indicador transitorio (3 s) bajo el título de la pantalla de sesión, y anuncio de VoiceOver, al restaurar la caminata tras relanzar la app.")).post()
+                    try? await Task.sleep(for: Self.recoveredNoticeDuration)
+                    if !Task.isCancelled { store.dismissRecoveredNotice() }
+                }
                 .task(id: store.isReconciling) {
                     showsReconcilingNotice = false
                     guard store.isReconciling else { return }
@@ -114,6 +134,16 @@ struct SessionView: View {
             }
             .scrollBounceBehavior(.basedOnSize)
         }
+    }
+
+    // MARK: - Sesión recuperada
+
+    /// Indicador transitorio, sin botón: no bloquea ni pide nada.
+    private var recoveredNotice: some View {
+        Label("Sesión recuperada", systemImage: "arrow.clockwise")
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
     }
 
     // MARK: - Rejilla

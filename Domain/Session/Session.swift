@@ -3,8 +3,9 @@ import Foundation
 /// Aggregate root de una caminata (domain-model.md §2, `domain.js:271` `createV3Session`).
 ///
 /// Siempre válido: solo se materializa por `start(at:strideM:)`, que valida la zancada
-/// en la frontera. Sus campos no se escriben desde fuera; las mutaciones (pasos,
-/// distancia del sistema, pausas, cierre) entran como operaciones del agregado.
+/// en la frontera, o por `restore(...)`, que valida el snapshot de recuperación (1.6).
+/// Sus campos no se escriben desde fuera; las mutaciones (pasos, distancia del sistema,
+/// pausas, cierre) entran como operaciones del agregado.
 ///
 /// Ciclo de estados (domain-model.md §2): `active → paused → active → finished`. Pausar
 /// solo desde `active`, reanudar solo desde `paused` y finalizar desde `active` o
@@ -39,6 +40,9 @@ public struct Session: Equatable, Sendable {
     /// `totalPausesS` redondeado al entero (`pausesS` en el snapshot). Solo al finalizar.
     public private(set) var pausesS: Int?
     public let source: SessionSource
+    /// La cerró la app al arrancar, no Paul: una sesión huérfana recortada al último dato real
+    /// del coprocesador (AD-18). Nunca dispara logros ni celebración.
+    public private(set) var recovered: Bool
 
     private init(startedAt: Date, strideM: Double) {
         self.startedAt = startedAt
@@ -53,6 +57,7 @@ public struct Session: Equatable, Sendable {
         self.durationS = nil
         self.pausesS = nil
         self.source = .ios
+        self.recovered = false
     }
 
     /// Crea una sesión `active` que empieza en `now`.
@@ -62,6 +67,51 @@ public struct Session: Equatable, Sendable {
     public static func start(at now: Date, strideM: Double) throws(DomainError) -> Session {
         try validateStride(strideM)
         return Session(startedAt: now, strideM: strideM)
+    }
+
+    /// Rehace una sesión `active` o `paused` desde el snapshot de recuperación (1.6,
+    /// `domain.js:378` `restoreV3Session`). El tiempo no se guarda: se recalcula desde
+    /// `startedAt` con `totalPausesS`, así que lo que la app pasó cerrada cuenta.
+    ///
+    /// Recibe `Date` y segundos: la conversión desde los milisegundos del fichero es del
+    /// adapter, que también valida la forma del JSON (el `TypeError` de la v3). Aquí se
+    /// validan los rangos (su `RangeError`), **antes** de crear el agregado.
+    ///
+    /// - Parameters:
+    ///   - paused: la sesión estaba en pausa. `pausedAt` existe si y solo si lo está.
+    ///   - systemDistanceM: última distancia acumulada del sistema, o `nil` si no la dio.
+    /// - Throws: `DomainError.invalidValue` con `strideM` (≤ 0 o no finita), `stepsMeasured`
+    ///   o `stepsEstimated` (< 0), `totalPausesS` (< 0 o no finito), `distanceM` (< 0 o no
+    ///   finita) o `pausedAt` (pausada sin `pausedAt`, o activa con él).
+    public static func restore(
+        startedAt: Date,
+        stepsMeasured: Int,
+        stepsEstimated: Int,
+        totalPausesS: TimeInterval,
+        paused: Bool,
+        pausedAt: Date?,
+        strideM: Double,
+        systemDistanceM: Double?
+    ) throws(DomainError) -> Session {
+        try validateStride(strideM)
+        guard stepsMeasured >= 0 else { throw .invalidValue(field: "stepsMeasured") }
+        guard stepsEstimated >= 0 else { throw .invalidValue(field: "stepsEstimated") }
+        guard totalPausesS.isFinite, totalPausesS >= 0 else { throw .invalidValue(field: "totalPausesS") }
+        if let systemDistanceM {
+            guard systemDistanceM.isFinite, systemDistanceM >= 0 else { throw .invalidValue(field: "distanceM") }
+        }
+        guard paused == (pausedAt != nil) else { throw .invalidValue(field: "pausedAt") }
+
+        var session = Session(startedAt: startedAt, strideM: strideM)
+        session.stepsMeasured = stepsMeasured
+        session.stepsEstimated = stepsEstimated
+        session.totalPausesS = totalPausesS
+        session.systemDistanceM = systemDistanceM
+        if paused {
+            session.status = .paused
+            session.pausedAt = pausedAt
+        }
+        return session
     }
 
     /// La regla de la zancada, única para el agregado y para las constantes de
@@ -194,6 +244,18 @@ public struct Session: Equatable, Sendable {
         pausesS = Self.roundedSeconds(totalPausesS)
         endedAt = now
         status = .finished
+    }
+
+    /// Cierra una sesión huérfana (AD-18) en `lastRealDataAt`, el último dato real del
+    /// coprocesador (o `startedAt` si no hubo ninguno), y la marca `recovered`.
+    ///
+    /// Cierra como `finish(at:)`. Desde pausa, la pausa abierta "termina" antes de `pausedAt`
+    /// y cuenta 0, así que la duración queda en el tramo real: nunca se estima ni se consulta.
+    ///
+    /// - Throws: `DomainError.invalidTransition` si la sesión ya está `finished`. No muta.
+    public mutating func closeOrphan(at lastRealDataAt: Date) throws(DomainError) {
+        try finish(at: lastRealDataAt)
+        recovered = true
     }
 
     /// Tiempo transcurrido en `now`, que el llamante lee de `ClockPort`.
