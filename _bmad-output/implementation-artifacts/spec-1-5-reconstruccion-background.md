@@ -187,6 +187,10 @@ de forma atómica y acotada por timeout (AD-8): consulta por rango al `MotionPor
     - Comentarios de `Localizable` igualados.
   - **Diferidos:** el test del cableado de `RootView` y la doble cuenta posterior a una consulta nil, en `deferred-work.md`.
   - Los dos tests nuevos del store fallan sin su parche.
+- **Verificación en el iPhone 14 (2026-09-14, Paul): funciona.** Build de desarrollo de `7c246e0` instalado y
+  lanzado con `devicectl`. Tras bloquear caminando y volver, los pasos aparecen al instante y sin "~". Finalizar
+  justo después de caminar lleva al resumen con los últimos pasos incluidos. Pausar, bloquear y volver no cambia
+  nada ni muestra "~". Los diferidos siguen abiertos.
 
 ## Spec Change Log
 
