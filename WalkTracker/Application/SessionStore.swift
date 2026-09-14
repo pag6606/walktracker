@@ -130,6 +130,9 @@ final class SessionStore {
     /// Consumo de `motion.updates(from:)`. Expuesto para que los tests esperen su final.
     @ObservationIgnored private(set) var stepCounting: Task<Void, Never>?
     @ObservationIgnored private let log = Logger(subsystem: "com.walktracker.app", category: "SessionStore")
+    /// Destino de las líneas de medición de la 8.4 (`MeasurementLog`). Solo observa: nada
+    /// del comportamiento depende de él. Los tests lo sustituyen para leer las líneas.
+    @ObservationIgnored private let measure: @Sendable (String) -> Void
 
     /// Espacio mínimo entre dos guardados por muestras (AD-9, domain-model.md §8: "autosave
     /// del snapshot cada 10 s").
@@ -141,7 +144,8 @@ final class SessionStore {
         storage: any StoragePort,
         strideM: Double,
         reconciliationTimeoutS: TimeInterval,
-        orphanSessionThresholdS: TimeInterval
+        orphanSessionThresholdS: TimeInterval,
+        measure: @escaping @Sendable (String) -> Void = MeasurementLog.record
     ) {
         self.clock = clock
         self.motion = motion
@@ -149,6 +153,7 @@ final class SessionStore {
         self.strideM = strideM
         self.reconciliationTimeoutS = reconciliationTimeoutS
         self.orphanSessionThresholdS = orphanSessionThresholdS
+        self.measure = measure
     }
 
     /// Tiempo transcurrido **leído del reloj** en cada lectura. El tick de 1 Hz de la
@@ -181,6 +186,7 @@ final class SessionStore {
         stopCountingSteps()
         self.session = session
         metrics = session.metrics(at: now)
+        measureTransition(.pause, session, at: now)
         persist()
     }
 
@@ -199,6 +205,7 @@ final class SessionStore {
         self.session = session
         metrics = session.metrics(at: now)
         countSteps(from: now)
+        measureTransition(.resume, session, at: now)
         persist()
     }
 
@@ -242,6 +249,7 @@ final class SessionStore {
         backgroundedAt = nil
         self.session = session
         metrics = session.metrics(at: now)
+        measureTransition(.finish, session, at: now)
         clearSnapshot()
     }
 
@@ -271,6 +279,7 @@ final class SessionStore {
         }
         self.session = session
         metrics = session.metrics(at: clock.now)
+        measureTransition(.discardEstimated, session, at: clock.now)
         persist()
     }
 
@@ -282,6 +291,7 @@ final class SessionStore {
         if status == .active, backgroundedAt == nil {
             backgroundedAt = clock.now
         }
+        if let session { measureTransition(.background, session, at: clock.now) }
         persist()
     }
 
@@ -294,6 +304,7 @@ final class SessionStore {
             await reconcile(until: clock.now)
         }
         backgroundedAt = nil
+        if let session { measureTransition(.active, session, at: clock.now) }
         persist()
     }
 
@@ -400,6 +411,7 @@ final class SessionStore {
             metrics = session.metrics(at: clock.now)
             hasSession = true
             countSteps(from: session.startedAt)
+            measureTransition(.start, session, at: session.startedAt)
             persist()
         } catch {
             startFailure = .invalidSession(error)
@@ -515,6 +527,7 @@ final class SessionStore {
         guard let current = session, current.status != .finished else { return }
         metrics = current.metrics(at: clock.now)
         log.info("Sesión recuperada: \(current.status.rawValue, privacy: .public)")
+        measureTransition(.restore, current, at: clock.now)
         showsRecoveredNotice = true
         hasSession = true
         persist()
@@ -534,6 +547,7 @@ final class SessionStore {
         log.info("Sesión huérfana cerrada en su último dato real")
         session = closed
         metrics = closed.metrics(at: end)
+        measureTransition(.orphan, closed, at: end)
         hasSession = true
         clearSnapshot()
     }
@@ -599,9 +613,22 @@ final class SessionStore {
         isConfirmingDiscard = false
 
         let seen = highestCumulativeSteps
+        let sessionStartedAt = session?.startedAt
         var sample: PedometerSample?
         if end.timeIntervalSince(start) <= Self.queryableHistoryS {
-            sample = await queryWithinTimeout(from: start, to: end)
+            let answer = await queryWithinTimeout(from: start, to: end, seen: seen, sessionStartedAt: sessionStartedAt)
+            sample = answer.race.sample
+            if let sessionStartedAt {
+                measure(MeasurementLog.queryLine(
+                    sessionStartedAt: sessionStartedAt,
+                    start: start,
+                    end: end,
+                    result: answer.race.sample,
+                    seen: seen,
+                    durationMs: answer.durationMs,
+                    outcome: answer.race.outcome(seen: seen)
+                ))
+            }
         } else {
             log.info("Tramo de más de 7 días: no se consulta y se estima")
         }
@@ -615,8 +642,15 @@ final class SessionStore {
         }
         // Si el stream avanzó durante la consulta, su acumulado ya cubre el gap: el sistema sí
         // tenía el dato, y estimar lo contaría dos veces con una cadencia inflada.
-        guard let gapStart = backgroundedAt, highestCumulativeSteps == seen else { return }
+        guard let gapStart = backgroundedAt else { return }
+        guard highestCumulativeSteps == seen else {
+            measure(MeasurementLog.estimateLine(
+                sessionStartedAt: session.startedAt, gapStart: gapStart, gapEnd: end, steps: 0, skipped: .streamAdvanced
+            ))
+            return
+        }
         let estimated = GapEstimator.steps(for: session, gapStart: gapStart, gapEnd: end)
+        measure(MeasurementLog.estimateLine(sessionStartedAt: session.startedAt, gapStart: gapStart, gapEnd: end, steps: estimated))
         guard estimated > 0 else { return }
         do {
             try session.addEstimatedSteps(estimated)
@@ -629,34 +663,65 @@ final class SessionStore {
         metrics = session.metrics(at: clock.now)
     }
 
+    /// Resultado de `queryWithinTimeout`: quién ganó la carrera y, para la medición de la 8.4,
+    /// cuánto tardó en resolverse, medido en la tarea que la ganó.
+    private struct QueryAnswer {
+        let race: QueryRace
+        let durationMs: Int
+    }
+
     /// `motion.query` acotada por `reconciliationTimeoutS`. Un error o el timeout dan `nil`.
     ///
     /// Sin `withTaskGroup` a propósito: el grupo espera a sus hijos al salir y la consulta de
     /// CoreMotion no se puede cancelar, así que una consulta colgada bloquearía. La consulta y
     /// el temporizador compiten en tareas no estructuradas sobre una continuación que resuelve
     /// el primero; el resultado tardío se ignora.
-    private func queryWithinTimeout(from start: Date, to end: Date) async -> PedometerSample? {
+    ///
+    /// La duración es la espera real (`ContinuousClock`), no la de `ClockPort`, como el propio
+    /// timeout, y se toma en la tarea que gana: no incluye la vuelta al hilo principal. Una
+    /// respuesta que llega tras el timeout se descarta, pero deja su línea `queryLate` con la
+    /// duración real: es lo que la 8.4 mide para fijar `reconciliationTimeoutS`.
+    private func queryWithinTimeout(from start: Date, to end: Date, seen: Int, sessionStartedAt: Date?) async -> QueryAnswer {
         let motion = self.motion
         let timeout = reconciliationTimeoutS
         let log = self.log
-        let race = FirstResult<PedometerSample?>()
+        let measure = self.measure
+        let race = FirstResult<QueryResolution>()
+        let startedAt = ContinuousClock.now
         Task.detached {
+            let answer: QueryRace
             do {
-                race.resolve(try await motion.query(from: start, to: end))
+                answer = .answered(try await motion.query(from: start, to: end))
             } catch {
                 log.error("Consulta del podómetro fallida: \(String(describing: error), privacy: .public)")
-                race.resolve(nil)
+                answer = .failed
             }
+            let answeredAt = ContinuousClock.now
+            guard !race.resolve(QueryResolution(race: answer, at: answeredAt)), let sessionStartedAt else { return }
+            measure(MeasurementLog.lateQueryLine(
+                sessionStartedAt: sessionStartedAt,
+                start: start,
+                end: end,
+                result: answer.sample,
+                seen: seen,
+                durationMs: MeasurementLog.milliseconds(startedAt.duration(to: answeredAt)),
+                outcome: answer.outcome(seen: seen)
+            ))
         }
         let timer = Task.detached {
             try? await Task.sleep(for: .seconds(timeout))
-            if race.resolve(nil) {
+            if race.resolve(QueryResolution(race: .timedOut, at: ContinuousClock.now)) {
                 log.error("La consulta del podómetro agotó el timeout de \(timeout, privacy: .public) s")
             }
         }
-        let result = await race.value()
+        let resolution = await race.value()
         timer.cancel()
-        return result
+        return QueryAnswer(race: resolution.race, durationMs: MeasurementLog.milliseconds(startedAt.duration(to: resolution.at)))
+    }
+
+    /// Línea de medición de una transición de la sesión (8.4).
+    private func measureTransition(_ transition: MeasurementLog.Transition, _ session: Session, at instant: Date) {
+        measure(MeasurementLog.sessionLine(transition: transition, session: session, at: instant))
     }
 
     /// Cancela el stream del tramo en curso. Cancelar la iteración detiene el podómetro
@@ -674,6 +739,9 @@ final class SessionStore {
     /// termina en el instante pedido (volver o relanzar), no en el último paso real, y
     /// recortar ahí una huérfana contaría como caminadas las horas quietas.
     private func record(_ sample: PedometerSample, fromQuery: Bool = false) {
+        if !fromQuery, let startedAt = session?.startedAt {
+            measure(MeasurementLog.sampleLine(sessionStartedAt: startedAt, sample: sample))
+        }
         guard session?.status == .active else { return }
         if sample.steps > highestCumulativeSteps {
             let increment = sample.steps - highestCumulativeSteps
@@ -705,8 +773,36 @@ final class SessionStore {
     private func stepCountingEnded() {
         guard !Task.isCancelled else { return }
         isCountingSteps = false
+        if let session { measureTransition(.streamEnded, session, at: clock.now) }
         log.error("El sistema terminó las actualizaciones del podómetro; la sesión sigue con \(self.session?.stepsMeasured ?? 0, privacy: .public) pasos")
     }
+}
+
+/// Quién ganó la carrera de `queryWithinTimeout`.
+private enum QueryRace: Sendable {
+    case answered(PedometerSample?)
+    case failed
+    case timedOut
+
+    /// La muestra que decide: `nil` con error o timeout.
+    var sample: PedometerSample? {
+        if case .answered(let sample) = self { return sample }
+        return nil
+    }
+
+    func outcome(seen: Int) -> MeasurementLog.QueryOutcome {
+        switch self {
+        case .answered(let sample): MeasurementLog.outcome(of: sample, seen: seen)
+        case .failed: .error
+        case .timedOut: .timeout
+        }
+    }
+}
+
+/// Resultado de la carrera con el instante en que lo resolvió la tarea que la ganó.
+private struct QueryResolution: Sendable {
+    let race: QueryRace
+    let at: ContinuousClock.Instant
 }
 
 /// El primer resultado de una carrera entre tareas no estructuradas. `resolve` gana solo la

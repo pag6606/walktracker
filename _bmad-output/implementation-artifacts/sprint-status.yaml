@@ -43,7 +43,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: '2026-08-01'
-last_updated: 09-14-2026 14:16
+last_updated: 09-14-2026 15:34
 project: walktracker
 project_key: NOKEY
 tracking_system: file-system
@@ -104,7 +104,7 @@ development_status:
   8-7-sustrato-de-verificación-del-dominio: done
   8-3-distribución-testflight-con-versionado-semver: done
   # Se ejecuta DESPUÉS de epic-1 (1-1..1-6). epic-8 sigue in-progress hasta entonces.
-  8-4-gate-del-success-signal-batería-y-precisión-en-dispositivo-f: backlog
+  8-4-gate-del-success-signal-batería-y-precisión-en-dispositivo-f: review
   epic-8-retrospective: optional
 action_items:
   - id: "epic-1-retro-item-1-a-1-refactor-antes-del-epic-2-partir-ses"
