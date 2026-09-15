@@ -13,7 +13,13 @@
 #   2. Gates — `check-project-shape.sh` y `verify-domain.sh` en verde.
 #   3. Archivo — `xcodegen generate` y `xcodebuild archive` en Release, con
 #      `CURRENT_PROJECT_VERSION` = número de build. El Info.plist del archivo tiene que
-#      decir la versión y el build esperados, en la app y en la extensión.
+#      decir la versión y el build esperados, en la app y en la extensión. Y la app tiene
+#      que llevar dentro `PrivacyInfo.xcprivacy` (un plist válido que declara la ubicación
+#      aproximada, `NSPrivacyCollectedDataTypeCoarseLocation`), declarar
+#      `ITSAppUsesNonExemptEncryption = false` y llevar `NSLocationWhenInUseUsageDescription`:
+#      sin el manifiesto App Store Connect rechaza el build, un manifiesto vacío mentiría sobre
+#      el clima, el flag solo es verdad mientras la única red sea el HTTPS del sistema, y sin la
+#      explicación de ubicación el permiso del clima no se puede pedir (2.1).
 #   4. Subida — `xcodebuild -exportArchive` con `Scripts/ExportOptions-testflight.plist`
 #      (`destination: upload`, cuenta de Apple configurada en Xcode). Pide confirmación
 #      explícita justo antes: un número de build subido no se puede reutilizar. HEAD y
@@ -263,7 +269,38 @@ for bundle in \
         die "$bundle dice versión '$got_version' build '$got_build'; se esperaba $VERSION ($BUILD). No se exporta."
     fi
 done
-say "archivo correcto: $APP_NAME $VERSION ($BUILD)."
+
+# Privacidad y exportación (2.1, diferido de la 8.3): lo que se sube lleva el manifiesto de
+# privacidad y declara el cifrado exento. Se comprueba en el binario, no en el repositorio:
+# un recurso que no entra en el target no llega al .app aunque exista en disco.
+app_bundle="$ARCHIVE/Products/Applications/$APP_NAME.app"
+manifest="$app_bundle/PrivacyInfo.xcprivacy"
+if [ ! -f "$manifest" ]; then
+    die "$APP_NAME.app no lleva PrivacyInfo.xcprivacy: App Store Connect rechaza el build sin manifiesto de privacidad. ¿Salió del target en project.yml? No se exporta."
+fi
+if ! plutil -lint -s "$manifest" >/dev/null 2>&1; then
+    die "el PrivacyInfo.xcprivacy de $APP_NAME.app no es un plist válido. No se exporta."
+fi
+# El clima envía la ubicación aproximada a Open-Meteo: el manifiesto tiene que declararla.
+declares_coarse_location=0
+i=0
+while collected="$(plutil -extract "NSPrivacyCollectedDataTypes.$i.NSPrivacyCollectedDataType" raw -o - "$manifest" 2>/dev/null)"; do
+    [ "$collected" = "NSPrivacyCollectedDataTypeCoarseLocation" ] && declares_coarse_location=1
+    i=$((i + 1))
+done
+if [ "$declares_coarse_location" -ne 1 ]; then
+    die "el PrivacyInfo.xcprivacy de $APP_NAME.app no declara NSPrivacyCollectedDataTypeCoarseLocation: la app envía la ubicación aproximada a Open-Meteo (2.1). No se exporta."
+fi
+location_usage="$(plutil -extract NSLocationWhenInUseUsageDescription raw -o - "$app_bundle/Info.plist" 2>/dev/null)" || location_usage=""
+if [ -z "$location_usage" ]; then
+    die "el Info.plist de $APP_NAME.app no lleva NSLocationWhenInUseUsageDescription: sin ella el permiso de ubicación del clima no se puede pedir. No se exporta."
+fi
+# `plutil -extract` escribe su error en la salida estándar: sin la clave, el valor queda vacío.
+encryption="$(plutil -extract ITSAppUsesNonExemptEncryption raw -o - "$app_bundle/Info.plist" 2>/dev/null)" || encryption=""
+if [ "$encryption" != "false" ]; then
+    die "el Info.plist de $APP_NAME.app dice ITSAppUsesNonExemptEncryption '${encryption:-(ausente)}'; se esperaba false (solo HTTPS del sistema, exento). No se exporta."
+fi
+say "archivo correcto: $APP_NAME $VERSION ($BUILD), con manifiesto de privacidad (ubicación aproximada), explicación de ubicación y cifrado exento."
 assert_unchanged "mientras se archivaba" "exporta"
 
 # ── 4. Exportación / subida ──────────────────────────────────────────────────

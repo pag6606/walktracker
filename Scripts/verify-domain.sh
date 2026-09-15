@@ -14,7 +14,8 @@
 #      los vectores marcados con una de las dos divergencias declaradas
 #      (localTime · wmoCategory); un divergente que pase también rompe.
 #   3. Swift — xcodebuild test de los vectores, el arnés, el catálogo de logros,
-#      las constantes de fórmula y los escenarios portados a mano del Epic 1.
+#      las constantes de fórmula, los escenarios portados a mano del Epic 1 y el
+#      clima del inicio (`WeatherSnapshotTests`, 2.1).
 #      Las funciones aún no portadas se listan como pendientes; las portadas que
 #      fallan rompen.
 #
@@ -75,7 +76,8 @@ else
         -only-testing:WalkTrackerTests/MetricsScenarios \
         -only-testing:WalkTrackerTests/SessionLifecycleScenarios \
         -only-testing:WalkTrackerTests/GapReconstructionScenarios \
-        -only-testing:WalkTrackerTests/SessionRecoveryScenarios) >"$LOG" 2>&1
+        -only-testing:WalkTrackerTests/SessionRecoveryScenarios \
+        -only-testing:WalkTrackerTests/WeatherSnapshotTests) >"$LOG" 2>&1
     status=$?
 
     grep -E '^[[:space:]]*(✘|✔ Suite)|AD-6 · Swift|error:|Test run with' "$LOG" | sed 's/^/  /'

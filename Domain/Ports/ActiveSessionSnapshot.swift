@@ -4,7 +4,7 @@ import Foundation
 /// (CAP-1, AD-9, domain-model.md §8 `activeSession`).
 ///
 /// Va en **segundos y `Date`**, como el dominio: los milisegundos del fichero son del
-/// adapter de persistencia. Clima y frase (§8) son del Epic 2 y aún no se guardan.
+/// adapter de persistencia. El clima (2.1) viaja con la sesión; la frase (§8) llega con la 2.2.
 ///
 /// Además de los campos de la sesión lleva el tramo del podómetro en curso
 /// (`segmentStart`, `segmentSteps`, `distanceBaseM`): al restaurar, el stream se reabre
@@ -33,6 +33,8 @@ public struct ActiveSessionSnapshot: Equatable, Sendable {
     public let segmentSteps: Int
     /// Distancia del sistema acumulada al abrir el tramo en curso, en metros.
     public let distanceBaseM: Double
+    /// Clima capturado al inicio, o `nil` sin clima. Se conserva al restaurar (2.1).
+    public let weather: WeatherSnapshot?
 
     public init(
         startedAt: Date,
@@ -47,7 +49,8 @@ public struct ActiveSessionSnapshot: Equatable, Sendable {
         lastSampleAt: Date?,
         segmentStart: Date,
         segmentSteps: Int,
-        distanceBaseM: Double
+        distanceBaseM: Double,
+        weather: WeatherSnapshot? = nil
     ) {
         self.startedAt = startedAt
         self.stepsMeasured = stepsMeasured
@@ -62,5 +65,6 @@ public struct ActiveSessionSnapshot: Equatable, Sendable {
         self.segmentStart = segmentStart
         self.segmentSteps = segmentSteps
         self.distanceBaseM = distanceBaseM
+        self.weather = weather
     }
 }

@@ -10,7 +10,8 @@ import OSLog
 /// La 1.1 cubre iniciar y el cronómetro; la 1.2, el permiso de Motion & Fitness y el
 /// conteo de pasos del coprocesador; la 1.3, las métricas derivadas; la 1.4, pausar,
 /// reanudar, finalizar y el resumen; la 1.5, la reconstrucción del background por consulta
-/// al sistema y el descarte de pasos estimados; la 1.6, la recuperación tras un force-quit.
+/// al sistema y el descarte de pasos estimados; la 1.6, la recuperación tras un force-quit; la
+/// 2.1, el clima del inicio.
 /// La finalizada se descarta al salir del resumen: el historial es de la 5.1.
 ///
 /// La pausa es solo explícita (CAP-1): pasar a segundo plano o bloquear la pantalla llega
@@ -37,7 +38,8 @@ import OSLog
 /// - `SessionStore+StartFlow.swift`: "Iniciar caminata" y el permiso de Motion & Fitness;
 /// - `SessionStore+StepCounting.swift`: el stream del podómetro, `record` y el tope de R4;
 /// - `SessionStore+Reconciliation.swift`: la reconciliación atómica y su carrera con el timeout;
-/// - `SessionStore+Recovery.swift`: restaurar al arrancar, la huérfana y el snapshot.
+/// - `SessionStore+Recovery.swift`: restaurar al arrancar, la huérfana y el snapshot;
+/// - `SessionStore+Weather.swift`: la pre-pantalla de ubicación y la captura del clima del inicio.
 ///
 /// Las propiedades que escriben varias extensiones tienen acceso de módulo (Swift no deja a
 /// una extensión de otro fichero ver lo `private`). **Invariante:** solo los ficheros
@@ -68,6 +70,14 @@ final class SessionStore {
         case permissionDenied
         /// Sin coprocesador (o el simulador): Ajustes no lo arregla.
         case deviceUnsupported
+    }
+
+    /// Pre-pantalla de ubicación sobre la sesión ya abierta (2.1, AD-11).
+    enum LocationPrompt: Equatable, Sendable {
+        /// "¿Añadir el clima a tus caminatas?" con "Permitir" y "Ahora no".
+        case offering
+        /// El diálogo del sistema está en pantalla. Un segundo toque no hace nada.
+        case requesting
     }
 
     /// Por qué el último intento de iniciar no abrió sesión, para la alerta de Inicio.
@@ -128,6 +138,11 @@ final class SessionStore {
     /// recuperada" 3 s y después llama a `dismissRecoveredNotice()`. Volver de background
     /// nunca lo enciende.
     var showsRecoveredNotice = false
+    /// La captura del clima de la sesión está en curso: la tarjeta de clima espera sin mostrar
+    /// ceros. Lo escribe `SessionStore+Weather.swift`.
+    var isCapturingWeather = false
+    /// Pre-pantalla de ubicación en pantalla, o `nil`. No bloquea el conteo ni los controles.
+    var locationPrompt: LocationPrompt?
 
     // MARK: - Dependencias
 
@@ -142,6 +157,13 @@ final class SessionStore {
     @ObservationIgnored let storage: any StoragePort
     /// Umbral de la sesión huérfana (AD-18), de `formulas.json`. Valor decidido, fijado en la 8.4.
     @ObservationIgnored let orphanSessionThresholdS: TimeInterval
+    /// Ubicación aproximada para el clima (2.1). El adapter posee el permiso (AD-11).
+    @ObservationIgnored let location: any LocationPort
+    /// Clima actual de Open-Meteo (2.1): la única llamada de red.
+    @ObservationIgnored let weather: any WeatherPort
+    /// Tope de cada paso de la captura del clima: la lectura de ubicación y la petición a
+    /// Open-Meteo tienen 3 s cada una (AR-12).
+    @ObservationIgnored let weatherStepTimeoutS: TimeInterval
     @ObservationIgnored let log = Logger(subsystem: "com.walktracker.app", category: "SessionStore")
     /// Destino de las líneas de medición de la 8.4 (`MeasurementLog`). Solo observa: nada
     /// del comportamiento depende de él. Los tests lo sustituyen para leer las líneas.
@@ -189,6 +211,13 @@ final class SessionStore {
     /// Consumo de `motion.updates(from:)`. Expuesto para que los tests esperen su final. Lo
     /// abre `countSteps(from:restoring:)` y lo cancela `stopCountingSteps()`.
     @ObservationIgnored var stepCounting: Task<Void, Never>?
+    /// La captura del clima en curso. La abre `SessionStore+Weather.swift` y la cancela
+    /// `cancelWeatherCapture()`, al finalizar y en el reset.
+    @ObservationIgnored var weatherCapture: Task<Void, Never>?
+    /// Paul dijo "Ahora no" en la pre-pantalla de ubicación: no vuelve a salir al iniciar
+    /// mientras la app siga abierta. Es de la ejecución, no de una sesión: el reset no lo toca.
+    /// Recordarlo entre lanzamientos llega con `settings.json` (diferido a la 2.2 o la 2.3).
+    @ObservationIgnored var declinedLocationPromptThisLaunch = false
 
     // MARK: - Estado de la escena (privado de este fichero)
 
@@ -200,6 +229,8 @@ final class SessionStore {
     /// Espacio mínimo entre dos guardados por muestras (AD-9, domain-model.md §8: "autosave
     /// del snapshot cada 10 s").
     static let autosaveIntervalS: TimeInterval = 10
+    /// Tope de cada paso de la captura del clima: 3 s (AR-12, v3 AD-14).
+    static let weatherStepTimeoutS: TimeInterval = 3
 
     init(
         clock: any ClockPort,
@@ -208,6 +239,9 @@ final class SessionStore {
         strideM: Double,
         reconciliationTimeoutS: TimeInterval,
         orphanSessionThresholdS: TimeInterval,
+        location: any LocationPort,
+        weather: any WeatherPort,
+        weatherStepTimeoutS: TimeInterval = SessionStore.weatherStepTimeoutS,
         measure: @escaping @Sendable (String) -> Void = MeasurementLog.record
     ) {
         self.clock = clock
@@ -216,6 +250,9 @@ final class SessionStore {
         self.strideM = strideM
         self.reconciliationTimeoutS = reconciliationTimeoutS
         self.orphanSessionThresholdS = orphanSessionThresholdS
+        self.location = location
+        self.weather = weather
+        self.weatherStepTimeoutS = weatherStepTimeoutS
         self.measure = measure
     }
 
@@ -308,6 +345,7 @@ final class SessionStore {
             return
         }
         stopCountingSteps()
+        cancelWeatherCapture()
         isConfirmingDiscard = false
         backgroundedAt = nil
         self.session = session
@@ -364,8 +402,9 @@ final class SessionStore {
     ///
     /// Fuera, a propósito: las dependencias; `startFlow` y `startFailure`, que son del flujo de
     /// inicio y solo cambian sin sesión; `isReconciling`, que solo vive dentro de
-    /// `reconcile(until:)`; y `didAttemptRestore` y `returnedFromBackground`, que son del
-    /// arranque y de la escena, no de una sesión.
+    /// `reconcile(until:)`; y `didAttemptRestore`, `returnedFromBackground` y
+    /// `declinedLocationPromptThisLaunch`, que son del arranque, de la escena y de la ejecución,
+    /// no de una sesión.
     private func resetSessionState() {
         session = nil
         metrics = nil
@@ -384,6 +423,8 @@ final class SessionStore {
         lastSampleAt = nil
         lastSampleAtCap = nil
         lastSavedAt = nil
+        // La captura del clima y la pre-pantalla: un clima tardío no llega a la sesión siguiente.
+        cancelWeatherCapture()
     }
 
     // MARK: - Fases de la escena

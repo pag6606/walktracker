@@ -85,6 +85,8 @@ extension SessionStore {
 
     /// Abre la sesión en el instante del reloj con la zancada de `formulas.json`, abre el
     /// conteo y guarda el primer snapshot. Si el dominio la rechaza, no hay sesión ni conteo.
+    ///
+    /// El clima (2.1) va después y en paralelo: la apertura nunca lo espera.
     private func openSession() {
         do {
             let session = try Session.start(at: clock.now, strideM: strideM)
@@ -94,6 +96,7 @@ extension SessionStore {
             countSteps(from: session.startedAt)
             measureTransition(.start, session, at: session.startedAt)
             persist()
+            beginWeatherForNewSession()
         } catch {
             startFailure = .invalidSession(error)
         }

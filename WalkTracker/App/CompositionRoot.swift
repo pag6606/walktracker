@@ -23,6 +23,10 @@ struct CompositionRoot {
     /// Snapshot de la sesión viva en Application Support (AD-9). Solo lo escribe
     /// `SessionStore` (AD-16).
     let storage: any StoragePort
+    /// Ubicación aproximada para el clima (CAP-5), redondeada en el adapter.
+    let location: any LocationPort
+    /// Clima actual de Open-Meteo (CAP-5): la única llamada de red.
+    let weather: any WeatherPort
     /// Catálogo de los 14 logros, ya validado (AD-5, CAP-8).
     let achievementCatalog: AchievementCatalog
     /// Constantes de fórmula de `formulas.json`, ya validadas.
@@ -37,6 +41,8 @@ struct CompositionRoot {
         health: any HealthPort = HealthAdapter(),
         liveActivity: any LiveActivityPort = LiveActivityAdapter(),
         storage: any StoragePort = ActiveSessionFileAdapter(),
+        location: (any LocationPort)? = nil,
+        weather: any WeatherPort = OpenMeteoAdapter(),
         achievementCatalog: AchievementCatalog? = nil,
         formulas: Formulas? = nil
     ) {
@@ -46,6 +52,9 @@ struct CompositionRoot {
         self.health = health
         self.liveActivity = liveActivity
         self.storage = storage
+        let location = location ?? LocationAdapter()
+        self.location = location
+        self.weather = weather
         self.achievementCatalog = achievementCatalog ?? Self.bundledAchievementCatalogOrTerminate()
         let formulas = formulas ?? Self.bundledFormulasOrTerminate()
         self.formulas = formulas
@@ -55,7 +64,9 @@ struct CompositionRoot {
             storage: storage,
             strideM: formulas.defaultStrideM,
             reconciliationTimeoutS: formulas.reconciliationTimeoutS,
-            orphanSessionThresholdS: formulas.orphanSessionThresholdS
+            orphanSessionThresholdS: formulas.orphanSessionThresholdS,
+            location: location,
+            weather: weather
         )
     }
 

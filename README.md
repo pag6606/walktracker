@@ -258,17 +258,26 @@ HealthKit exige también `NSHealthShareUsageDescription`, aunque la app solo esc
    distribución automática): con el tester dentro pero sin build, TestFlight no envía la invitación y
    el tester aparece con «No hay compilaciones disponibles».
 3. Si pregunta por el cumplimiento de exportación, no debería: `ITSAppUsesNonExemptEncryption = NO`
-   ya va en el `Info.plist`. Se basa en la suposición de que la app solo usará el HTTPS del sistema;
-   la historia del clima la revisa cuando entre la primera llamada de red.
-4. iPhone 14 → app **TestFlight** → WalkTracker → Instalar. La app abre; la pantalla de diagnóstico
+   ya va en el `Info.plist`, y `release-testflight.sh` comprueba tras archivar que el binario lo
+   lleva. La 2.1 lo confirmó: la única llamada de red es el clima de Open-Meteo con el HTTPS del
+   sistema (`URLSession`), que está exento. Si entra cifrado propio o de terceros, deja de valer.
+4. App Store Connect → la app → **Privacidad de la app**: declarar **Ubicación aproximada**, no
+   vinculada a la identidad, sin rastreo y con propósito «Funcionalidad de la app» (2.1). Tiene que
+   coincidir con `WalkTracker/Resources/PrivacyInfo.xcprivacy`; si el manifiesto cambia, esta
+   declaración cambia antes de enviar el build a revisión.
+5. iPhone 14 → app **TestFlight** → WalkTracker → Instalar. La app abre; la pantalla de diagnóstico
    de la 8.6 **no** aparece, porque es solo `DEBUG` y TestFlight instala Release.
 
 Un build de TestFlight caduca a los **90 días**: antes de eso, otro release.
 
-**Privacidad:** `WalkTracker/Resources/PrivacyInfo.xcprivacy` declara cero rastreo y cero datos
-recogidos. Hoy la app no hace ninguna llamada de red; lo que dice sobre el clima es una suposición
-que la historia del clima tiene que revisar cuando entre. La primera historia que use una API con motivo obligatorio (`UserDefaults`, fechas de
-ficheros, tiempo desde el arranque, espacio en disco) la declara ahí o App Store Connect rechaza el
+**Privacidad:** `WalkTracker/Resources/PrivacyInfo.xcprivacy` declara cero rastreo y un solo dato
+recogido: la **ubicación aproximada** (`NSPrivacyCollectedDataTypeCoarseLocation`), no vinculada a la
+identidad, sin rastreo y con propósito «Funcionalidad de la app» (2.1). Al iniciar una caminata, con
+permiso, la app redondea la ubicación a 2 decimales en el dispositivo y la envía a Open-Meteo para
+pedir el clima; no la guarda. En App Store Connect, la sección «Privacidad de la app» tiene que
+declarar lo mismo. `release-testflight.sh` comprueba tras archivar que el manifiesto va dentro de
+`WalkTracker.app`. La primera historia que use una API con motivo obligatorio (`UserDefaults`, fechas
+de ficheros, tiempo desde el arranque, espacio en disco) la declara ahí o App Store Connect rechaza el
 build.
 
 ## Gate 8.4
