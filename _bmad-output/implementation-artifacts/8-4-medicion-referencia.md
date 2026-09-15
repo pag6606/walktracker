@@ -119,9 +119,9 @@ Tras fijarlas: `formulas.json` sin ninguna de las dos en `provisional`, `Formula
 | # | Criterio | Umbral | Resultado | ¿Cumple? |
 |---|---|---|---|---|
 | C1 | Pasos frente a Apple Salud | ≤ 10 % | WalkTracker 2111; Salud del intervalo: **sin datos** | sin datos |
-| C2 | Distancia frente a Apple Salud | ≤ 10 % | WalkTracker 1269,43 m; Salud del intervalo: **sin datos** (el "1,5 km" que dio Paul es el total del día en Salud, no el intervalo de la caminata) | sin datos |
+| C2 | Distancia frente a Apple Salud | ≤ 10 % | WalkTracker 1269,43 m. Salud (Paul): registros de 0,65 km a las 8:07 y 0,63 km a las 8:17, suma 1,28 km (≈ 0,9 % de diferencia) **si** ambos cubren 7:57–8:17; falta confirmar el inicio y el fin de cada registro. El "1,5 km" es el total del día | pendiente de confirmar el intervalo |
 | C3 | Caída de batería en 30 min | ≤ 5 % | 23 % → 20 % (3 puntos) entre 7:53 y 8:16, unos 23 min: no es una medición de 30 min | sin datos (medición de 23 min) |
-| C4 | WalkTracker en Ajustes → Batería | no destacado | **sin datos** | sin datos |
+| C4 | WalkTracker en Ajustes → Batería | no destacado | no aparece destacado (Paul, 2026-09-15) | sí |
 | C5 | `stepsEstimated` sin tocar la pantalla | = 0 | 0 en todo el registro, pero hubo un desbloqueo a los 56 s y el registro cierra en pausa (la finalización fue posterior, fuera del registro) | sin datos (condición no cumplida) |
 
 ### Build y condiciones
