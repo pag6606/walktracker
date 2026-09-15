@@ -44,19 +44,24 @@ struct FormulasTests {
         #expect(formulas.defaultStrideM == 0.655)
     }
 
-    @Test("El fichero real trae el timeout de reconciliación de AD-8, marcado provisional hasta la 8.4")
-    func bundledReconciliationTimeoutIsProvisional() throws {
+    @Test("El fichero real trae el timeout de reconciliación de AD-8 fijado en la 8.4: 1 s, ya no provisional")
+    func bundledReconciliationTimeoutIsFixed() throws {
         let formulas = try CompositionRoot.loadFormulas(from: .main)
-        #expect(formulas.reconciliationTimeoutS == 3)
-        #expect(formulas.provisional.contains("reconciliationTimeoutS"))
+        #expect(formulas.reconciliationTimeoutS == 1)
+        #expect(!formulas.provisional.contains("reconciliationTimeoutS"))
         #expect(!formulas.provisional.contains("defaultStrideM"), "la zancada es la portada de domain.js, no provisional")
     }
 
-    @Test("El fichero real trae el umbral de sesión huérfana de AD-18: 6 h, marcado provisional hasta la 8.4")
-    func bundledOrphanThresholdIsProvisional() throws {
+    @Test("El fichero real trae el umbral de sesión huérfana de AD-18: 6 h, decidido y fijado en la 8.4")
+    func bundledOrphanThresholdIsFixed() throws {
         let formulas = try CompositionRoot.loadFormulas(from: .main)
         #expect(formulas.orphanSessionThresholdS == 21_600)
-        #expect(formulas.provisional.contains("orphanSessionThresholdS"))
+        #expect(!formulas.provisional.contains("orphanSessionThresholdS"))
+    }
+
+    @Test("Tras la 8.4 ninguna constante del fichero real queda provisional")
+    func bundledHasNoProvisional() throws {
+        #expect(try CompositionRoot.loadFormulas(from: .main).provisional.isEmpty)
     }
 
     @Test("Un JSON completo decodifica")

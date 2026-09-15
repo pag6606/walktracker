@@ -136,11 +136,11 @@ final class SessionStore {
     /// Zancada con la que nace cada sesión. Hoy es la de `formulas.json`; el perfil de
     /// calibración la sustituirá.
     @ObservationIgnored let strideM: Double
-    /// Tope de la reconciliación (AD-8), de `formulas.json`. Provisional hasta la 8.4.
+    /// Tope de la reconciliación (AD-8), de `formulas.json`. Fijado en la 8.4.
     @ObservationIgnored let reconciliationTimeoutS: TimeInterval
     /// Snapshot de la sesión viva (AD-9). Este store es su único escritor (AD-16).
     @ObservationIgnored let storage: any StoragePort
-    /// Umbral de la sesión huérfana (AD-18), de `formulas.json`. Provisional hasta la 8.4.
+    /// Umbral de la sesión huérfana (AD-18), de `formulas.json`. Valor decidido, fijado en la 8.4.
     @ObservationIgnored let orphanSessionThresholdS: TimeInterval
     @ObservationIgnored let log = Logger(subsystem: "com.walktracker.app", category: "SessionStore")
     /// Destino de las líneas de medición de la 8.4 (`MeasurementLog`). Solo observa: nada
