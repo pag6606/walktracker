@@ -2,7 +2,6 @@ import Domain
 import Foundation
 import Observation
 import OSLog
-import Synchronization
 
 /// Único escritor de la sesión (AD-7). Las vistas leen su estado y llaman a sus
 /// intenciones; nunca escriben una propiedad. Adapters y timers solo le publican
@@ -31,6 +30,21 @@ import Synchronization
 /// finalizar. Nunca con un temporizador (AD-21): quieto no hay muestras ni escrituras.
 /// `restoreOnLaunch()` lo lee al arrancar: restaura y reconcilia la sesión antes de
 /// presentarla, o cierra la huérfana en su último dato real.
+///
+/// **Organización (retro del Epic 1, A-1).** Un solo tipo repartido en extensiones, cada una
+/// en su fichero y con su responsabilidad:
+/// - este fichero: estado, intenciones de la sesión, fases de la escena y el reset de sesión;
+/// - `SessionStore+StartFlow.swift`: "Iniciar caminata" y el permiso de Motion & Fitness;
+/// - `SessionStore+StepCounting.swift`: el stream del podómetro, `record` y el tope de R4;
+/// - `SessionStore+Reconciliation.swift`: la reconciliación atómica y su carrera con el timeout;
+/// - `SessionStore+Recovery.swift`: restaurar al arrancar, la huérfana y el snapshot.
+///
+/// Las propiedades que escriben varias extensiones tienen acceso de módulo (Swift no deja a
+/// una extensión de otro fichero ver lo `private`). **Invariante:** solo los ficheros
+/// `SessionStore*.swift` las escriben; vistas, adapters y tests solo las leen. El compilador
+/// ya no lo impide: lo comprueba `Scripts/check-project-shape.sh` (sección 6) en cada build,
+/// que falla si `WalkTracker/UI` o `WalkTracker/App` asignan una propiedad del store, llaman a
+/// sus pasos internos (`persist`, `record`, `reconcile`…) o tocan sus puertos.
 @MainActor
 @Observable
 final class SessionStore {
@@ -65,83 +79,123 @@ final class SessionStore {
         case permissionUnresolved
     }
 
-    /// La sesión en curso, o `nil` antes de iniciar ("idle").
-    private(set) var session: Session?
+    /// Fase de la escena, sin depender de SwiftUI: la vista traduce la suya.
+    enum ScenePhase: Equatable, Sendable {
+        case active
+        /// Centro de control, el diálogo del sistema: no es un gap, el podómetro sigue.
+        case inactive
+        case background
+    }
+
+    // MARK: - Estado observable
+    //
+    // Todo con escritura de módulo: lo escriben las extensiones de `SessionStore*.swift` y
+    // nadie más.
+
+    /// La sesión en curso, o `nil` antes de iniciar ("idle"). La escriben las intenciones,
+    /// el conteo, la reconciliación y la recuperación.
+    var session: Session?
     /// Hay una sesión abierta y la UI la presenta como modo a pantalla completa (AD-14).
     /// Guardado aparte de `session` a propósito: cada muestra del podómetro muta la
     /// sesión, y quien solo necesita saber si hay una no debe redibujarse por ello.
     ///
     /// Sigue en `true` con la sesión finalizada, mientras se muestra su resumen dentro
-    /// del mismo modo; pasa a `false` al salir del resumen.
-    private(set) var hasSession = false
-    /// "Finalizar" pidió confirmación y el diálogo está en pantalla (AD-20).
-    private(set) var isConfirmingFinish = false
-    private(set) var startFlow: StartFlow = .idle
+    /// del mismo modo; pasa a `false` al salir del resumen. **Invariante:** en `true` solo
+    /// cuando la sesión ya está presentable (abierta, restaurada y reconciliada, o huérfana
+    /// cerrada); nunca a mitad de `restoreOnLaunch()`.
+    var hasSession = false
+    /// "Finalizar" pidió confirmación y el diálogo está en pantalla (AD-20). Lo cierran
+    /// también la reconciliación y el reset.
+    var isConfirmingFinish = false
+    /// Paso del flujo de inicio (`SessionStore+StartFlow.swift`).
+    var startFlow: StartFlow = .idle
     /// Motivo del último inicio fallido, hasta que Inicio lo reconoce.
-    private(set) var startFailure: StartFailure?
+    var startFailure: StartFailure?
     /// Distancia, ritmo y cadencia de la sesión, o `nil` sin sesión. Se fijan al abrirla y
     /// se recalculan con **cada muestra** del coprocesador, no con el tick de 1 Hz
     /// (AD-21): con el teléfono quieto no llegan muestras y se quedan en su último valor.
-    private(set) var metrics: SessionMetrics?
+    /// **Invariante:** se reasigna junto con cada escritura de `session`.
+    var metrics: SessionMetrics?
     /// El stream del podómetro sigue abierto. Pasa a `false` si el sistema lo termina.
-    private(set) var isCountingSteps = false
+    var isCountingSteps = false
     /// Reconciliación atómica en curso (AD-8): las intenciones de comando no hacen nada y la
-    /// UI deshabilita los controles.
-    private(set) var isReconciling = false
+    /// UI deshabilita los controles. **Invariante:** solo `reconcile(until:)` lo pone en
+    /// `true`, y lo devuelve a `false` al salir.
+    var isReconciling = false
     /// "Descartar" pidió confirmación y el diálogo está en pantalla (AD-20).
-    private(set) var isConfirmingDiscard = false
+    var isConfirmingDiscard = false
     /// La sesión se acaba de restaurar al relanzar la app: la vista muestra "Sesión
     /// recuperada" 3 s y después llama a `dismissRecoveredNotice()`. Volver de background
     /// nunca lo enciende.
-    private(set) var showsRecoveredNotice = false
+    var showsRecoveredNotice = false
 
-    @ObservationIgnored private let clock: any ClockPort
-    @ObservationIgnored private let motion: any MotionPort
+    // MARK: - Dependencias
+
+    @ObservationIgnored let clock: any ClockPort
+    @ObservationIgnored let motion: any MotionPort
     /// Zancada con la que nace cada sesión. Hoy es la de `formulas.json`; el perfil de
     /// calibración la sustituirá.
-    @ObservationIgnored private let strideM: Double
+    @ObservationIgnored let strideM: Double
     /// Tope de la reconciliación (AD-8), de `formulas.json`. Provisional hasta la 8.4.
-    @ObservationIgnored private let reconciliationTimeoutS: TimeInterval
+    @ObservationIgnored let reconciliationTimeoutS: TimeInterval
     /// Snapshot de la sesión viva (AD-9). Este store es su único escritor (AD-16).
-    @ObservationIgnored private let storage: any StoragePort
+    @ObservationIgnored let storage: any StoragePort
     /// Umbral de la sesión huérfana (AD-18), de `formulas.json`. Provisional hasta la 8.4.
-    @ObservationIgnored private let orphanSessionThresholdS: TimeInterval
+    @ObservationIgnored let orphanSessionThresholdS: TimeInterval
+    @ObservationIgnored let log = Logger(subsystem: "com.walktracker.app", category: "SessionStore")
+    /// Destino de las líneas de medición de la 8.4 (`MeasurementLog`). Solo observa: nada
+    /// del comportamiento depende de él. Los tests lo sustituyen para leer las líneas.
+    @ObservationIgnored let measure: @Sendable (String) -> Void
+
+    // MARK: - Estado compartido entre las extensiones (lección L3 de la retro)
+    //
+    // Sin observar: no se pinta. Cada uno con quién lo escribe y su invariante. Todos, salvo
+    // `didAttemptRestore`, vuelven a su valor inicial en `resetSessionState()`.
+
     /// Inicio del tramo en curso: el de la sesión o el de la última reanudación. La
     /// consulta de la reconciliación cubre `[segmentStart, ahora]`, con la misma semántica
-    /// acumulada que el stream.
-    @ObservationIgnored private var segmentStart: Date?
+    /// acumulada que el stream. Lo fijan `countSteps(from:restoring:)` y la restauración.
+    @ObservationIgnored var segmentStart: Date?
     /// Instante en que la app pasó a segundo plano con la sesión activa: el inicio del gap
-    /// pendiente de reconciliar. Se limpia al terminar la reconciliación y al salir del resumen.
-    @ObservationIgnored private var backgroundedAt: Date?
+    /// pendiente de reconciliar. Se fija en `appDidEnterBackground()` (y con `savedAt` al
+    /// restaurar) y se limpia al terminar la reconciliación, al finalizar y en el reset.
+    @ObservationIgnored var backgroundedAt: Date?
     /// Mayor acumulado del podómetro visto en el tramo en curso, que suben la consulta y el
-    /// stream. Los incrementos se miden contra él, no contra la última muestra: 350 → 340 →
-    /// 360 suma 10, no 20.
-    @ObservationIgnored private var highestCumulativeSteps = 0
+    /// stream (`record`). Los incrementos se miden contra él, no contra la última muestra:
+    /// 350 → 340 → 360 suma 10, no 20. Vuelve a 0 (o al del snapshot) al abrir un tramo.
+    @ObservationIgnored var highestCumulativeSteps = 0
     /// Distancia del sistema acumulada al abrir el tramo en curso. Cada stream da la
     /// distancia desde su propio inicio, así que la de la sesión es esta base más la del
-    /// tramo: sigue siendo acumulada desde el inicio y nunca baja.
-    @ObservationIgnored private var distanceBaseM: Double = 0
+    /// tramo: sigue siendo acumulada desde el inicio y nunca baja. La fija
+    /// `countSteps(from:restoring:)` (o la restauración).
+    @ObservationIgnored var distanceBaseM: Double = 0
     /// Último dato real del coprocesador, que recorta una sesión huérfana (AD-18): el `end` de
     /// la última muestra **del stream** que sumó pasos. La consulta nunca lo mueve. Tras un gap
     /// puede quedarse en su inicio en vez de en el `end` de la muestra (`lastSampleAtCap`).
-    @ObservationIgnored private var lastSampleAt: Date?
+    @ObservationIgnored var lastSampleAt: Date?
     /// Tope de `lastSampleAt` tras un gap (R4): su inicio. Se fija al pasar a background con la
     /// sesión activa (`backgroundedAt`) y al restaurar una activa (`savedAt`); con uno ya
     /// pendiente se conserva el más temprano. La primera muestra del stream con `end` posterior
     /// al tope trae el acumulado del gap con `end ≈ ahora`, que no es el último paso real: lo
     /// libera, sume pasos o no. Una con `end` anterior (ya encolada antes del gap) no lo libera.
     /// Pausar, finalizar y salir del resumen también lo liberan.
-    @ObservationIgnored private var lastSampleAtCap: Date?
-    /// Instante del último snapshot guardado, para espaciar el autosave por muestras.
-    @ObservationIgnored private var lastSavedAt: Date?
-    /// `restoreOnLaunch()` ya corrió: relanzar la tarea de la escena no restaura dos veces.
-    @ObservationIgnored private var didAttemptRestore = false
-    /// Consumo de `motion.updates(from:)`. Expuesto para que los tests esperen su final.
-    @ObservationIgnored private(set) var stepCounting: Task<Void, Never>?
-    @ObservationIgnored private let log = Logger(subsystem: "com.walktracker.app", category: "SessionStore")
-    /// Destino de las líneas de medición de la 8.4 (`MeasurementLog`). Solo observa: nada
-    /// del comportamiento depende de él. Los tests lo sustituyen para leer las líneas.
-    @ObservationIgnored private let measure: @Sendable (String) -> Void
+    @ObservationIgnored var lastSampleAtCap: Date?
+    /// Instante del último snapshot guardado, para espaciar el autosave por muestras. Solo lo
+    /// escribe `persist()` cuando el guardado sale bien.
+    @ObservationIgnored var lastSavedAt: Date?
+    /// `restoreOnLaunch()` ya corrió: relanzar la tarea de la escena no restaura dos veces. Es
+    /// del arranque, no de una sesión: el reset no lo toca.
+    @ObservationIgnored var didAttemptRestore = false
+    /// Consumo de `motion.updates(from:)`. Expuesto para que los tests esperen su final. Lo
+    /// abre `countSteps(from:restoring:)` y lo cancela `stopCountingSteps()`.
+    @ObservationIgnored var stepCounting: Task<Void, Never>?
+
+    // MARK: - Estado de la escena (privado de este fichero)
+
+    /// La escena pasó por `.background` (p. ej. un viaje a Ajustes) desde el último `.active`.
+    /// Solo lo escribe `scenePhaseDidChange(to:)`. Es de la app, no de una sesión: el reset no
+    /// lo toca.
+    @ObservationIgnored private var returnedFromBackground = false
 
     /// Espacio mínimo entre dos guardados por muestras (AD-9, domain-model.md §8: "autosave
     /// del snapshot cada 10 s").
@@ -179,7 +233,7 @@ final class SessionStore {
         session?.elapsedS(at: max(instant, clock.now)) ?? 0
     }
 
-    // MARK: - Intenciones
+    // MARK: - Intenciones de la sesión
 
     /// "Pausar": congela el tiempo y detiene el podómetro (AD-21, energía). Solo con la
     /// sesión `active`; en otro estado no hace nada.
@@ -292,9 +346,87 @@ final class SessionStore {
         persist()
     }
 
+    /// "Sesión recuperada" ya estuvo en pantalla sus 3 s.
+    func dismissRecoveredNotice() {
+        showsRecoveredNotice = false
+    }
+
+    /// "Volver a Inicio" en el resumen: descarta la sesión finalizada, también la huérfana
+    /// cerrada al arrancar (el historial es de la 5.1), y cierra el modo de sesión. Solo con
+    /// la sesión `finished`.
+    func leaveSummary() {
+        guard !isReconciling, session?.status == .finished else { return }
+        resetSessionState()
+    }
+
+    /// Devuelve a su valor inicial **todo** el estado de una sesión cerrada. Es el único punto
+    /// de reset: un campo nuevo de sesión se añade aquí, y no en cada salida.
+    ///
+    /// Fuera, a propósito: las dependencias; `startFlow` y `startFailure`, que son del flujo de
+    /// inicio y solo cambian sin sesión; `isReconciling`, que solo vive dentro de
+    /// `reconcile(until:)`; y `didAttemptRestore` y `returnedFromBackground`, que son del
+    /// arranque y de la escena, no de una sesión.
+    private func resetSessionState() {
+        session = nil
+        metrics = nil
+        hasSession = false
+        isConfirmingFinish = false
+        isConfirmingDiscard = false
+        showsRecoveredNotice = false
+        isCountingSteps = false
+        // Cancelar antes de soltarla: un stream vivo no puede seguir entregando a la sesión siguiente.
+        stepCounting?.cancel()
+        stepCounting = nil
+        segmentStart = nil
+        backgroundedAt = nil
+        highestCumulativeSteps = 0
+        distanceBaseM = 0
+        lastSampleAt = nil
+        lastSampleAtCap = nil
+        lastSavedAt = nil
+    }
+
+    // MARK: - Fases de la escena
+
+    /// Único punto de entrada de las fases de la escena: la vista raíz pasa cada cambio y el
+    /// store decide.
+    ///
+    /// - **`.background`:** abre el gap (`appDidEnterBackground()`) y recuerda que la app
+    ///   salió, para releer el permiso a la vuelta.
+    /// - **`.active`:** si antes pasó por `.background` (p. ej. un viaje a Ajustes), relee el
+    ///   permiso de la pantalla bloqueante (`motionStatusMayHaveChanged()`). Solo entonces:
+    ///   cerrar el diálogo del sistema es `inactive → active`, y en ese instante el permiso aún
+    ///   puede leerse `.notDetermined`. Después lanza la reconciliación del gap pendiente
+    ///   (`appDidBecomeActive()`), que no hace nada sin gap.
+    /// - **`.inactive`:** nada. No es un gap: el podómetro sigue entregando.
+    ///
+    /// Ninguna fase pausa (CAP-1).
+    ///
+    /// - Returns: la tarea de la reconciliación lanzada con `.active`, para quien necesite
+    ///   esperarla (los tests); la vista la ignora.
+    @discardableResult
+    func scenePhaseDidChange(to phase: ScenePhase) -> Task<Void, Never>? {
+        switch phase {
+        case .background:
+            returnedFromBackground = true
+            appDidEnterBackground()
+            return nil
+        case .active:
+            if returnedFromBackground {
+                returnedFromBackground = false
+                motionStatusMayHaveChanged()
+            }
+            return Task { await appDidBecomeActive() }
+        case .inactive:
+            return nil
+        }
+    }
+
     /// La app pasó a segundo plano: guarda el snapshot y, con la sesión activa, abre el gap
     /// pendiente de reconciliar y topa `lastSampleAt` en su inicio. Nunca pausa (CAP-1). Si ya
     /// hay un gap pendiente (la app volvió a salir mientras reconciliaba), lo conserva.
+    ///
+    /// Paso de `scenePhaseDidChange(to:)`; la UI no lo llama directamente.
     func appDidEnterBackground() {
         guard let status = session?.status, status != .finished else { return }
         if status == .active {
@@ -311,6 +443,8 @@ final class SessionStore {
     /// La app vuelve a primer plano: con un gap pendiente y la sesión activa, reconcilia
     /// antes de soltar los comandos (AD-8). Volver mientras ya reconcilia no abre otra; en
     /// pausa no consulta ni estima.
+    ///
+    /// Paso de `scenePhaseDidChange(to:)`; la UI no lo llama directamente.
     func appDidBecomeActive() async {
         guard !isReconciling, backgroundedAt != nil else { return }
         if session?.status == .active {
@@ -321,566 +455,10 @@ final class SessionStore {
         persist()
     }
 
-    /// "Sesión recuperada" ya estuvo en pantalla sus 3 s.
-    func dismissRecoveredNotice() {
-        showsRecoveredNotice = false
-    }
-
-    /// "Volver a Inicio" en el resumen: descarta la sesión finalizada, también la huérfana
-    /// cerrada al arrancar (el historial es de la 5.1), y cierra el modo de sesión. Solo con
-    /// la sesión `finished`.
-    func leaveSummary() {
-        guard !isReconciling, session?.status == .finished else { return }
-        session = nil
-        metrics = nil
-        isConfirmingFinish = false
-        isConfirmingDiscard = false
-        segmentStart = nil
-        backgroundedAt = nil
-        lastSampleAt = nil
-        lastSampleAtCap = nil
-        lastSavedAt = nil
-        showsRecoveredNotice = false
-        hasSession = false
-    }
-
-    /// "Iniciar caminata". Con el permiso concedido abre la sesión y el conteo; sin
-    /// decidir, muestra la pre-pantalla; denegado, restringido o sin coprocesador, la
-    /// pantalla bloqueante. En ningún caso pide el permiso en frío.
-    ///
-    /// Con una sesión abierta o un flujo de permiso en curso no hace nada: un doble
-    /// toque no crea otra sesión ni reinicia el cronómetro.
-    func start() async {
-        guard session == nil, startFlow == .idle else { return }
-        startFailure = nil
-        switch motion.status {
-        case .granted:
-            openSession()
-        case .notDetermined:
-            startFlow = .explainingPermission
-        case .denied, .restricted:
-            startFlow = .blocked(.permissionDenied)
-        case .unavailable:
-            startFlow = .blocked(.deviceUnsupported)
-        }
-    }
-
-    /// "Continuar" en la pre-pantalla: pide el permiso y actúa según la respuesta.
-    func confirmMotionPermission() async {
-        guard session == nil, startFlow == .explainingPermission else { return }
-        startFlow = .requestingPermission
-        let status = await motion.requestPermission()
-        guard startFlow == .requestingPermission else { return }
-        switch status {
-        case .granted:
-            startFlow = .idle
-            openSession()
-        case .notDetermined:
-            startFlow = .idle
-            startFailure = .permissionUnresolved
-        case .denied, .restricted:
-            startFlow = .blocked(.permissionDenied)
-        case .unavailable:
-            startFlow = .blocked(.deviceUnsupported)
-        }
-    }
-
-    /// "Ahora no" en la pre-pantalla: vuelve a Inicio sin sesión.
-    func declineMotionPermission() {
-        guard startFlow == .explainingPermission else { return }
-        startFlow = .idle
-    }
-
-    /// "Volver al inicio" en la pantalla bloqueante.
-    func leaveMotionBlocked() {
-        guard case .blocked = startFlow else { return }
-        startFlow = .idle
-    }
-
-    /// La app vuelve a primer plano: relee el permiso por si cambió en Ajustes. Si la
-    /// pantalla bloqueante ya no aplica, se cierra a Inicio **sin arrancar sola**.
-    func motionStatusMayHaveChanged() {
-        guard case .blocked = startFlow else { return }
-        switch motion.status {
-        case .denied, .restricted:
-            startFlow = .blocked(.permissionDenied)
-        case .unavailable:
-            startFlow = .blocked(.deviceUnsupported)
-        case .granted, .notDetermined:
-            startFlow = .idle
-        }
-    }
-
-    /// Inicio ya mostró la alerta del inicio fallido.
-    func acknowledgeStartFailure() {
-        startFailure = nil
-    }
-
-    // MARK: - Sesión y conteo
-
-    private func openSession() {
-        do {
-            let session = try Session.start(at: clock.now, strideM: strideM)
-            self.session = session
-            metrics = session.metrics(at: clock.now)
-            hasSession = true
-            countSteps(from: session.startedAt)
-            measureTransition(.start, session, at: session.startedAt)
-            persist()
-        } catch {
-            startFailure = .invalidSession(error)
-        }
-    }
-
-    /// Consume las muestras **acumuladas desde `start`** del coprocesador (AD-21): el
-    /// inicio de la sesión o el de la reanudación. Lo dado en background entra al volver
-    /// por la reconciliación (`appDidBecomeActive()`), sin esperar a la siguiente muestra.
-    ///
-    /// Un tramo nuevo empieza sin pasos vistos y con la distancia de la sesión como base. Uno
-    /// restaurado (`restoring`) conserva el máximo visto y la base del snapshot: el stream
-    /// reabierto desde su inicio da acumulados que ya incluyen lo contado, y solo suma lo nuevo.
-    private func countSteps(from start: Date, restoring segment: (steps: Int, distanceBaseM: Double)? = nil) {
-        segmentStart = start
-        highestCumulativeSteps = segment?.steps ?? 0
-        distanceBaseM = segment?.distanceBaseM ?? session?.systemDistanceM ?? 0
-        isCountingSteps = true
-        let updates = motion.updates(from: start)
-        stepCounting = Task { [weak self] in
-            for await sample in updates {
-                // Una muestra ya encolada cuando se canceló el tramo es de ese tramo: no
-                // se aplica, ni a la sesión pausada ni al acumulado del tramo siguiente.
-                guard !Task.isCancelled, let self else { return }
-                self.record(sample)
-            }
-            self?.stepCountingEnded()
-        }
-    }
-
-    // MARK: - Recuperación (1.6, AD-9, AD-18)
-
-    /// Al arrancar la app: restaura en silencio la sesión del snapshot, si lo hay.
-    ///
-    /// Orden: leer → validar → huérfana o restaurar → reconciliar (solo activa) → presentar.
-    /// La sesión aparece ya consolidada, sin pantalla de carga: la espera la acota el timeout
-    /// de la reconciliación.
-    ///
-    /// - **Ilegible o inválido:** no se restaura; el snapshot se aparta (nunca se borra), se
-    ///   registra un `fault` e Inicio queda normal.
-    /// - **Huérfana** (`now − startedAt` > `orphanSessionThresholdS`): se cierra en el último
-    ///   dato real (`lastSampleAt`, o `startedAt` sin ninguno), nunca antes de la última
-    ///   reanudación (`segmentStart`), marcada `recovered`, sin
-    ///   consultar ni estimar. Queda en `session` para su resumen y el snapshot se borra.
-    /// - **Pausada:** vuelve pausada, con el tiempo congelado en `pausedAt`, sin consulta.
-    /// - **Activa:** reabre el tramo y reconcilia `[segmentStart, now]` con el gap pendiente
-    ///   desde `savedAt`, como la vuelta de background de la 1.5.
-    ///
-    /// Solo corre una vez, y no hace nada si ya hay una sesión.
-    func restoreOnLaunch() async {
-        guard !didAttemptRestore else { return }
-        didAttemptRestore = true
-        guard session == nil else { return }
-
-        let snapshot: ActiveSessionSnapshot
-        do {
-            guard let loaded = try storage.loadActiveSession() else { return }
-            snapshot = loaded
-        } catch .failed(let operation) {
-            log.fault("No se pudo leer el snapshot de la sesión (\(operation, privacy: .public)); sigue en su sitio")
-            return
-        } catch {
-            log.fault("Snapshot de la sesión ilegible, apartado: \(String(describing: error), privacy: .public)")
-            return
-        }
-
-        let restored: Session
-        do {
-            guard snapshot.segmentSteps >= 0 else { throw DomainError.invalidValue(field: "segmentSteps") }
-            guard snapshot.distanceBaseM.isFinite, snapshot.distanceBaseM >= 0 else {
-                throw DomainError.invalidValue(field: "distanceBaseM")
-            }
-            restored = try Session.restore(
-                startedAt: snapshot.startedAt,
-                stepsMeasured: snapshot.stepsMeasured,
-                stepsEstimated: snapshot.stepsEstimated,
-                totalPausesS: snapshot.totalPausesS,
-                paused: snapshot.paused,
-                pausedAt: snapshot.pausedAt,
-                strideM: snapshot.strideM,
-                systemDistanceM: snapshot.systemDistanceM
-            )
-        } catch {
-            log.fault("Snapshot de la sesión rechazado en la frontera: \(String(describing: error), privacy: .public)")
-            do {
-                try storage.setAsideActiveSession()
-            } catch {
-                log.error("No se pudo apartar el snapshot rechazado: \(String(describing: error), privacy: .public)")
-            }
-            return
-        }
-
-        let now = clock.now
-        if now.timeIntervalSince(snapshot.startedAt) > orphanSessionThresholdS {
-            // Nunca antes de la última reanudación: toda pausa cerrada queda antes del recorte,
-            // y restar `totalPausesS` no se come tiempo andado antes del último dato.
-            closeOrphan(restored, at: max(snapshot.lastSampleAt ?? snapshot.startedAt, snapshot.segmentStart))
-            return
-        }
-
-        session = restored
-        metrics = restored.metrics(at: now)
-        lastSampleAt = snapshot.lastSampleAt
-        segmentStart = snapshot.segmentStart
-        highestCumulativeSteps = snapshot.segmentSteps
-        distanceBaseM = snapshot.distanceBaseM
-        if restored.status == .active {
-            capLastSampleAt(at: snapshot.savedAt)
-            countSteps(from: snapshot.segmentStart, restoring: (snapshot.segmentSteps, snapshot.distanceBaseM))
-            backgroundedAt = snapshot.savedAt
-            await reconcile(until: now)
-            backgroundedAt = nil
-        }
-        guard let current = session, current.status != .finished else { return }
-        metrics = current.metrics(at: clock.now)
-        log.info("Sesión recuperada: \(current.status.rawValue, privacy: .public)")
-        measureTransition(.restore, current, at: clock.now)
-        showsRecoveredNotice = true
-        hasSession = true
-        persist()
-    }
-
-    /// Cierra la huérfana en `end` y la deja en `session` para su resumen. El snapshot se
-    /// borra: como la finalizada, se descarta al salir del resumen.
-    private func closeOrphan(_ orphan: Session, at end: Date) {
-        var closed = orphan
-        do {
-            try closed.closeOrphan(at: end)
-        } catch {
-            // Inalcanzable: `restore` solo da sesiones activas o pausadas.
-            log.fault("No se pudo cerrar la sesión huérfana: \(String(describing: error), privacy: .public)")
-            return
-        }
-        log.info("Sesión huérfana cerrada en su último dato real")
-        session = closed
-        metrics = closed.metrics(at: end)
-        measureTransition(.orphan, closed, at: end)
-        hasSession = true
-        clearSnapshot()
-    }
-
-    /// Guarda el snapshot de la sesión viva. Nunca a mitad de una reconciliación, que aún no
-    /// ha consolidado los pasos del gap: al terminar se guarda. Un fallo se registra y el
-    /// siguiente evento lo reintenta.
-    private func persist() {
-        guard !isReconciling, let session, session.status != .finished else { return }
-        let now = clock.now
-        let snapshot = ActiveSessionSnapshot(
-            startedAt: session.startedAt,
-            stepsMeasured: session.stepsMeasured,
-            stepsEstimated: session.stepsEstimated,
-            totalPausesS: session.totalPausesS,
-            paused: session.status == .paused,
-            pausedAt: session.pausedAt,
-            strideM: session.strideM,
-            systemDistanceM: session.systemDistanceM,
-            savedAt: now,
-            lastSampleAt: lastSampleAt,
-            segmentStart: segmentStart ?? session.startedAt,
-            segmentSteps: highestCumulativeSteps,
-            distanceBaseM: distanceBaseM
-        )
-        do {
-            try storage.saveActiveSession(snapshot)
-            lastSavedAt = now
-        } catch {
-            log.error("No se pudo guardar el snapshot de la sesión: \(String(describing: error), privacy: .public)")
-        }
-    }
-
-    /// Borra el snapshot al cerrar la sesión: relanzar ya no la restaura.
-    private func clearSnapshot() {
-        do {
-            try storage.clearActiveSession()
-        } catch {
-            log.error("No se pudo borrar el snapshot de la sesión: \(String(describing: error), privacy: .public)")
-        }
-    }
-
-    // MARK: - Reconciliación (AD-8)
-
-    /// El sistema solo guarda 7 días de podómetro, y fuera de ese rango devuelve datos
-    /// parciales sin avisar: un tramo más antiguo no se consulta (AD-8).
-    private static let queryableHistoryS: TimeInterval = 7 * 24 * 60 * 60
-
-    /// Reconciliación atómica hasta `end`, con la sesión `active`.
-    ///
-    /// Consulta el tramo, no el gap: `[segmentStart, end]` da el acumulado del tramo y
-    /// entra por `record(_:)`, así que el máximo de `highestCumulativeSteps` evita contar dos
-    /// veces lo que el stream entregue después. Un resultado menor que lo visto al empezar
-    /// es incoherente y cuenta como sin dato. Sin dato, y solo con un gap de background
-    /// pendiente, suma los pasos del `GapEstimator` para `[backgroundedAt, end]`.
-    private func reconcile(until end: Date) async {
-        guard session?.status == .active, let start = segmentStart else { return }
-        isReconciling = true
-        defer { isReconciling = false }
-        // Un diálogo abierto antes de reconciliar se cierra: su confirmación se perdería en
-        // silencio, y la de descartar podría borrar estimados que aún no había visto.
-        isConfirmingFinish = false
-        isConfirmingDiscard = false
-
-        let seen = highestCumulativeSteps
-        let sessionStartedAt = session?.startedAt
-        var sample: PedometerSample?
-        if end.timeIntervalSince(start) <= Self.queryableHistoryS {
-            let answer = await queryWithinTimeout(from: start, to: end, seen: seen, sessionStartedAt: sessionStartedAt)
-            sample = answer.race.sample
-            if let sessionStartedAt {
-                measure(MeasurementLog.queryLine(
-                    sessionStartedAt: sessionStartedAt,
-                    start: start,
-                    end: end,
-                    result: answer.race.sample,
-                    seen: seen,
-                    durationMs: answer.durationMs,
-                    outcome: answer.race.outcome(seen: seen)
-                ))
-            }
-        } else {
-            log.info("Tramo de más de 7 días: no se consulta y se estima")
-        }
-
-        // Nada muta entre `await` y aquí salvo las muestras del stream, que no cambian el
-        // estado: los comandos están rechazados mientras reconcilia.
-        guard var session, session.status == .active else { return }
-        if let sample, sample.steps >= seen {
-            record(sample, fromQuery: true)
-            return
-        }
-        // Si el stream avanzó durante la consulta, su acumulado ya cubre el gap: el sistema sí
-        // tenía el dato, y estimar lo contaría dos veces con una cadencia inflada.
-        guard let gapStart = backgroundedAt else { return }
-        guard highestCumulativeSteps == seen else {
-            measure(MeasurementLog.estimateLine(
-                sessionStartedAt: session.startedAt, gapStart: gapStart, gapEnd: end, steps: 0, skipped: .streamAdvanced
-            ))
-            return
-        }
-        let estimated = GapEstimator.steps(for: session, gapStart: gapStart, gapEnd: end)
-        measure(MeasurementLog.estimateLine(sessionStartedAt: session.startedAt, gapStart: gapStart, gapEnd: end, steps: estimated))
-        guard estimated > 0 else { return }
-        do {
-            try session.addEstimatedSteps(estimated)
-        } catch {
-            log.error("Pasos estimados rechazados: \(String(describing: error), privacy: .public)")
-            return
-        }
-        log.info("Gap sin dato del sistema: \(estimated, privacy: .public) pasos estimados")
-        self.session = session
-        metrics = session.metrics(at: clock.now)
-    }
-
-    /// Resultado de `queryWithinTimeout`: quién ganó la carrera y, para la medición de la 8.4,
-    /// cuánto tardó en resolverse, medido en la tarea que la ganó.
-    private struct QueryAnswer {
-        let race: QueryRace
-        let durationMs: Int
-    }
-
-    /// `motion.query` acotada por `reconciliationTimeoutS`. Un error o el timeout dan `nil`.
-    ///
-    /// Sin `withTaskGroup` a propósito: el grupo espera a sus hijos al salir y la consulta de
-    /// CoreMotion no se puede cancelar, así que una consulta colgada bloquearía. La consulta y
-    /// el temporizador compiten en tareas no estructuradas sobre una continuación que resuelve
-    /// el primero; el resultado tardío se ignora.
-    ///
-    /// La duración es la espera real (`ContinuousClock`), no la de `ClockPort`, como el propio
-    /// timeout, y se toma en la tarea que gana: no incluye la vuelta al hilo principal. Una
-    /// respuesta que llega tras el timeout se descarta, pero deja su línea `queryLate` con la
-    /// duración real: es lo que la 8.4 mide para fijar `reconciliationTimeoutS`.
-    private func queryWithinTimeout(from start: Date, to end: Date, seen: Int, sessionStartedAt: Date?) async -> QueryAnswer {
-        let motion = self.motion
-        let timeout = reconciliationTimeoutS
-        let log = self.log
-        let measure = self.measure
-        let race = FirstResult<QueryResolution>()
-        let startedAt = ContinuousClock.now
-        Task.detached {
-            let answer: QueryRace
-            do {
-                answer = .answered(try await motion.query(from: start, to: end))
-            } catch {
-                log.error("Consulta del podómetro fallida: \(String(describing: error), privacy: .public)")
-                answer = .failed
-            }
-            let answeredAt = ContinuousClock.now
-            guard !race.resolve(QueryResolution(race: answer, at: answeredAt)), let sessionStartedAt else { return }
-            measure(MeasurementLog.lateQueryLine(
-                sessionStartedAt: sessionStartedAt,
-                start: start,
-                end: end,
-                result: answer.sample,
-                seen: seen,
-                durationMs: MeasurementLog.milliseconds(startedAt.duration(to: answeredAt)),
-                outcome: answer.outcome(seen: seen)
-            ))
-        }
-        let timer = Task.detached {
-            try? await Task.sleep(for: .seconds(timeout))
-            if race.resolve(QueryResolution(race: .timedOut, at: ContinuousClock.now)) {
-                log.error("La consulta del podómetro agotó el timeout de \(timeout, privacy: .public) s")
-            }
-        }
-        let resolution = await race.value()
-        timer.cancel()
-        return QueryAnswer(race: resolution.race, durationMs: MeasurementLog.milliseconds(startedAt.duration(to: resolution.at)))
-    }
+    // MARK: - Medición
 
     /// Línea de medición de una transición de la sesión (8.4).
-    private func measureTransition(_ transition: MeasurementLog.Transition, _ session: Session, at instant: Date) {
+    func measureTransition(_ transition: MeasurementLog.Transition, _ session: Session, at instant: Date) {
         measure(MeasurementLog.sessionLine(transition: transition, session: session, at: instant))
-    }
-
-    /// Cancela el stream del tramo en curso. Cancelar la iteración detiene el podómetro
-    /// en el adapter.
-    private func stopCountingSteps() {
-        stepCounting?.cancel()
-        isCountingSteps = false
-        // El tope era para la muestra de este stream: el tramo siguiente trae `end` reales.
-        lastSampleAtCap = nil
-    }
-
-    /// Topa `lastSampleAt` en `gapStart` hasta la siguiente muestra del stream. Con un tope ya
-    /// pendiente (no llegó ninguna muestra entre medias) conserva el más temprano: esa muestra
-    /// puede traer también el gap anterior.
-    private func capLastSampleAt(at gapStart: Date) {
-        lastSampleAtCap = min(lastSampleAtCap ?? gapStart, gapStart)
-    }
-
-    /// `lastSampleAt` tras una muestra del stream que sumó pasos y terminó en `end`. Con un tope
-    /// (`cap`, R4) no pasa del inicio del gap ni retrocede; sin él, es `end`.
-    private func moveLastSampleAt(to end: Date, cap: Date?) {
-        guard let cap else {
-            lastSampleAt = end
-            return
-        }
-        let capped = min(end, cap)
-        lastSampleAt = lastSampleAt.map { max($0, capped) } ?? capped
-    }
-
-    /// Aplica pasos y distancia de la muestra y recalcula las métricas en `clock.now`.
-    /// Un fallo de una parte no impide la otra: una distancia inválida se registra y el
-    /// conteo sigue.
-    ///
-    /// Solo una muestra del stream mueve `lastSampleAt`: la de la consulta (`fromQuery`)
-    /// termina en el instante pedido (volver o relanzar), no en el último paso real, y
-    /// recortar ahí una huérfana contaría como caminadas las horas quietas. Por lo mismo, la
-    /// primera del stream con `end` posterior al inicio del gap no lo lleva más allá de él, y
-    /// libera el tope sume pasos o no. Una con `end` anterior es un dato previo al gap: lo mueve
-    /// como siempre y el tope sigue pendiente. La consulta no lo libera.
-    private func record(_ sample: PedometerSample, fromQuery: Bool = false) {
-        if !fromQuery, let startedAt = session?.startedAt {
-            measure(MeasurementLog.sampleLine(sessionStartedAt: startedAt, sample: sample))
-        }
-        let cap = fromQuery ? nil : lastSampleAtCap.flatMap { sample.end > $0 ? $0 : nil }
-        if cap != nil { lastSampleAtCap = nil }
-        guard session?.status == .active else { return }
-        if sample.steps > highestCumulativeSteps {
-            let increment = sample.steps - highestCumulativeSteps
-            highestCumulativeSteps = sample.steps
-            if !fromQuery { moveLastSampleAt(to: sample.end, cap: cap) }
-            do {
-                try session?.addMeasuredSteps(increment)
-            } catch {
-                // Inalcanzable: la sesión está activa y el incremento es > 0.
-                log.error("Pasos de la muestra rechazados: \(String(describing: error), privacy: .public)")
-            }
-        }
-        if let distance = sample.distance {
-            do {
-                try session?.recordSystemDistance(distanceBaseM + distance)
-            } catch {
-                log.error("Distancia de la muestra rechazada: \(String(describing: error), privacy: .public)")
-            }
-        }
-        metrics = session?.metrics(at: clock.now)
-        if let lastSavedAt, clock.now.timeIntervalSince(lastSavedAt) < Self.autosaveIntervalS { return }
-        persist()
-    }
-
-    /// El stream terminó sin que nadie lo cancelara: el sistema detuvo el podómetro.
-    /// La sesión sigue y conserva sus pasos (AD-11 solo bloquea al iniciar).
-    /// Si lo canceló el store (pausar o finalizar), no hace nada: `isCountingSteps` ya se
-    /// actualizó al cancelar, y quizá otro tramo ya está contando.
-    private func stepCountingEnded() {
-        guard !Task.isCancelled else { return }
-        isCountingSteps = false
-        if let session { measureTransition(.streamEnded, session, at: clock.now) }
-        log.error("El sistema terminó las actualizaciones del podómetro; la sesión sigue con \(self.session?.stepsMeasured ?? 0, privacy: .public) pasos")
-    }
-}
-
-/// Quién ganó la carrera de `queryWithinTimeout`.
-private enum QueryRace: Sendable {
-    case answered(PedometerSample?)
-    case failed
-    case timedOut
-
-    /// La muestra que decide: `nil` con error o timeout.
-    var sample: PedometerSample? {
-        if case .answered(let sample) = self { return sample }
-        return nil
-    }
-
-    func outcome(seen: Int) -> MeasurementLog.QueryOutcome {
-        switch self {
-        case .answered(let sample): MeasurementLog.outcome(of: sample, seen: seen)
-        case .failed: .error
-        case .timedOut: .timeout
-        }
-    }
-}
-
-/// Resultado de la carrera con el instante en que lo resolvió la tarea que la ganó.
-private struct QueryResolution: Sendable {
-    let race: QueryRace
-    let at: ContinuousClock.Instant
-}
-
-/// El primer resultado de una carrera entre tareas no estructuradas. `resolve` gana solo la
-/// primera vez; `value()` lo espera, aunque se llame después de resolverse.
-private final class FirstResult<Value: Sendable>: Sendable {
-
-    private enum State {
-        case waiting(CheckedContinuation<Value, Never>?)
-        case resolved(Value)
-    }
-
-    private let state = Mutex(State.waiting(nil))
-
-    /// `true` si este resultado es el que gana.
-    @discardableResult
-    func resolve(_ value: Value) -> Bool {
-        let waiter: CheckedContinuation<Value, Never>?? = state.withLock { state in
-            guard case .waiting(let continuation) = state else { return .none }
-            state = .resolved(value)
-            return .some(continuation)
-        }
-        guard let waiter else { return false }
-        waiter?.resume(returning: value)
-        return true
-    }
-
-    func value() async -> Value {
-        await withCheckedContinuation { continuation in
-            let resolved: Value? = state.withLock { state in
-                switch state {
-                case .resolved(let value):
-                    return value
-                case .waiting:
-                    state = .waiting(continuation)
-                    return nil
-                }
-            }
-            if let resolved { continuation.resume(returning: resolved) }
-        }
     }
 }

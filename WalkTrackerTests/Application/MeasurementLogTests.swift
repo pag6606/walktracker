@@ -1,6 +1,5 @@
 import Domain
 import Foundation
-import Synchronization
 import Testing
 
 @testable import WalkTracker
@@ -206,7 +205,7 @@ struct MeasurementLogTests {
         func walkThenBackground() async {
             await store.start()
             motion.emit(steps: 820, distance: 540, end: MeasurementLogTests.at(600))
-            await waitFor { self.store.session?.stepsMeasured == 820 }
+            await waitUntil { self.store.session?.stepsMeasured == 820 }
             clock.advance(by: 600)
             store.appDidEnterBackground()
             clock.advance(by: 300)
@@ -222,7 +221,7 @@ struct MeasurementLogTests {
         let fixture = Fixture()
         await fixture.store.start()
         fixture.motion.emit(steps: 820, distance: 540, end: Self.at(600))
-        await waitFor { fixture.store.session?.stepsMeasured == 820 }
+        await waitUntil { fixture.store.session?.stepsMeasured == 820 }
 
         #expect(fixture.lines("sample") == [
             "WTM1 event=sample \(Self.sid) start=1800000000000 end=1800000600000 steps=820 distance=540.00",
@@ -283,9 +282,11 @@ struct MeasurementLogTests {
         #expect(fixture.lines("estimate").count == 1)
         #expect(fixture.lines("queryLate").isEmpty, "la consulta sigue colgada")
 
-        try? await Task.sleep(for: .milliseconds(30))
+        // Tiempo real tras el timeout: la duración de queryLate tiene que incluirlo.
+        let lateBy = ContinuousClock.now.advanced(by: .milliseconds(30))
+        await waitUntil { ContinuousClock.now >= lateBy }
         fixture.motion.resolvePendingQueries(with: .sample(steps: 950, distance: nil))
-        await waitFor { fixture.lines("queryLate").count == 1 }
+        await waitUntil { fixture.lines("queryLate").count == 1 }
 
         let late = try #require(fixture.lines("queryLate").only)
         #expect(late.hasPrefix("WTM1 event=queryLate \(Self.sid) start=1800000000000 end=1800000900000 result=950 distance=nil seen=820 ms="))
@@ -302,10 +303,10 @@ struct MeasurementLogTests {
         fixture.motion.setQueryResponse(.hang)
         let store = fixture.store
         let reconciliation = Task { await store.appDidBecomeActive() }
-        await waitFor { store.isReconciling && fixture.motion.hasPendingQuery }
+        await waitUntil { store.isReconciling && fixture.motion.hasPendingQuery }
 
         fixture.motion.emit(steps: 1000, end: Self.at(905))
-        await waitFor { fixture.store.session?.stepsMeasured == 1000 }
+        await waitUntil { fixture.store.session?.stepsMeasured == 1000 }
         await reconciliation.value
         fixture.motion.resolvePendingQueries(with: .none)
 
@@ -408,17 +409,6 @@ struct MeasurementLogTests {
 
 private final class BundleToken {}
 
-/// Destino de líneas de test, seguro entre hilos.
-private final class LineSink: Sendable {
-    private let storage = Mutex<[String]>([])
-
-    func append(_ line: String) {
-        storage.withLock { $0.append(line) }
-    }
-
-    var lines: [String] { storage.withLock { $0 } }
-}
-
 private extension Array {
     /// El único elemento, o `nil` si hay cero o más de uno.
     var only: Element? { count == 1 ? first : nil }
@@ -429,17 +419,4 @@ private extension String {
     func field(_ key: String) -> String? {
         split(separator: " ").first { $0.hasPrefix("\(key)=") }.map { String($0.dropFirst(key.count + 1)) }
     }
-}
-
-/// Espera a que el consumidor del stream procese lo emitido. Falla, no cuelga.
-@MainActor
-private func waitFor(
-    _ condition: () -> Bool,
-    sourceLocation: SourceLocation = #_sourceLocation
-) async {
-    for _ in 0..<2_000 {
-        if condition() { return }
-        try? await Task.sleep(for: .milliseconds(1))
-    }
-    Issue.record("La condición no se cumplió a tiempo", sourceLocation: sourceLocation)
 }

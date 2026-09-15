@@ -12,29 +12,13 @@ struct HomeView<Diagnostics: View>: View {
     let store: SessionStore
     let diagnostics: Diagnostics?
 
-    @Environment(\.scenePhase) private var scenePhase
-    /// La app pasó por `.background` (p. ej. un viaje a Ajustes) desde el último `.active`.
-    @State private var returnedFromBackground = false
-
     var body: some View {
+        // Al volver de Ajustes, la pantalla bloqueante se cierra sola si el permiso cambió:
+        // la relectura la decide el store con las fases que le pasa `RootView`.
         NavigationStack {
             content
         }
         .toolbar(store.startFlow == .idle ? .automatic : .hidden, for: .tabBar)
-        .onChange(of: scenePhase) { _, phase in
-            // Al volver de Ajustes, la pantalla bloqueante relee el permiso. Solo tras
-            // pasar por `.background`: cerrar el diálogo del sistema es `inactive → active`,
-            // y en ese instante el permiso aún puede leerse `.notDetermined`.
-            switch phase {
-            case .background:
-                returnedFromBackground = true
-            case .active where returnedFromBackground:
-                returnedFromBackground = false
-                store.motionStatusMayHaveChanged()
-            default:
-                break
-            }
-        }
     }
 
     @ViewBuilder
