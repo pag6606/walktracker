@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 /// Pantalla completa bloqueante sin conteo de pasos: la única degradación bloqueante
 /// (AD-11). Referencia: `screen-motion-denied` de la v3 (`index.html:249`).
@@ -52,8 +51,14 @@ struct MotionBlockedView: View {
     }
 
     /// Los ajustes de la app, donde está el interruptor de Movimiento y forma física.
+    ///
+    /// `app-settings:` es el valor actual de la constante de UIKit que abre los ajustes
+    /// de la app, comprobado por test (`MotionBlockedViewTests`). Se escribe tal cual
+    /// para que la vista no use UIKit (AD-10).
+    static let settingsURL = URL(string: "app-settings:")
+
     private func openSettings() {
-        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        guard let url = Self.settingsURL else { return }
         openURL(url)
     }
 }

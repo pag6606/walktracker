@@ -48,3 +48,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-4-gate-success-signal.md`
   summary: Tests de lo que el informe no distingue hoy: una línea `estimate` con `steps=0` escrita por el store (el `GapEstimator` corrió y no sumó) y un p95 de duración de consulta distinto del máximo (fixture con ≥ 20 consultas).
   evidence: Hallazgos de la revisión de la 8.4 (VG 3 y 4): mover el `measure` bajo `guard estimated > 0` o sustituir `percentile(ms, 95)` por el máximo deja todo en verde. Informativo en el gate: una caminata sin tocar la pantalla da dos consultas (p95 = máx.) y se espera sin estimaciones; la regla del timeout usa el máximo.
+- source_spec: `_bmad-output/implementation-artifacts/spec-retro-e1-a6-gates-arquitectura.md`
+  summary: La sección 4 de `check-project-shape.sh` (frameworks prohibidos en `Domain/`) no reconoce imports con atributo o nivel de acceso (`@preconcurrency import CoreMotion`, `internal import SwiftUI`); reutilizar ahí el `import_re` de las secciones 7 y 10. Y que el texto de la sección 10 nombre el módulo real esté cubierto por un caso rojo.
+  evidence: Revisión del A-6 (EC, verificado: `@preconcurrency import CoreMotion` en `Domain/` sale en verde; VG: sustituir el módulo del mensaje por `x` deja los 36 casos verdes). La spec del A-6 prohibía tocar las secciones 1–6, así que queda fuera de ese chore.
