@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "defaultStrideM": 0.655,
-  "reconciliationTimeoutS": 3,
+  "reconciliationTimeoutS": 1,
   "orphanSessionThresholdS": 21600,
-  "provisional": ["reconciliationTimeoutS", "orphanSessionThresholdS"]
+  "provisional": []
 }

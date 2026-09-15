@@ -2,8 +2,8 @@
 title: '8.4 — Medición de referencia: caminata de 30 min en el iPhone 14'
 story: '8.4'
 spec: 'spec-8-4-gate-success-signal.md'
-status: 'pendiente'   # pendiente | pasa | falla
-fecha: ''             # AAAA-MM-DD de la caminata
+status: 'pasa'        # pendiente | pasa | falla — por decisión de Paul, ver Veredicto
+fecha: '2026-09-15'   # AAAA-MM-DD de la caminata
 ---
 
 # Medición de referencia · gate 8.4
@@ -101,18 +101,18 @@ Regla de las Decisiones de Paul (2026-09-14), en `spec-8-4-gate-success-signal.m
 
 | Constante | Antes | Dato medido | Regla | Valor fijado |
 |---|---|---|---|---|
-| `reconciliationTimeoutS` | 3 (provisional) | duración máx. real de la consulta en la sesión `sid` de la caminata: ___ ms (p95: ___ ms; timeouts sin `queryLate`: ___) | max(1 s, 5 × duración máx.), redondeado hacia arriba al segundo; sin valor si hay timeouts sin `queryLate` | |
+| `reconciliationTimeoutS` | 3 (provisional) | duración máx. real de la consulta en la sesión `1789477060734`: 2 ms (p95: 2 ms; timeouts sin `queryLate`: 0; 2 consultas) | max(1 s, 5 × duración máx.), redondeado hacia arriba al segundo; sin valor si hay timeouts sin `queryLate` | **1** |
 | `orphanSessionThresholdS` | 21600 (provisional) | — (no medible en esta caminata) | se queda en 6 h como **valor decidido, no medido** | 21600 |
 
 Tras fijarlas: `formulas.json` sin ninguna de las dos en `provisional`, `FormulasTests` actualizado, y
 `verify-domain.sh` y la suite completa en verde.
 
 
-## Medición parcial · 2026-09-15 (no cierra el gate)
+## Caminata del gate · 2026-09-15 (medición parcial aceptada por Paul)
 
-> **No es la caminata del gate:** duró 19 min, no 30; hubo un desbloqueo a los 56 s y no hay lectura de Salud
-> del intervalo. Queda registrada porque sus datos del registro `WTM1` son reales y responden a parte de las
-> dudas. Los valores ausentes figuran como "sin datos", no se estiman. El gate sigue `pendiente`.
+> **Registrada primero como medición parcial y aceptada después como gate por decisión de Paul (ver Veredicto).** duró 19 min, no 30; hubo un desbloqueo a los 56 s y no hay lectura de Salud
+> del intervalo. Sus datos del registro `WTM1` son reales y responden a parte de las dudas. Los valores ausentes
+> figuran como "sin datos", no se estiman.
 
 ### Criterios
 
@@ -174,10 +174,18 @@ Línea a línea (`log show … category == "Medicion"`, sesión `1789477060734`)
 | **R11** · fuentes mezcladas entre tramos | un solo tramo hasta la pausa; todas las muestras con distancia | sin datos en esta caminata |
 | Alternancia de la distancia (1.3) | 6 muestras con `distance`, 0 sin ella, 0 alternancias | no apareció en esta caminata |
 | **R5** · el sistema terminó el stream | sin `streamEnded` | no apareció en esta caminata |
-| Duración real de la consulta | máx. 2 ms (2 consultas) | la regla daría 1 s; **no se fija** con una medición parcial de 2 consultas |
+| Duración real de la consulta | máx. 2 ms (2 consultas) | la regla da 1 s. Primero no se fijó con una medición parcial; al aceptar Paul la caminata como gate se fija en 1 s (ver Constantes fijadas) |
 
 ## Veredicto
 
-- **Resultado:** pasa / falla
-- **Criterios que fallan:**
-- **Siguiente paso:** 8.4 `done` y Epic 8 `done`, o `bmad-correct-course`.
+- **Resultado:** **pasa, por decisión de Paul (2026-09-15)**. No pasa por cumplir todos los criterios en las condiciones del protocolo.
+- **Cumplen con medición:**
+  - **C1:** pasos a 1,5 % de Salud.
+  - **C2:** distancia a 0,9 % de Salud.
+  - **C4:** WalkTracker no destacado en Ajustes → Batería.
+- **Aceptados por Paul sin cumplir sus condiciones:**
+  - **C3:** la batería se midió en unos 23 min (del 23 % al 20 %, 3 puntos), no en 30 min.
+  - **C5:** `stepsEstimated` fue 0, pero hubo un desbloqueo a los 56 s y la caminata duró 19 min en vez de 30.
+- **Constantes:** `reconciliationTimeoutS` = 1 s, con la regla de Paul aplicada a las 2 consultas medidas (máx. 2 ms), aunque la muestra es pequeña. `orphanSessionThresholdS` = 21600, valor decidido. `provisional` queda vacío.
+- **Siguiente paso:** 8.4 `done` y Epic 8 `done`; los epics 2–7 quedan desbloqueados.
+- **Pendiente:** la duración de 30 min que fija el SPEC (Constraints · Batería) no se ha medido. Si se quiere dejar constancia del cambio de criterio en el contrato del proyecto, corresponde un `bmad-correct-course`.

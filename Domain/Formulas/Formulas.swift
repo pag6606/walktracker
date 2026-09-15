@@ -23,11 +23,13 @@ public struct Formulas: Equatable, Sendable, Codable {
     public let defaultStrideM: Double
     /// Tope en segundos de la reconciliación atómica del background (AD-8): al agotarse,
     /// la consulta cuenta como sin dato y los comandos se liberan. > 0 y finito.
-    /// **Provisional**: la 8.4 lo sustituye por el medido.
+    /// Fijado en la 8.4 (1 s): max(1 s, 5 × la consulta más lenta medida en el iPhone 14),
+    /// según `8-4-medicion-referencia.md`.
     public let reconciliationTimeoutS: Double
     /// Umbral en segundos de la sesión huérfana (AD-18): al arrancar, una sesión con
     /// `now − startedAt` por encima no se restaura, se cierra recortada al último dato real.
-    /// > 0 y finito. **Provisional** (6 h, decisión de Paul en la 1.6): la 8.4 lo sustituye.
+    /// > 0 y finito. 6 h: valor decidido por Paul (1.6), no medible en una caminata; la 8.4 lo
+    /// deja fijado sin medición.
     public let orphanSessionThresholdS: Double
     /// Nombres de las constantes cuyo valor aún es provisional (epic-1-context, Constantes
     /// provisionales). Cada nombre debe ser una constante de este fichero.
