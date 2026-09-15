@@ -12,9 +12,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-7-sustrato-de-verificacion-del-dominio.md`
   summary: Probar que el arranque termina (y nunca devuelve un catálogo parcial o vacío) cuando `achievements.json` no valida.
   evidence: Hueco de verificación de la revisión de la 8.7 (V3): sustituir el `fatalError` de `CompositionRoot.bundledAchievementCatalogOrTerminate()` por un catálogo vacío deja todos los tests en verde. Hace falta una costura (bundle y terminación inyectables); encaja cuando el Epic 3 lea el catálogo por primera vez.
-- source_spec: `_bmad-output/implementation-artifacts/spec-8-3-distribucion-testflight-con-versionado-semver.md`
-  summary: Comprobar en `release-testflight.sh`, tras archivar, que `PrivacyInfo.xcprivacy` está dentro de `WalkTracker.app` y que su `Info.plist` lleva `ITSAppUsesNonExemptEncryption = false`.
-  evidence: Hueco de verificación de la revisión de la 8.3 (V4): hoy solo se comprobó a mano en el archivo real. Se vuelve importante con la primera historia que use una API con motivo obligatorio (el manifiesto deja de estar vacío) o que añada red (clima).
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-1-iniciar-sesion-cronometro-wall-clock.md`
   summary: Test automático de interfaz que compruebe que "Iniciar caminata" presenta la sesión a pantalla completa y que el tiempo en pantalla avanza cada segundo.
   evidence: Hueco de verificación de la revisión de la 1.1 (V2): sustituir el `TimelineView` por una lectura única congelaría el tiempo en 0:00 sin romper ningún test. El proyecto no tiene target de UI tests (XCUITest diferido en el spine); hoy lo cubre la verificación manual en el iPhone.
@@ -51,3 +48,12 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-retro-e1-a6-gates-arquitectura.md`
   summary: La sección 4 de `check-project-shape.sh` (frameworks prohibidos en `Domain/`) no reconoce imports con atributo o nivel de acceso (`@preconcurrency import CoreMotion`, `internal import SwiftUI`); reutilizar ahí el `import_re` de las secciones 7 y 10. Y que el texto de la sección 10 nombre el módulo real esté cubierto por un caso rojo.
   evidence: Revisión del A-6 (EC, verificado: `@preconcurrency import CoreMotion` en `Domain/` sale en verde; VG: sustituir el módulo del mensaje por `x` deja los 36 casos verdes). La spec del A-6 prohibía tocar las secciones 1–6, así que queda fuera de ese chore.
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-1-clima-open-meteo.md`
+  summary: Recordar entre lanzamientos que Paul eligió "Ahora no" en la pre-pantalla de ubicación de la 2.1 (hoy solo dura la ejecución) y ofrecer el permiso de clima desde Ajustes. Destino: la historia que cree `settings.json` y `SettingsStore` (2.2 o 2.3).
+  evidence: Decisión de Paul en la 2.1 (2026-09-15): la pre-pantalla sale tras abrir la sesión y "Ahora no" no vuelve a preguntar al iniciar, pero no hay persistencia de ajustes hasta la 2.2/2.3 (epic-2-context, Cross-Story Dependencies). Lección L2 de la retro del Epic 1.
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-1-clima-open-meteo.md`
+  summary: Probar el camino real de `LocationAdapter.readLocation` y `requestPermission` (ubicación cacheada fresca o caducada, timeout, lectura sustituida, respuesta tras el timeout, peticiones de permiso duplicadas) con una costura sobre `CLLocationManager`.
+  evidence: Revisión de la 2.1 (VG 3, BH): quitar o invertir `isFresh` en `readLocation` deja todo en verde; los tests solo cubren los helpers estáticos y el store usa `LocationStub`. Hace falta una fuente de ubicación inyectable; hoy lo cubren los checks manuales en el iPhone 14.
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-1-clima-open-meteo.md`
+  summary: Unificar `WeatherCondition.rain` (2.1, `Domain/Weather`) con `WeatherCategory.rain` (catálogo de logros, `Domain/Achievements`) cuando el Epic 3 evalúe `rain_walker`, y leer los códigos WMO de lluvia de `evaluateAchievements.json` en el test en vez de una lista escrita a mano. Destino: 3.2.
+  evidence: Revisión de la 2.1 (BH): dos enums de lluvia sin nada que los sincronice; el test "casos de lluvia de evaluateAchievements.json" usa una lista propia con códigos que el fichero no tiene. Lección L2 de la retro del Epic 1.

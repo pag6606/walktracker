@@ -17,11 +17,17 @@ import Foundation
 /// el destino con `rename(2)`, que lo sustituye de una vez: un corte a mitad deja el
 /// snapshot anterior entero, nunca uno a medias.
 ///
+/// **Esquemas.** Escribe la versión 2, que añade `weather` (2.1), y sigue leyendo la 1: un
+/// snapshot de la 1 se lee sin clima, sin apartarlo.
+///
 /// **Ilegible.** Nunca se borra: se renombra a `activeSession.corrupt.<marca>.json`, con una
 /// marca única, y la lectura lanza. Un apartado nunca sustituye a otro anterior.
 struct ActiveSessionFileAdapter: StoragePort {
 
-    static let supportedSchemaVersion = 1
+    /// La versión que se escribe.
+    static let supportedSchemaVersion = 2
+    /// Las versiones que se leen: la 1 no tenía `weather`.
+    static let readableSchemaVersions: ClosedRange<Int> = 1...2
     static let fileName = "activeSession.json"
     /// Prefijo y extensión de un snapshot apartado: `activeSession.corrupt.<marca>.json`.
     static let setAsideFilePrefix = "activeSession.corrupt."
@@ -119,9 +125,10 @@ struct ActiveSessionFileAdapter: StoragePort {
 
     // MARK: - Formato (puro)
 
-    /// El JSON de `schemaVersion` 1. Los opcionales que la v3 daba por 0 (`stepsMeasured`,
-    /// `stepsEstimated`, `totalPausesMs`, `paused`) se aceptan ausentes.
-    private struct FileV1: Codable {
+    /// El JSON de `schemaVersion` 1 y 2. Los opcionales que la v3 daba por 0 (`stepsMeasured`,
+    /// `stepsEstimated`, `totalPausesMs`, `paused`) se aceptan ausentes. `weather` es de la 2:
+    /// ausente o `null`, sin clima.
+    private struct File: Codable {
         var schemaVersion: Int
         var startedAtMs: Int64
         var stepsMeasured: Int?
@@ -136,16 +143,33 @@ struct ActiveSessionFileAdapter: StoragePort {
         var segmentStartMs: Int64
         var segmentSteps: Int
         var distanceBaseM: Double
+        var weather: WeatherFile?
+    }
+
+    /// El clima en el fichero. `condition` no se guarda: sale de `wmoCode` en el dominio.
+    private struct WeatherFile: Codable {
+        var tempC: Double
+        var feelsLikeC: Double
+        var wmoCode: Int
+        var humidityPct: Double
+        var uvIndex: Double
+        var windKmh: Double
+        var capturedAtMs: Int64
     }
 
     private struct VersionProbe: Decodable {
         var schemaVersion: Int
     }
 
-    /// JSON → snapshot en segundos. Solo valida la forma: los rangos son del dominio.
+    /// JSON → snapshot en segundos. Solo valida la forma: los rangos de la sesión son del
+    /// dominio (`Session.restore`).
     ///
-    /// - Throws: `unsupportedSchemaVersion` con otra versión; `malformed` si no es JSON, falta
-    ///   un campo obligatorio o un campo tiene otro tipo.
+    /// El clima es la excepción, porque `WeatherSnapshot` solo existe validado: un clima con la
+    /// forma bien y los rangos mal (solo un fichero manipulado) se lee como sin clima. Nunca
+    /// aparta la caminata: la falta de clima no bloquea nada (AD-11).
+    ///
+    /// - Throws: `unsupportedSchemaVersion` con una versión fuera de 1–2; `malformed` si no es
+    ///   JSON, falta un campo obligatorio o un campo tiene otro tipo.
     static func decode(_ data: Data) throws(StorageError) -> ActiveSessionSnapshot {
         let decoder = JSONDecoder()
         let version: Int
@@ -154,10 +178,10 @@ struct ActiveSessionFileAdapter: StoragePort {
         } catch {
             throw .malformed(String(describing: error))
         }
-        guard version == supportedSchemaVersion else { throw .unsupportedSchemaVersion(version) }
-        let file: FileV1
+        guard readableSchemaVersions.contains(version) else { throw .unsupportedSchemaVersion(version) }
+        let file: File
         do {
-            file = try decoder.decode(FileV1.self, from: data)
+            file = try decoder.decode(File.self, from: data)
         } catch {
             throw .malformed(String(describing: error))
         }
@@ -175,7 +199,20 @@ struct ActiveSessionFileAdapter: StoragePort {
             lastSampleAt: file.lastSampleAtMs.map(date(ms:)),
             segmentStart: date(ms: file.segmentStartMs),
             segmentSteps: file.segmentSteps,
-            distanceBaseM: file.distanceBaseM
+            distanceBaseM: file.distanceBaseM,
+            weather: version >= 2 ? file.weather.flatMap(weather(from:)) : nil
+        )
+    }
+
+    private static func weather(from file: WeatherFile) -> WeatherSnapshot? {
+        try? WeatherSnapshot(
+            tempC: file.tempC,
+            feelsLikeC: file.feelsLikeC,
+            wmoCode: file.wmoCode,
+            humidityPct: file.humidityPct,
+            uvIndex: file.uvIndex,
+            windKmh: file.windKmh,
+            capturedAt: date(ms: file.capturedAtMs)
         )
     }
 
@@ -184,7 +221,7 @@ struct ActiveSessionFileAdapter: StoragePort {
     /// - Throws: `failed(encode)` con un instante o una duración que no caben en milisegundos
     ///   enteros, o un número no finito.
     static func encode(_ snapshot: ActiveSessionSnapshot) throws(StorageError) -> Data {
-        let file = FileV1(
+        let file = File(
             schemaVersion: supportedSchemaVersion,
             startedAtMs: try ms(snapshot.startedAt.timeIntervalSince1970),
             stepsMeasured: snapshot.stepsMeasured,
@@ -198,7 +235,18 @@ struct ActiveSessionFileAdapter: StoragePort {
             lastSampleAtMs: try snapshot.lastSampleAt.map { date throws(StorageError) in try ms(date.timeIntervalSince1970) },
             segmentStartMs: try ms(snapshot.segmentStart.timeIntervalSince1970),
             segmentSteps: snapshot.segmentSteps,
-            distanceBaseM: snapshot.distanceBaseM
+            distanceBaseM: snapshot.distanceBaseM,
+            weather: try snapshot.weather.map { weather throws(StorageError) in
+                WeatherFile(
+                    tempC: weather.tempC,
+                    feelsLikeC: weather.feelsLikeC,
+                    wmoCode: weather.wmoCode,
+                    humidityPct: weather.humidityPct,
+                    uvIndex: weather.uvIndex,
+                    windKmh: weather.windKmh,
+                    capturedAtMs: try ms(weather.capturedAt.timeIntervalSince1970)
+                )
+            }
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]

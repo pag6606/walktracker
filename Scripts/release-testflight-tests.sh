@@ -33,7 +33,13 @@ report_fail() { echo "  ❌ $1"; fail=$((fail + 1)); }
 # los Info.plist que diría el real (versión FAKE_MARKETING o 4.0.0, build el de
 # CURRENT_PROJECT_VERSION= o FAKE_BUILD); la extensión, FAKE_EXT_MARKETING y
 # FAKE_EXT_BUILD si se dan; con FAKE_GENERIC_ARCHIVE=1, un archivo genérico; con
-# FAKE_ARCHIVE_DIRTY=1, ensucia el árbol mientras archiva.
+# FAKE_ARCHIVE_DIRTY=1, ensucia el árbol mientras archiva. La app lleva
+# `PrivacyInfo.xcprivacy` y `ITSAppUsesNonExemptEncryption = false`, salvo con
+# FAKE_NO_PRIVACY=1 (sin manifiesto), FAKE_BAD_PRIVACY=1 (manifiesto que no es plist),
+# FAKE_ENCRYPTION=<valor> (el flag como cadena) o FAKE_ENCRYPTION=absent (sin el flag). El
+# manifiesto declara la ubicación aproximada y el Info.plist su explicación, salvo con
+# FAKE_EMPTY_PRIVACY=1 (sin datos recogidos, el de la 8.3), FAKE_OTHER_PRIVACY=1 (otro dato
+# recogido) o FAKE_NO_LOCATION_USAGE=1 (sin NSLocationWhenInUseUsageDescription).
 # `-exportArchive` apunta el `destination` de sus opciones y falla si
 # FAKE_EXPORT_FAIL=1, como un rechazo de App Store Connect (=accounts: Xcode sin cuenta).
 FAKE_BIN="$WORK/bin"
@@ -67,6 +73,26 @@ case "$action" in
         plutil -create xml1 "$app/Info.plist"
         plutil -insert CFBundleShortVersionString -string "${FAKE_MARKETING:-4.0.0}" "$app/Info.plist"
         plutil -insert CFBundleVersion -string "${FAKE_BUILD:-$build}" "$app/Info.plist"
+        [ "${FAKE_NO_LOCATION_USAGE:-0}" = "1" ] ||
+            plutil -insert NSLocationWhenInUseUsageDescription -string "Clima de la caminata" "$app/Info.plist"
+        case "${FAKE_ENCRYPTION:-false}" in
+            false) plutil -insert ITSAppUsesNonExemptEncryption -bool false "$app/Info.plist" ;;
+            absent) ;;
+            *) plutil -insert ITSAppUsesNonExemptEncryption -string "$FAKE_ENCRYPTION" "$app/Info.plist" ;;
+        esac
+        if [ "${FAKE_BAD_PRIVACY:-0}" = "1" ]; then
+            echo "no es un plist" > "$app/PrivacyInfo.xcprivacy"
+        elif [ "${FAKE_NO_PRIVACY:-0}" != "1" ]; then
+            plutil -create xml1 "$app/PrivacyInfo.xcprivacy"
+            plutil -insert NSPrivacyTracking -bool false "$app/PrivacyInfo.xcprivacy"
+            plutil -insert NSPrivacyCollectedDataTypes -array "$app/PrivacyInfo.xcprivacy"
+            if [ "${FAKE_EMPTY_PRIVACY:-0}" != "1" ]; then
+                collected="NSPrivacyCollectedDataTypeCoarseLocation"
+                [ "${FAKE_OTHER_PRIVACY:-0}" = "1" ] && collected="NSPrivacyCollectedDataTypePreciseLocation"
+                plutil -insert NSPrivacyCollectedDataTypes.0 -dictionary "$app/PrivacyInfo.xcprivacy"
+                plutil -insert NSPrivacyCollectedDataTypes.0.NSPrivacyCollectedDataType -string "$collected" "$app/PrivacyInfo.xcprivacy"
+            fi
+        fi
         plutil -create xml1 "$ext/Info.plist"
         plutil -insert CFBundleShortVersionString -string "${FAKE_EXT_MARKETING:-${FAKE_MARKETING:-4.0.0}}" "$ext/Info.plist"
         plutil -insert CFBundleVersion -string "${FAKE_EXT_BUILD:-$build}" "$ext/Info.plist"
@@ -365,6 +391,37 @@ expect "app con la versión bien y el build mal no se sube" "$R" nonzero "WalkTr
 new_repo archivo-generico
 FAKE_GENERIC_ARCHIVE=1 run_case "$R" --confirm v4.0.0-build.3
 expect "archivo genérico (framework instalado fuera de la app) no se sube" "$R" nonzero "el archivo es genérico" no-upload no-tag
+
+# ── Privacidad y exportación en el binario (2.1) ─────────────────────────────
+new_repo sin-manifiesto
+FAKE_NO_PRIVACY=1 run_case "$R" --confirm v4.0.0-build.3
+expect "app sin PrivacyInfo.xcprivacy no se sube" "$R" nonzero "no lleva PrivacyInfo.xcprivacy" no-upload no-tag
+
+new_repo manifiesto-roto
+FAKE_BAD_PRIVACY=1 run_case "$R" --dry-run
+expect "PrivacyInfo.xcprivacy que no es plist no se exporta (tampoco en ensayo)" "$R" nonzero "no es un plist válido" no-upload no-tag
+grep -q '^export' "$FAKE_LOG" && report_fail "con el manifiesto roto no debía exportar" ||
+    report_pass "con el manifiesto roto no se llega a exportar"
+
+new_repo manifiesto-vacio
+FAKE_EMPTY_PRIVACY=1 run_case "$R" --confirm v4.0.0-build.3
+expect "manifiesto sin datos recogidos (el de la 8.3) no se sube" "$R" nonzero "no declara NSPrivacyCollectedDataTypeCoarseLocation" no-upload no-tag
+
+new_repo manifiesto-otro-dato
+FAKE_OTHER_PRIVACY=1 run_case "$R" --dry-run
+expect "manifiesto que declara otro dato y no la ubicación aproximada no se exporta" "$R" nonzero "no declara NSPrivacyCollectedDataTypeCoarseLocation" no-upload no-tag
+
+new_repo sin-explicacion-ubicacion
+FAKE_NO_LOCATION_USAGE=1 run_case "$R" --confirm v4.0.0-build.3
+expect "Info.plist sin NSLocationWhenInUseUsageDescription no se sube" "$R" nonzero "no lleva NSLocationWhenInUseUsageDescription" no-upload no-tag
+
+new_repo cifrado-true
+FAKE_ENCRYPTION=true run_case "$R" --confirm v4.0.0-build.3
+expect "ITSAppUsesNonExemptEncryption distinto de false no se sube" "$R" nonzero "ITSAppUsesNonExemptEncryption 'true'" no-upload no-tag
+
+new_repo cifrado-ausente
+FAKE_ENCRYPTION=absent run_case "$R" --confirm v4.0.0-build.3
+expect "sin ITSAppUsesNonExemptEncryption no se sube" "$R" nonzero "ITSAppUsesNonExemptEncryption '(ausente)'" no-upload no-tag
 
 # ── Subida rechazada ─────────────────────────────────────────────────────────
 new_repo rechazo

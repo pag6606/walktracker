@@ -20,8 +20,8 @@ extension SessionStoreSuite {
     static var t0: Date { SessionStoreFixture.t0 }
 }
 
-/// `SessionStore` sobre un `ClockStub`, un `MotionStub` y un `StorageStub`, con las líneas de
-/// medición en un `LineSink`.
+/// `SessionStore` sobre un `ClockStub`, un `MotionStub`, un `StorageStub`, un `LocationStub` y un
+/// `WeatherStub`, con las líneas de medición en un `LineSink`.
 @MainActor
 struct SessionStoreFixture {
 
@@ -32,6 +32,8 @@ struct SessionStoreFixture {
     let clock: ClockStub
     let motion: MotionStub
     let storage: StorageStub
+    let location: LocationStub
+    let weather: WeatherStub
     /// Las líneas `WTM1` que escribe el store. Solo observan: sirven de condición de espera.
     let measurements: LineSink
     let store: SessionStore
@@ -43,18 +45,27 @@ struct SessionStoreFixture {
     ///   - timeoutS: tope de la reconciliación. Largo por defecto: una consulta inmediata nunca
     ///     pierde contra el temporizador en una máquina cargada.
     ///   - orphanThresholdS: umbral de la sesión huérfana.
+    ///   - location: permiso de ubicación **denegado** por defecto: sin pre-pantalla ni clima, así
+    ///     las suites anteriores a la 2.1 no ven la captura.
+    ///   - weather: responde WMO 61 y 18 °C por defecto.
+    ///   - weatherStepTimeoutS: tope de cada paso de la captura del clima (ubicación y clima).
     init(
         motion: MotionStub = MotionStub(status: .granted),
         storage: StorageStub = StorageStub(),
         at instant: Date = SessionStoreFixture.t0,
         strideM: Double = 0.655,
         timeoutS: TimeInterval = 5,
-        orphanThresholdS: TimeInterval = SessionStoreFixture.orphanThresholdS
+        orphanThresholdS: TimeInterval = SessionStoreFixture.orphanThresholdS,
+        location: LocationStub = LocationStub(status: .denied),
+        weather: WeatherStub = WeatherStub(),
+        weatherStepTimeoutS: TimeInterval = 5
     ) {
         let measurements = LineSink()
         clock = ClockStub(now: instant)
         self.motion = motion
         self.storage = storage
+        self.location = location
+        self.weather = weather
         self.measurements = measurements
         store = SessionStore(
             clock: clock,
@@ -63,6 +74,9 @@ struct SessionStoreFixture {
             strideM: strideM,
             reconciliationTimeoutS: timeoutS,
             orphanSessionThresholdS: orphanThresholdS,
+            location: location,
+            weather: weather,
+            weatherStepTimeoutS: weatherStepTimeoutS,
             measure: { measurements.append($0) }
         )
     }

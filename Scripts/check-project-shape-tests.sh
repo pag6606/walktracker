@@ -47,7 +47,8 @@ make_fixture() {
     mkdir -p "$root/Domain/Ports" "$root/Domain/Session" "$root/Shared" \
              "$root/WalkTracker/App" "$root/WalkTracker/UI" "$root/WalkTracker/Application" \
              "$root/WalkTracker/Adapters/Motion" "$root/WalkTracker/Adapters/Persistence" \
-             "$root/WalkTracker/Adapters/Clock" \
+             "$root/WalkTracker/Adapters/Clock" "$root/WalkTracker/Adapters/Location" \
+             "$root/WalkTracker/Adapters/Weather" \
              "$root/WalkTrackerActivity" "$root/WalkTrackerTests/Adapters"
 
     echo 'import Foundation' > "$root/Domain/DomainError.swift"
@@ -125,6 +126,23 @@ SWIFT
     # 7 · CoreMotion en su adapter y en los tests de adapters (fuera del gate).
     printf 'import CoreMotion\nimport Domain\n' > "$root/WalkTracker/Adapters/Motion/MotionAdapter.swift"
     printf '@testable import WalkTracker\nimport CoreMotion\n' > "$root/WalkTrackerTests/Adapters/MotionAdapterTests.swift"
+    # 7 · CoreLocation en su adapter y en los tests de adapters (fuera del gate).
+    printf 'import CoreLocation\nimport Domain\n' > "$root/WalkTracker/Adapters/Location/LocationAdapter.swift"
+    printf '@testable import WalkTracker\nimport CoreLocation\n' > "$root/WalkTrackerTests/Adapters/LocationAdapterTests.swift"
+    # 11 · La red en el adapter del clima y en sus tests (fuera del gate); nombrada en comentarios fuera.
+    cat > "$root/WalkTracker/Adapters/Weather/OpenMeteoAdapter.swift" <<'SWIFT'
+import Foundation
+import Network
+import Domain
+
+struct OpenMeteoAdapter {
+    let session = URLSession(configuration: .ephemeral)
+    func request(_ url: URL) -> URLRequest { URLRequest(url: url) }
+}
+SWIFT
+    printf 'import Foundation\nlet s = URLSession.shared\n' > "$root/WalkTrackerTests/Adapters/OpenMeteoAdapterTests.swift"
+    printf 'import Foundation\n/// El clima sale por `WeatherPort`: aquí no hay URLSession ni URLRequest.\nprotocol WeatherPort {}\n' \
+        > "$root/Domain/Ports/WeatherPort.swift"
     # 10 · Frameworks de sistema fuera de `WalkTracker/UI/`: en `Shared/` y en la extensión.
     echo 'import ActivityKit' > "$root/Shared/WalkTrackerActivityAttributes.swift"
     echo 'import ActivityKit' > "$root/WalkTrackerActivity/WalkTrackerLiveActivity.swift"
@@ -138,6 +156,8 @@ struct SessionView: View {
     let store: SessionStore
     var body: some View {
         Button("Pausar") { store.pause() }
+        Button("Permitir") { Task { await store.confirmLocationPermission() } }
+        WeatherCard(weather: store.session?.weather, isCapturing: store.isCapturingWeather)
             .disabled(store.isReconciling == true || store.session?.status != .active)
             .task { await root.sessionStore.restoreOnLaunch() }
     }
@@ -263,7 +283,10 @@ rm -rf "$ROOT"
 
 for call in 'store.persist()' 'store.record(sample)' 'await store.reconcile(until: now)' 'store.countSteps(from: now)' \
             'store.stopCountingSteps()' 'store.clearSnapshot()' 'store.capLastSampleAt(at: now)' \
-            'try store.storage.clearActiveSession()' 'store.motion.status' 'store.clock.now'; do
+            'try store.storage.clearActiveSession()' 'store.motion.status' 'store.clock.now' \
+            'store.beginWeatherForNewSession()' 'store.cancelWeatherCapture()' 'store.location.status' \
+            'try await store.weather.currentWeather(at: c)' 'store.locationPrompt = nil' \
+            'store.weatherCapture?.cancel()' 'await store.stepCounting?.value'; do
     ROOT="$(make_fixture)"
     echo "        $call" >> "$ROOT/WalkTracker/UI/SessionView.swift"
     assert_gate "\`$call\` en UI/ falla" "$ROOT" 1 "AD-7/AD-16"
@@ -283,6 +306,48 @@ ROOT="$(make_fixture)"
 echo '@preconcurrency import CoreMotion' >> "$ROOT/WalkTracker/UI/SessionView.swift"
 assert_gate "import CoreMotion en UI/ falla" "$ROOT" 1 "UI/SessionView.swift:[0-9]*: error: AD-10: CoreMotion solo en"
 rm -rf "$ROOT"
+
+# ── 4d'. Rojo: CoreLocation fuera de su adapter (AD-10, 2.1) ────────────────
+# En `Application/` y en el adapter del clima solo lo detecta la sección 7; en `UI/`, también
+# la 10, así que se busca el mensaje propio de la 7.
+for file in Application/Clima.swift Adapters/Weather/OpenMeteoAdapter.swift Adapters/Motion/Extra.swift App/Root.swift; do
+    ROOT="$(make_fixture)"
+    printf 'import Foundation\nimport CoreLocation\n' > "$ROOT/WalkTracker/$file"
+    assert_gate "import CoreLocation en WalkTracker/$file falla" "$ROOT" 1 \
+        "$file:2: error: AD-10: CoreLocation solo en .WalkTracker/Adapters/Location/."
+    rm -rf "$ROOT"
+done
+
+ROOT="$(make_fixture)"
+echo '@preconcurrency import CoreLocation' >> "$ROOT/WalkTracker/UI/SessionView.swift"
+assert_gate "import CoreLocation en UI/ falla con el mensaje de la sección 7" "$ROOT" 1 \
+    "UI/SessionView.swift:[0-9]*: error: AD-10: CoreLocation solo en"
+rm -rf "$ROOT"
+
+# Y CoreMotion tampoco vale en el adapter de ubicación: cada framework en el suyo.
+ROOT="$(make_fixture)"
+printf 'import CoreLocation\nimport CoreMotion\n' > "$ROOT/WalkTracker/Adapters/Location/LocationAdapter.swift"
+assert_gate "import CoreMotion en Adapters/Location/ falla" "$ROOT" 1 \
+    "Location/LocationAdapter.swift:2: error: AD-10: CoreMotion solo en"
+rm -rf "$ROOT"
+
+# ── 4d''. Rojo: la red fuera del adapter del clima (AD-10, 2.1) ──────────────
+for call in 'let s = URLSession.shared' 'var r = URLRequest(url: url)' \
+            'let c = URLSessionConfiguration.ephemeral' '_ = try await URLSession.shared.data(from: url)'; do
+    for dir in WalkTracker/UI WalkTracker/Application; do
+        ROOT="$(make_fixture)"
+        printf 'import Foundation\nfunc f(url: URL) async throws {\n    %s\n}\n' "$call" > "$ROOT/$dir/Red.swift"
+        assert_gate "\`$call\` en $dir/ falla" "$ROOT" 1 "$dir/Red.swift:3: error: AD-10: la red solo sale de"
+        rm -rf "$ROOT"
+    done
+done
+
+for dir in WalkTracker/UI WalkTracker/Application Domain/Ports; do
+    ROOT="$(make_fixture)"
+    printf 'import Foundation\n@preconcurrency import Network\n' > "$ROOT/$dir/Red.swift"
+    assert_gate "\`import Network\` en $dir/ falla" "$ROOT" 1 "$dir/Red.swift:2: error: AD-10: la red solo sale de"
+    rm -rf "$ROOT"
+done
 
 # ── 4e. Rojo: el dominio lee el reloj o el calendario (AD-3, AD-19) ─────────
 # El fixture limpio ya nombra los tres en comentarios: aquí son código.

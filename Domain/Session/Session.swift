@@ -43,6 +43,10 @@ public struct Session: Equatable, Sendable {
     /// La cerró la app al arrancar, no Paul: una sesión huérfana recortada al último dato real
     /// del coprocesador (AD-18). Nunca dispara logros ni celebración.
     public private(set) var recovered: Bool
+    /// Clima del instante de inicio (CAP-5), o `nil` sin clima: sin red, sin permiso de
+    /// ubicación, con timeout o si aún no ha llegado. Se adjunta una sola vez y se congela
+    /// (SPEC FR-5): nunca se refresca.
+    public private(set) var weather: WeatherSnapshot?
 
     private init(startedAt: Date, strideM: Double) {
         self.startedAt = startedAt
@@ -58,6 +62,7 @@ public struct Session: Equatable, Sendable {
         self.pausesS = nil
         self.source = .ios
         self.recovered = false
+        self.weather = nil
     }
 
     /// Crea una sesión `active` que empieza en `now`.
@@ -80,6 +85,7 @@ public struct Session: Equatable, Sendable {
     /// - Parameters:
     ///   - paused: la sesión estaba en pausa. `pausedAt` existe si y solo si lo está.
     ///   - systemDistanceM: última distancia acumulada del sistema, o `nil` si no la dio.
+    ///   - weather: el clima ya capturado (2.1), que ya validó `WeatherSnapshot`; `nil` sin clima.
     /// - Throws: `DomainError.invalidValue` con `strideM` (≤ 0 o no finita), `stepsMeasured`
     ///   o `stepsEstimated` (< 0), `totalPausesS` (< 0 o no finito), `distanceM` (< 0 o no
     ///   finita) o `pausedAt` (pausada sin `pausedAt`, o activa con él).
@@ -91,7 +97,8 @@ public struct Session: Equatable, Sendable {
         paused: Bool,
         pausedAt: Date?,
         strideM: Double,
-        systemDistanceM: Double?
+        systemDistanceM: Double?,
+        weather: WeatherSnapshot? = nil
     ) throws(DomainError) -> Session {
         try validateStride(strideM)
         guard stepsMeasured >= 0 else { throw .invalidValue(field: "stepsMeasured") }
@@ -107,6 +114,7 @@ public struct Session: Equatable, Sendable {
         session.stepsEstimated = stepsEstimated
         session.totalPausesS = totalPausesS
         session.systemDistanceM = systemDistanceM
+        session.weather = weather
         if paused {
             session.status = .paused
             session.pausedAt = pausedAt
@@ -193,6 +201,22 @@ public struct Session: Equatable, Sendable {
         guard meters.isFinite, meters >= 0 else { throw .invalidValue(field: "distanceM") }
         if let current = systemDistanceM, meters <= current { return }
         systemDistanceM = meters
+    }
+
+    /// Adjunta el clima del inicio (2.1, CAP-5). Llega después de abrir la sesión, porque la
+    /// captura nunca la retrasa, y lo escribe `SessionStore` (AD-7).
+    ///
+    /// - Throws: `DomainError.invalidTransition` si la sesión está `finished` (un clima que
+    ///   llega tarde no toca una sesión cerrada), con `to: "attachWeather"`; o si ya tiene clima
+    ///   (se congela: nunca se refresca), con `to: "replaceWeather"`. En ambos casos no muta.
+    public mutating func attachWeather(_ snapshot: WeatherSnapshot) throws(DomainError) {
+        guard status != .finished else {
+            throw .invalidTransition(from: status.rawValue, to: "attachWeather")
+        }
+        guard weather == nil else {
+            throw .invalidTransition(from: status.rawValue, to: "replaceWeather")
+        }
+        weather = snapshot
     }
 
     /// Pausa la sesión en `now` (`domain.js:176` `pause`): el cronómetro se congela.

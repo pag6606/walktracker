@@ -41,14 +41,20 @@
 	<string>WalkTracker guarda tus caminatas en Apple Salud como entrenamientos. Si no lo permites, la sesión se guarda igual en el dispositivo.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>WalkTracker usa tu ubicación aproximada solo para mostrar el clima de la caminata. Las coordenadas se redondean antes de salir del dispositivo.</string>
+	<!-- 2.1: la app solo pide ubicación aproximada (una lectura de baja precisión para el
+	     clima). El diálogo del sistema la ofrece aproximada por defecto, como declara el
+	     manifiesto de privacidad (NSPrivacyCollectedDataTypeCoarseLocation). -->
+	<key>NSLocationDefaultAccuracyReduced</key>
+	<true/>
 	<!-- AD-15: sin esta clave el sistema no permite Live Activities. -->
 	<key>NSSupportsLiveActivities</key>
 	<true/>
-	<!-- 8.3 · Cumplimiento de exportación. HOY la app no hace ninguna llamada de
-	     red. SUPOSICIÓN, a revisar por la historia del clima cuando entre: solo se
-	     usará el HTTPS del sistema, que está exento. Declararlo aquí evita la
-	     pregunta en cada build subido. Si entra cifrado propio o de terceros, esto
-	     deja de ser verdad y hay que cambiarlo antes de subir. -->
+	<!-- 8.3 · Cumplimiento de exportación, confirmado en la 2.1. La única llamada de
+	     red es el clima de Open-Meteo, con el HTTPS del sistema (URLSession), que está
+	     exento: no hay cifrado propio ni de terceros. Declararlo aquí evita la pregunta
+	     en cada build subido. Si entra cifrado propio o de terceros, esto deja de ser
+	     verdad y hay que cambiarlo antes de subir. `release-testflight.sh` comprueba el
+	     valor en el binario archivado. -->
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<!-- AD-13: `UIDesignRequiresCompatibility` está PROHIBIDA. Liquid Glass se

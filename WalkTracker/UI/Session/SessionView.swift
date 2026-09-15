@@ -26,6 +26,11 @@ import SwiftUI
 /// bajo el título 3 s, sin bloquear nada, y se anuncia a VoiceOver. Con Reduce Motion entra y
 /// sale con un fundido, sin desplazamiento.
 ///
+/// Clima (2.1): la tarjeta de clima va bajo las métricas y pinta el snapshot congelado al
+/// inicio, la espera de la captura o "Sin clima". Con el permiso de ubicación sin decidir, la
+/// pre-pantalla de ubicación aparece arriba, sobre la sesión que ya cuenta, sin tapar los
+/// controles.
+///
 /// Con tamaños de texto grandes la pantalla se desplaza en vertical en lugar de recortar.
 struct SessionView: View {
 
@@ -112,6 +117,9 @@ struct SessionView: View {
                             .padding(.top, 16)
                     }
 
+                    WeatherCard(weather: session.weather, isCapturing: store.isCapturingWeather)
+                        .padding(.top, 16)
+
                     Spacer(minLength: 24)
 
                     controls(isPaused: isPaused)
@@ -119,6 +127,7 @@ struct SessionView: View {
                 .padding()
                 .frame(maxWidth: .infinity, minHeight: proxy.size.height)
                 .animation(reduceMotion ? .easeInOut(duration: 0.2) : .default, value: store.showsRecoveredNotice)
+                .animation(reduceMotion ? .easeInOut(duration: 0.2) : .default, value: store.isCapturingWeather)
                 .task(id: store.showsRecoveredNotice) {
                     guard store.showsRecoveredNotice else { return }
                     AccessibilityNotification.Announcement(String(localized: "Sesión recuperada", comment: "Indicador transitorio (3 s) bajo el título de la pantalla de sesión, y anuncio de VoiceOver, al restaurar la caminata tras relanzar la app.")).post()
@@ -134,6 +143,18 @@ struct SessionView: View {
             }
             .scrollBounceBehavior(.basedOnSize)
         }
+        .safeAreaInset(edge: .top) {
+            if let prompt = store.locationPrompt {
+                LocationPermissionView(
+                    isRequesting: prompt == .requesting,
+                    onAllow: { Task { await store.confirmLocationPermission() } },
+                    onDecline: store.declineLocationPermission
+                )
+                .padding(.horizontal)
+                .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .animation(reduceMotion ? .easeInOut(duration: 0.2) : .default, value: store.locationPrompt)
     }
 
     // MARK: - Sesión recuperada

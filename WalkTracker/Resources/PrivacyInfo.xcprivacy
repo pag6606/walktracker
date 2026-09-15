@@ -2,17 +2,20 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <!--
-  Manifiesto de privacidad del producto (8.3).
+  Manifiesto de privacidad del producto (8.3, revisado en la 2.1).
 
   - Sin rastreo y sin dominios de rastreo: no hay analítica, ni crash reporting, ni SDK
     de terceros.
-  - Sin datos recogidos: pasos, sesiones y salud se quedan en el dispositivo (y en
-    Apple Salud, que es del usuario). HOY la app no hace ninguna llamada de red.
-    SUPOSICIÓN, a revisar por la historia del clima cuando entre: la consulta del
-    clima enviará coordenadas redondeadas a Open-Meteo solo para responder en el
-    momento, sin guardarlas ni vincularlas a nadie, y eso no cuenta como recogida. Si
-    el diseño final no es así, este manifiesto cambia antes de subir.
-  - Tipos de API con motivo: vacío porque HOY el código no usa ninguno (UserDefaults,
+  - Datos recogidos: solo la ubicación aproximada (2.1, decisión de Paul del 2026-09-15).
+    Al iniciar una caminata, con permiso, la app lee una ubicación de baja precisión, la
+    redondea a 2 decimales (≈ 1 km) en el dispositivo y la envía a Open-Meteo
+    (api.open-meteo.com) para pedir el clima actual. No se vincula a la identidad (sin
+    cuenta, sin identificadores), no se usa para rastrear y su único propósito es la
+    funcionalidad de la app: el clima de la sesión. Las coordenadas no se guardan; la
+    sesión guarda el clima, no la ubicación.
+  - Pasos, sesiones y salud se quedan en el dispositivo (y en Apple Salud, que es del
+    usuario): no se recogen.
+  - Tipos de API con motivo: vacío porque el código no usa ninguno (UserDefaults,
     marcas de tiempo de ficheros, tiempo desde el arranque, espacio en disco, teclados
     activos). La primera historia que use uno lo declara aquí con su motivo, o App Store
     Connect rechaza el build.
@@ -23,7 +26,20 @@
 	<key>NSPrivacyTrackingDomains</key>
 	<array/>
 	<key>NSPrivacyCollectedDataTypes</key>
-	<array/>
+	<array>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeCoarseLocation</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+	</array>
 	<key>NSPrivacyAccessedAPITypes</key>
 	<array/>
 </dict>

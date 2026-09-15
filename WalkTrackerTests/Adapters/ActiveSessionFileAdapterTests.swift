@@ -17,7 +17,8 @@ struct ActiveSessionFileAdapterTests {
         paused: Bool = false,
         pausedAt: Date? = nil,
         systemDistanceM: Double? = 980.25,
-        lastSampleAt: Date? = t0.addingTimeInterval(1_190.5)
+        lastSampleAt: Date? = t0.addingTimeInterval(1_190.5),
+        weather: WeatherSnapshot? = nil
     ) -> ActiveSessionSnapshot {
         ActiveSessionSnapshot(
             startedAt: t0,
@@ -32,9 +33,15 @@ struct ActiveSessionFileAdapterTests {
             lastSampleAt: lastSampleAt,
             segmentStart: t0.addingTimeInterval(300),
             segmentSteps: 900,
-            distanceBaseM: 400.5
+            distanceBaseM: 400.5,
+            weather: weather
         )
     }
+
+    private static let weather = try! WeatherSnapshot(
+        tempC: 18.2, feelsLikeC: 17.4, wmoCode: 61, humidityPct: 82, uvIndex: 1.55, windKmh: 12.4,
+        capturedAt: t0.addingTimeInterval(2.5)
+    )
 
     /// Un directorio temporal propio, que se borra al terminar.
     private static func withDirectory(_ body: (URL) throws -> Void) throws {
@@ -94,17 +101,18 @@ struct ActiveSessionFileAdapterTests {
         for snapshot in [
             Self.snapshot(),
             Self.snapshot(paused: true, pausedAt: Self.t0.addingTimeInterval(1_195), systemDistanceM: nil, lastSampleAt: nil),
+            Self.snapshot(weather: Self.weather),
         ] {
             let decoded = try ActiveSessionFileAdapter.decode(ActiveSessionFileAdapter.encode(snapshot))
             #expect(decoded == snapshot)
         }
     }
 
-    @Test("El fichero va en milisegundos enteros, con schemaVersion 1 y los campos de §8")
+    @Test("El fichero va en milisegundos enteros, con schemaVersion 2 y los campos de §8")
     func encodesMilliseconds() throws {
         let object = try Self.json(ActiveSessionFileAdapter.encode(Self.snapshot()))
 
-        #expect(object["schemaVersion"] as? Int == 1)
+        #expect(object["schemaVersion"] as? Int == 2)
         #expect(object["startedAtMs"] as? Int64 == 1_800_000_000_000)
         #expect(object["totalPausesMs"] as? Int64 == 60_250)
         #expect(object["savedAtMs"] as? Int64 == 1_800_001_200_000)
@@ -117,6 +125,60 @@ struct ActiveSessionFileAdapterTests {
         #expect(object["segmentSteps"] as? Int == 900)
         #expect(object["distanceBaseM"] as? Double == 400.5)
         #expect(object["startedAt"] == nil && object["totalPausesS"] == nil, "el fichero nunca lleva segundos")
+        #expect(object["weather"] == nil, "sin clima, no hay clave")
+    }
+
+    @Test("El clima va en el fichero con capturedAtMs y sin condition, que sale del código WMO")
+    func encodesWeather() throws {
+        let object = try Self.json(ActiveSessionFileAdapter.encode(Self.snapshot(weather: Self.weather)))
+        let weather = try #require(object["weather"] as? [String: Any])
+
+        #expect(weather["tempC"] as? Double == 18.2)
+        #expect(weather["feelsLikeC"] as? Double == 17.4)
+        #expect(weather["wmoCode"] as? Int == 61)
+        #expect(weather["humidityPct"] as? Double == 82)
+        #expect(weather["uvIndex"] as? Double == 1.55)
+        #expect(weather["windKmh"] as? Double == 12.4)
+        #expect(weather["capturedAtMs"] as? Int64 == 1_800_000_002_500)
+        #expect(weather["condition"] == nil)
+    }
+
+    @Test("Snapshot antiguo: el esquema 1 sin weather se lee sin clima, sin apartarlo")
+    func readsSchemaVersion1() throws {
+        try Self.withDirectory { directory in
+            let adapter = ActiveSessionFileAdapter(directory: directory)
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            let json = #"{ "schemaVersion": 1, "startedAtMs": 1800000000000, "stepsMeasured": 2450, "strideM": 0.655, "savedAtMs": 1800000001000, "segmentStartMs": 1800000000000, "segmentSteps": 2450, "distanceBaseM": 0 }"#
+            try Data(json.utf8).write(to: adapter.fileURL)
+
+            let snapshot = try #require(try adapter.loadActiveSession())
+
+            #expect(snapshot.weather == nil)
+            #expect(snapshot.stepsMeasured == 2450)
+            #expect(try Self.setAsideNames(in: directory).isEmpty)
+            #expect(FileManager.default.fileExists(atPath: adapter.fileURL.path(percentEncoded: false)))
+        }
+    }
+
+    @Test("Esquema 2: weather ausente o null se lee sin clima")
+    func schema2WithoutWeather() throws {
+        for weather in ["", #", "weather": null"#] {
+            let json = #"{ "schemaVersion": 2, "startedAtMs": 0, "strideM": 0.655, "savedAtMs": 0, "segmentStartMs": 0, "segmentSteps": 0, "distanceBaseM": 0"# + weather + " }"
+            #expect(try ActiveSessionFileAdapter.decode(Data(json.utf8)).weather == nil)
+        }
+    }
+
+    @Test("Esquema 2: un clima con la forma rota es malformed; con los rangos rotos se lee sin clima y la sesión sigue")
+    func schema2InvalidWeather() throws {
+        let base = #"{ "schemaVersion": 2, "startedAtMs": 0, "strideM": 0.655, "savedAtMs": 0, "segmentStartMs": 0, "segmentSteps": 0, "distanceBaseM": 0, "weather": "#
+        let brokenShape = base + #"{ "tempC": 18, "wmoCode": 61 } }"#
+        #expect(throws: StorageError.self) {
+            try ActiveSessionFileAdapter.decode(Data(brokenShape.utf8))
+        }
+        let brokenRange = base + #"{ "tempC": 18, "feelsLikeC": 17, "wmoCode": 61, "humidityPct": 140, "uvIndex": 1, "windKmh": 3, "capturedAtMs": 0 } }"#
+        let snapshot = try ActiveSessionFileAdapter.decode(Data(brokenRange.utf8))
+        #expect(snapshot.weather == nil)
+        #expect(snapshot.strideM == 0.655)
     }
 
     @Test("Los milisegundos se convierten a segundos al leer")
@@ -157,7 +219,7 @@ struct ActiveSessionFileAdapterTests {
         #expect(snapshot.stepsMeasured == -5)
     }
 
-    @Test("schemaVersion desconocido: unsupportedSchemaVersion", arguments: [0, 2])
+    @Test("schemaVersion desconocido: unsupportedSchemaVersion", arguments: [0, 3])
     func unknownSchemaVersion(version: Int) {
         let json = #"{ "schemaVersion": \#(version), "startedAtMs": 0, "strideM": 0.655, "savedAtMs": 0, "segmentStartMs": 0, "segmentSteps": 0, "distanceBaseM": 0 }"#
         #expect(throws: StorageError.unsupportedSchemaVersion(version)) {

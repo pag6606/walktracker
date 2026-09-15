@@ -197,6 +197,7 @@ struct MeasurementLogTests {
             store = SessionStore(
                 clock: clock, motion: motion, storage: StorageStub(snapshot: snapshot), strideM: 0.655,
                 reconciliationTimeoutS: timeoutS, orphanSessionThresholdS: 21_600,
+                location: LocationStub(status: .denied), weather: WeatherStub(),
                 measure: { sink.append($0) }
             )
         }

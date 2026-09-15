@@ -51,8 +51,9 @@ extension SessionStore {
             log.info("Tramo de más de 7 días: no se consulta y se estima")
         }
 
-        // Nada muta entre `await` y aquí salvo las muestras del stream, que no cambian el
-        // estado: los comandos están rechazados mientras reconcilia.
+        // Durante la espera los comandos están rechazados, pero la sesión sí puede cambiar: las
+        // muestras del stream suman pasos y el clima del inicio (2.1) puede adjuntarse. Por eso
+        // se vuelve a leer aquí, y lo que llegó se conserva.
         guard var session, session.status == .active else { return }
         if let sample, sample.steps >= seen {
             record(sample, fromQuery: true)

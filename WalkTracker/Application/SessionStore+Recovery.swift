@@ -27,6 +27,9 @@ extension SessionStore {
     /// - **Activa:** reabre el tramo y reconcilia `[segmentStart, now]` con el gap pendiente
     ///   desde `savedAt`, como la vuelta de background de la 1.5.
     ///
+    /// El clima guardado vuelve con la sesión. Una restaurada sin clima no lo captura ni pide
+    /// permiso: el snapshot sería de otro instante que el inicio (2.1).
+    ///
     /// Solo corre una vez, y no hace nada si ya hay una sesión.
     func restoreOnLaunch() async {
         guard !didAttemptRestore else { return }
@@ -59,7 +62,8 @@ extension SessionStore {
                 paused: snapshot.paused,
                 pausedAt: snapshot.pausedAt,
                 strideM: snapshot.strideM,
-                systemDistanceM: snapshot.systemDistanceM
+                systemDistanceM: snapshot.systemDistanceM,
+                weather: snapshot.weather
             )
         } catch {
             log.fault("Snapshot de la sesión rechazado en la frontera: \(String(describing: error), privacy: .public)")
@@ -139,7 +143,8 @@ extension SessionStore {
             lastSampleAt: lastSampleAt,
             segmentStart: segmentStart ?? session.startedAt,
             segmentSteps: highestCumulativeSteps,
-            distanceBaseM: distanceBaseM
+            distanceBaseM: distanceBaseM,
+            weather: session.weather
         )
         do {
             try storage.saveActiveSession(snapshot)

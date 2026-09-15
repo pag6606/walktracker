@@ -28,7 +28,8 @@
 #      módulo, porque los comparten sus extensiones: el compilador ya no impide un
 #      `store.session = nil` en una vista.
 #   7. Que solo el adapter de movimiento importe CoreMotion (AD-10): en `WalkTracker/`,
-#      `import CoreMotion` solo en `WalkTracker/Adapters/Motion/`.
+#      `import CoreMotion` solo en `WalkTracker/Adapters/Motion/`. Y lo mismo para la
+#      ubicación (2.1): `import CoreLocation` solo en `WalkTracker/Adapters/Location/`.
 #   8. Que el dominio no lea el reloj ni el calendario del sistema (AD-3, AD-19): en
 #      `Domain/` no hay `Date()`, `Date.now` ni `Calendar.current` en código. El tiempo
 #      entra por `ClockPort`. Los comentarios que los nombran no cuentan.
@@ -40,8 +41,11 @@
 #      importa CoreMotion, CoreLocation, HealthKit, ActivityKit, WidgetKit, CoreHaptics,
 #      AVFoundation, AudioToolbox, UserNotifications ni UIKit. Esas capacidades entran
 #      por un puerto y su adapter.
+#  11. Que la red solo salga del adapter del clima (2.1, AD-10): en `WalkTracker/` y
+#      `Domain/`, `URLSession`, `URLRequest` e `import Network` solo en
+#      `WalkTracker/Adapters/Weather/`. Open-Meteo es la única llamada de red del producto.
 #
-#   Las secciones 7–10 no miran `WalkTrackerTests/`, `Shared/` ni `WalkTrackerActivity/`.
+#   Las secciones 7–11 no miran `WalkTrackerTests/`, `Shared/` ni `WalkTrackerActivity/`.
 #
 # Uso:  check-project-shape.sh [raíz-del-repo]
 # En el build lo invoca la preBuildScript de `WalkTracker` y la de
@@ -198,7 +202,7 @@ fi
 # permite asignar una propiedad del store, llamar a sus pasos internos ni tocar sus puertos.
 # "Del store" es cualquier receptor que acabe en `store`/`Store` (`store`, `sessionStore`).
 store_write='[sS]tore\.[A-Za-z_][A-Za-z0-9_]*[[:space:]]*=[^=]'
-store_internal='[sS]tore\.(persist|record|reconcile|countSteps|stopCountingSteps|clearSnapshot|capLastSampleAt|storage|motion|clock)\b'
+store_internal='[sS]tore\.(persist|record|reconcile|countSteps|stopCountingSteps|clearSnapshot|capLastSampleAt|beginWeatherForNewSession|cancelWeatherCapture|weatherCapture|stepCounting|storage|motion|clock|location|weather)\b'
 for dir in "$ROOT/WalkTracker/UI" "$ROOT/WalkTracker/App"; do
     [ -d "$dir" ] || continue
     while IFS= read -r hit; do
@@ -206,7 +210,7 @@ for dir in "$ROOT/WalkTracker/UI" "$ROOT/WalkTracker/App"; do
         hit_file="${hit%%:*}"
         rest="${hit#*:}"
         hit_line="${rest%%:*}"
-        err "$hit_file:$hit_line" "AD-7/AD-16: la UI y la app no escriben el estado de \`SessionStore\`: solo leen y llaman a sus intenciones. Asignar una propiedad del store, llamar a \`persist\`, \`record\`, \`reconcile\`, \`countSteps\`, \`stopCountingSteps\`, \`clearSnapshot\` o \`capLastSampleAt\`, o usar \`storage\`/\`motion\`/\`clock\` del store es cosa de \`SessionStore*.swift\`."
+        err "$hit_file:$hit_line" "AD-7/AD-16: la UI y la app no escriben el estado de \`SessionStore\`: solo leen y llaman a sus intenciones. Asignar una propiedad del store, llamar a \`persist\`, \`record\`, \`reconcile\`, \`countSteps\`, \`stopCountingSteps\`, \`clearSnapshot\`, \`capLastSampleAt\`, \`beginWeatherForNewSession\` o \`cancelWeatherCapture\`, tocar sus tareas \`stepCounting\`/\`weatherCapture\`, o usar \`storage\`/\`motion\`/\`clock\`/\`location\`/\`weather\` del store es cosa de \`SessionStore*.swift\`."
     done < <(grep -rnE "$store_write|$store_internal" "$dir" --include='*.swift' 2>/dev/null)
 done
 
@@ -283,21 +287,27 @@ scan_code() {
 # `fichero:línea:`, y lo buscado va al principio o tras un carácter que no es de nombre.
 code_at='^[^:]+:[0-9]+:(.*[^A-Za-z0-9_])?'
 
-# ── 7. CoreMotion solo en el adapter de movimiento (AD-10) ───────────────────
-# `MotionAdapter` es el único que conoce CoreMotion; el resto de la app habla con
-# `MotionPort`. `Domain/` ya lo cubre la sección 4, y los tests de adapters quedan fuera.
-if [ -d "$ROOT/WalkTracker" ]; then
+# ── 7. CoreMotion y CoreLocation solo en su adapter (AD-10) ─────────────────
+# `MotionAdapter` es el único que conoce CoreMotion, y `LocationAdapter` el único que conoce
+# CoreLocation (2.1); el resto de la app habla con `MotionPort` y `LocationPort`. `Domain/`
+# ya lo cubre la sección 4, y los tests de adapters quedan fuera.
+# Uso: `framework_only_in MÓDULO SUBDIRECTORIO-DE-ADAPTERS EXPLICACIÓN`.
+framework_only_in() {
+    local module="$1" adapter_dir="$2" why="$3"
+    [ -d "$ROOT/WalkTracker" ] || return 0
     while IFS= read -r hit; do
         [ -n "$hit" ] || continue
         hit_file="${hit%%:*}"
         case "$hit_file" in
-            "$ROOT/WalkTracker/Adapters/Motion/"*) continue ;;
+            "$ROOT/WalkTracker/Adapters/$adapter_dir/"*) continue ;;
         esac
         rest="${hit#*:}"
         hit_line="${rest%%:*}"
-        err "$hit_file:$hit_line" "AD-10: CoreMotion solo en \`WalkTracker/Adapters/Motion/\`. Este fichero importa CoreMotion: el resto de la app cuenta pasos a través de \`MotionPort\`, que implementa \`MotionAdapter\`."
-    done < <(grep -rnE "$(import_re 'CoreMotion')" "$ROOT/WalkTracker" --include='*.swift' 2>/dev/null)
-fi
+        err "$hit_file:$hit_line" "AD-10: $module solo en \`WalkTracker/Adapters/$adapter_dir/\`. Este fichero importa $module: $why"
+    done < <(grep -rnE "$(import_re "$module")" "$ROOT/WalkTracker" --include='*.swift' 2>/dev/null)
+}
+framework_only_in CoreMotion Motion "el resto de la app cuenta pasos a través de \`MotionPort\`, que implementa \`MotionAdapter\`."
+framework_only_in CoreLocation Location "el resto de la app pide la ubicación aproximada a través de \`LocationPort\`, que implementa \`LocationAdapter\` y redondea las coordenadas antes de entregarlas."
 
 # ── 8. El dominio no lee el reloj ni el calendario del sistema (AD-3, AD-19) ─
 # Todo instante entra por `ClockPort` (o como argumento), para que el dominio sea
@@ -372,6 +382,24 @@ if [ -d "$ROOT/WalkTracker/UI" ]; then
         err "$hit_file:$hit_line" "AD-10: la UI no usa UIKit, tampoco sin importarlo: \`UIApplication\`, \`UIDevice\`, \`UIScreen\`, \`UIViewController\` y \`UIView\` son cosa de un adapter. Ajustes se abre con el \`openURL\` de SwiftUI."
     done < <(grep -E "$code_at$uikit_symbol" <<< "$SCANNED")
 fi
+
+# ── 11. La red solo sale del adapter del clima (2.1, AD-10) ─────────────────
+# Open-Meteo es la única llamada de red del producto, y la hace `OpenMeteoAdapter` por
+# `WeatherPort`. Fuera de `WalkTracker/Adapters/Weather/` no se construye ni una petición
+# (`URLRequest`) ni una sesión de red (`URLSession` y sus tipos) ni se importa `Network`. Solo
+# cuenta el código: los comentarios que las nombran no son una llamada. Los tests quedan fuera.
+network_symbol='(URLSession|URLRequest)'
+scan_code "$ROOT/WalkTracker" "$ROOT/Domain"
+while IFS= read -r hit; do
+    [ -n "$hit" ] || continue
+    hit_file="${hit%%:*}"
+    case "$hit_file" in
+        "$ROOT/WalkTracker/Adapters/Weather/"*) continue ;;
+    esac
+    rest="${hit#*:}"
+    hit_line="${rest%%:*}"
+    err "$hit_file:$hit_line" "AD-10: la red solo sale de \`WalkTracker/Adapters/Weather/\`. \`URLSession\`, \`URLRequest\` e \`import Network\` son del adapter del clima: la única llamada de red del producto es Open-Meteo, a través de \`WeatherPort\`."
+done < <(grep -E "$code_at$network_symbol|^[^:]+:[0-9]+:$(import_re 'Network' | sed 's/^\^//')" <<< "$SCANNED")
 
 # ── Veredicto ────────────────────────────────────────────────────────────────
 if [ "$fail_count" -gt 0 ]; then

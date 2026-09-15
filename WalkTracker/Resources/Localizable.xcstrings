@@ -4,6 +4,9 @@
     "%@ por kilómetro": {
       "comment": "Lectura de VoiceOver del ritmo: una duración (\"19 minutos y 5 segundos\") por kilómetro."
     },
+    "%@, %@, humedad %@, %@, viento %@": {
+      "comment": "Lectura de VoiceOver de la tarjeta de clima de la sesión: condición, temperatura, humedad, índice UV y viento. Ejemplo: \"Lluvia ligera, 18 °C, humedad 82 %, UV 2, viento 12 km/h\"."
+    },
     "%lld estimados": {
       "comment": "Lectura de VoiceOver de los pasos estimados en la celda de pasos, en la pantalla de sesión y en el resumen, tras los medidos: \"4100 pasos, 236 estimados\".",
       "localizations": {
@@ -106,10 +109,13 @@
       "comment": "Botón que cierra la alerta de inicio fallido."
     },
     "Ahora no": {
-      "comment": "Botón de la pre-pantalla: vuelve a Inicio sin pedir el permiso ni iniciar la caminata."
+      "comment": "Botón de dos pre-pantallas: en la de Motion vuelve a Inicio sin pedir el permiso ni iniciar la caminata; en la de ubicación, sobre la sesión ya abierta, sigue sin clima y no vuelve a preguntar mientras la app siga abierta."
     },
     "Ajustes": {
       "comment": "Pestaña Ajustes del TabView (AD-14) y título de su pantalla."
+    },
+    "Buscando el clima…": {
+      "comment": "Tarjeta de clima de la sesión mientras la captura del clima está en curso (hasta 3 s). Nunca muestra ceros."
     },
     "Cadencia": {
       "comment": "Etiqueta de la cadencia (pasos por minuto) en la rejilla de la pantalla de sesión."
@@ -126,11 +132,35 @@
     "Cancelar": {
       "comment": "Acción de los diálogos de confirmación de Finalizar y de Descartar pasos estimados: cierra el diálogo sin cambiar nada."
     },
+    "Chubascos de nieve intensos": {
+      "comment": "Condición del clima, código WMO 86, en la tarjeta de clima de la sesión."
+    },
+    "Chubascos de nieve ligeros": {
+      "comment": "Condición del clima, código WMO 85, en la tarjeta de clima de la sesión."
+    },
+    "Chubascos intensos": {
+      "comment": "Condición del clima, código WMO 82, en la tarjeta de clima de la sesión."
+    },
+    "Chubascos ligeros": {
+      "comment": "Condición del clima, código WMO 80, en la tarjeta de clima de la sesión."
+    },
+    "Chubascos moderados": {
+      "comment": "Condición del clima, código WMO 81, en la tarjeta de clima de la sesión."
+    },
+    "Clima": {
+      "comment": "Etiqueta de VoiceOver de la tarjeta de clima de la sesión; el valor es la lectura completa del clima."
+    },
+    "Condición desconocida": {
+      "comment": "Condición del clima para un código WMO sin texto propio, en la tarjeta de clima de la sesión."
+    },
     "Continuar": {
       "comment": "Botón de la pre-pantalla: pide el permiso de Movimiento y forma física al sistema."
     },
     "Cuenta tus pasos": {
       "comment": "Título de la pre-pantalla que explica el permiso de Movimiento y forma física antes de pedirlo (AD-11)."
+    },
+    "Datos: Open-Meteo": {
+      "comment": "Atribución de la licencia CC-BY 4.0 de Open-Meteo en la tarjeta de clima de la sesión. \"Open-Meteo\" es un nombre propio: no se traduce."
     },
     "Del intervalo que el sistema no pudo reconstruir": {
       "comment": "Explicación del Estimated Banner: de dónde salen los pasos estimados."
@@ -140,6 +170,9 @@
     },
     "Descartar pasos estimados": {
       "comment": "Acción destructiva del diálogo de confirmación: descarta los pasos estimados y recalcula distancia y ritmo."
+    },
+    "Despejado": {
+      "comment": "Condición del clima, código WMO 0, en la tarjeta de clima de la sesión."
     },
     "Distancia": {
       "comment": "Etiqueta de VoiceOver de la distancia recorrida, la métrica principal de la pantalla de sesión."
@@ -156,6 +189,9 @@
     "Finalizar caminata": {
       "comment": "Acción destructiva del diálogo de confirmación: termina la caminata y muestra el resumen."
     },
+    "Granos de nieve": {
+      "comment": "Condición del clima, código WMO 77 (granos de nieve, no granizo), en la tarjeta de clima de la sesión."
+    },
     "Historial": {
       "comment": "Pestaña Historial del TabView (AD-14) y título de su pantalla."
     },
@@ -171,11 +207,59 @@
     "Las caminatas que termines aparecerán aquí.": {
       "comment": "Descripción del historial vacío."
     },
+    "Llovizna densa": {
+      "comment": "Condición del clima, código WMO 55, en la tarjeta de clima de la sesión."
+    },
+    "Llovizna helada densa": {
+      "comment": "Condición del clima, código WMO 57, en la tarjeta de clima de la sesión."
+    },
+    "Llovizna helada ligera": {
+      "comment": "Condición del clima, código WMO 56, en la tarjeta de clima de la sesión."
+    },
+    "Llovizna ligera": {
+      "comment": "Condición del clima, código WMO 51, en la tarjeta de clima de la sesión."
+    },
+    "Llovizna moderada": {
+      "comment": "Condición del clima, código WMO 53, en la tarjeta de clima de la sesión."
+    },
+    "Lluvia helada intensa": {
+      "comment": "Condición del clima, código WMO 67, en la tarjeta de clima de la sesión."
+    },
+    "Lluvia helada ligera": {
+      "comment": "Condición del clima, código WMO 66, en la tarjeta de clima de la sesión."
+    },
+    "Lluvia intensa": {
+      "comment": "Condición del clima, código WMO 65, en la tarjeta de clima de la sesión."
+    },
+    "Lluvia ligera": {
+      "comment": "Condición del clima, código WMO 61, en la tarjeta de clima de la sesión."
+    },
+    "Lluvia moderada": {
+      "comment": "Condición del clima, código WMO 63, en la tarjeta de clima de la sesión."
+    },
     "Logros": {
       "comment": "Pestaña Logros del TabView (AD-14) y título de su pantalla."
     },
     "Los logros que desbloquees aparecerán aquí.": {
       "comment": "Descripción de la pestaña de logros vacía."
+    },
+    "Mayormente despejado": {
+      "comment": "Condición del clima, código WMO 1, en la tarjeta de clima de la sesión."
+    },
+    "Nevada intensa": {
+      "comment": "Condición del clima, código WMO 75, en la tarjeta de clima de la sesión."
+    },
+    "Nevada ligera": {
+      "comment": "Condición del clima, código WMO 71, en la tarjeta de clima de la sesión."
+    },
+    "Nevada moderada": {
+      "comment": "Condición del clima, código WMO 73, en la tarjeta de clima de la sesión."
+    },
+    "Niebla": {
+      "comment": "Condición del clima, código WMO 45, en la tarjeta de clima de la sesión."
+    },
+    "Niebla con escarcha": {
+      "comment": "Condición del clima, código WMO 48, en la tarjeta de clima de la sesión."
     },
     "No podrás reanudarla.": {
       "comment": "Mensaje del diálogo de confirmación de Finalizar: terminar la caminata es irreversible."
@@ -183,11 +267,20 @@
     "No se pudo iniciar la caminata": {
       "comment": "Alerta si no se abre la sesión: el dominio la rechaza o el permiso de Movimiento y forma física queda sin decidir tras pedirlo."
     },
+    "Nublado": {
+      "comment": "Condición del clima, código WMO 3, en la tarjeta de clima de la sesión."
+    },
+    "Parcialmente nublado": {
+      "comment": "Condición del clima, código WMO 2, en la tarjeta de clima de la sesión."
+    },
     "Pasos": {
       "comment": "Etiqueta de los pasos medidos en la pantalla de sesión."
     },
     "Pausar": {
       "comment": "Botón de la pantalla de sesión activa: pausa la caminata y detiene el tiempo."
+    },
+    "Permitir": {
+      "comment": "Botón de la pre-pantalla de ubicación: lanza el diálogo del sistema para pedir la ubicación aproximada del clima."
     },
     "Reanudar": {
       "comment": "Botón de la pantalla de sesión en pausa: reanuda la caminata y el tiempo sigue."
@@ -216,6 +309,9 @@
     "Sin caminatas": {
       "comment": "Historial vacío: aún no hay caminatas terminadas."
     },
+    "Sin clima": {
+      "comment": "Tarjeta de clima de la sesión cuando no hay clima: sin red, sin permiso de ubicación o con timeout. Sin tono de error."
+    },
     "Sin logros": {
       "comment": "Logros vacío: aún no hay logros desbloqueados."
     },
@@ -228,6 +324,15 @@
     "Todavía no hay nada que ajustar.": {
       "comment": "Descripción de la pestaña de ajustes vacía."
     },
+    "Tormenta": {
+      "comment": "Condición del clima, código WMO 95, en la tarjeta de clima de la sesión."
+    },
+    "Tormenta con granizo intenso": {
+      "comment": "Condición del clima, código WMO 99, en la tarjeta de clima de la sesión."
+    },
+    "Tormenta con granizo ligero": {
+      "comment": "Condición del clima, código WMO 96, en la tarjeta de clima de la sesión."
+    },
     "Volver al inicio": {
       "comment": "Botón que vuelve a Inicio sin sesión: en la pantalla bloqueante y, como único botón, en el resumen de la caminata finalizada."
     },
@@ -237,11 +342,17 @@
     "WalkTracker usa el sensor de movimiento del iPhone para contar tus pasos, también con la pantalla bloqueada y el teléfono en el bolsillo. A continuación, iOS te pedirá acceso a Movimiento y forma física.": {
       "comment": "Explicación de la pre-pantalla del permiso de Movimiento y forma física."
     },
+    "WalkTracker usa tu ubicación aproximada al empezar para guardar el clima. La caminata ya está contando.": {
+      "comment": "Explicación de la pre-pantalla de ubicación, que aparece sobre la sesión ya abierta antes de pedir el permiso del sistema."
+    },
     "km": {
       "comment": "Unidad visible de la distancia en la pantalla de sesión (kilómetros)."
     },
     "spm": {
       "comment": "Unidad visible de la cadencia en la rejilla de la pantalla de sesión (pasos por minuto)."
+    },
+    "¿Añadir el clima a tus caminatas?": {
+      "comment": "Título de la pre-pantalla de ubicación sobre la sesión ya abierta (permiso sin decidir)."
     },
     "¿Descartar los pasos estimados?": {
       "comment": "Título del diálogo de confirmación al pulsar Descartar en el Estimated Banner."

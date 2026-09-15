@@ -18,7 +18,10 @@ struct CompositionRootTests {
             pausedAt: nil, strideM: 0.655, systemDistanceM: nil, savedAt: now, lastSampleAt: now,
             segmentStart: startedAt, segmentSteps: 4000, distanceBaseM: 0
         ))
-        let root = CompositionRoot(clock: ClockStub(now: now), motion: MotionStub(status: .granted), storage: storage)
+        let root = CompositionRoot(
+            clock: ClockStub(now: now), motion: MotionStub(status: .granted), storage: storage,
+            location: LocationStub(status: .denied), weather: WeatherStub()
+        )
 
         await root.sessionStore.restoreOnLaunch()
 
@@ -27,5 +30,23 @@ struct CompositionRootTests {
         #expect(session.status == .active)
         #expect(!session.recovered)
         #expect(session.stepsMeasured == 4000)
+    }
+
+    @Test("El store recibe la ubicación y el clima del composition root: al iniciar, el clima del WeatherPort llega a la sesión")
+    func storeGetsLocationAndWeather() async throws {
+        let location = LocationStub(status: .granted)
+        let weather = WeatherStub()
+        let root = CompositionRoot(
+            clock: ClockStub(now: Date(timeIntervalSince1970: 1_800_000_000)), motion: MotionStub(status: .granted),
+            storage: StorageStub(), location: location, weather: weather
+        )
+
+        await root.sessionStore.start()
+        await waitUntil { root.sessionStore.session?.weather != nil }
+
+        #expect(location.readCount == 1)
+        #expect(weather.requested.count == 1)
+        #expect(root.sessionStore.session?.weather?.wmoCode == 61)
+        #expect(root.sessionStore.weatherStepTimeoutS == 3, "el tope de AR-12, en cada paso")
     }
 }
