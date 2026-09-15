@@ -27,6 +27,21 @@
 #      A-1 de la retro del Epic 1 sus propiedades y pasos internos tienen acceso de
 #      módulo, porque los comparten sus extensiones: el compilador ya no impide un
 #      `store.session = nil` en una vista.
+#   7. Que solo el adapter de movimiento importe CoreMotion (AD-10): en `WalkTracker/`,
+#      `import CoreMotion` solo en `WalkTracker/Adapters/Motion/`.
+#   8. Que el dominio no lea el reloj ni el calendario del sistema (AD-3, AD-19): en
+#      `Domain/` no hay `Date()`, `Date.now` ni `Calendar.current` en código. El tiempo
+#      entra por `ClockPort`. Los comentarios que los nombran no cuentan.
+#   9. Que solo `SessionStore` use `StoragePort` (AD-16): las llamadas a
+#      `load`/`save`/`clear`/`setAsideActiveSession` solo en
+#      `WalkTracker/Application/SessionStore*.swift` y en su implementación de
+#      `WalkTracker/Adapters/Persistence/`.
+#  10. Que ninguna vista importe un framework de sistema (AD-10): `WalkTracker/UI/` no
+#      importa CoreMotion, CoreLocation, HealthKit, ActivityKit, WidgetKit, CoreHaptics,
+#      AVFoundation, AudioToolbox, UserNotifications ni UIKit. Esas capacidades entran
+#      por un puerto y su adapter.
+#
+#   Las secciones 7–10 no miran `WalkTrackerTests/`, `Shared/` ni `WalkTrackerActivity/`.
 #
 # Uso:  check-project-shape.sh [raíz-del-repo]
 # En el build lo invoca la preBuildScript de `WalkTracker` y la de
@@ -194,6 +209,169 @@ for dir in "$ROOT/WalkTracker/UI" "$ROOT/WalkTracker/App"; do
         err "$hit_file:$hit_line" "AD-7/AD-16: la UI y la app no escriben el estado de \`SessionStore\`: solo leen y llaman a sus intenciones. Asignar una propiedad del store, llamar a \`persist\`, \`record\`, \`reconcile\`, \`countSteps\`, \`stopCountingSteps\`, \`clearSnapshot\` o \`capLastSampleAt\`, o usar \`storage\`/\`motion\`/\`clock\` del store es cosa de \`SessionStore*.swift\`."
     done < <(grep -rnE "$store_write|$store_internal" "$dir" --include='*.swift' 2>/dev/null)
 done
+
+# ── Ayudantes de las secciones 7–10 ──────────────────────────────────────────
+# Lo que puede ir delante de `import`: atributos, con o sin argumentos (`@testable`,
+# `@preconcurrency`, `@_spi(X)`), y el nivel de acceso de Swift 6 (`internal import`).
+import_prefix='^[[:space:]]*(@[A-Za-z_][A-Za-z0-9_]*(\([^)]*\))?[[:space:]]+)*((public|package|internal|fileprivate|private)[[:space:]]+)?(@[A-Za-z_][A-Za-z0-9_]*(\([^)]*\))?[[:space:]]+)*import[[:space:]]+((typealias|struct|class|enum|protocol|let|var|func)[[:space:]]+)?'
+
+# Un `import` de Swift en todas sus formas: con prefijo (ver arriba), de un símbolo
+# (`import struct UIKit.UIApplication`) o de un submódulo
+# (`import UIKit.UIGestureRecognizerSubclass`). Uso: `import_re 'A|B'`.
+import_re() {
+    echo "$import_prefix($1)\b"
+}
+
+# El módulo que importa una línea de `import`.
+imported_module() {
+    echo "$1" | sed -E "s/$import_prefix//; s/[.[:space:]].*\$//"
+}
+
+# Imprime `fichero:línea:código` de cada `.swift` bajo los directorios dados, sin los
+# comentarios: quita `// …` hasta el final de la línea y los `/* … */`, anidados como
+# en Swift y aunque ocupen varias líneas. Dentro de un literal de cadena (`"…"`, con
+# escapes, y `"""…"""`, aunque ocupe varias líneas) `//` y `/*` no abren comentario; el
+# contenido del literal se conserva, así que un nombre dentro de una cadena cuenta como
+# código. No distingue las cadenas crudas (`#"…"#`): en ellas `\` no escapa.
+# Si `find` o `awk` fallan, sale con estado ≠ 0: quien llama no puede dar el verde.
+code_lines() {
+    local dirs=()
+    local d
+    for d in "$@"; do
+        [ -d "$d" ] && dirs+=("$d")
+    done
+    [ "${#dirs[@]}" -gt 0 ] || return 0
+    find "${dirs[@]}" -name '*.swift' -type f -exec awk '
+        FNR == 1 { depth = 0; instr = 0 }
+        {
+            line = $0; out = ""; i = 1; n = length(line)
+            if (instr == 1) instr = 0
+            while (i <= n) {
+                c = substr(line, i, 1); two = substr(line, i, 2); three = substr(line, i, 3)
+                if (depth > 0) {
+                    if (two == "/*") { depth++; i += 2; continue }
+                    if (two == "*/") { depth--; i += 2; if (depth == 0) out = out " "; continue }
+                    i++; continue
+                }
+                if (instr > 0) {
+                    if (c == "\\") { out = out two; i += 2; continue }
+                    if (instr == 3 && three == "\"\"\"") { out = out three; i += 3; instr = 0; continue }
+                    if (instr == 1 && c == "\"") { out = out c; i++; instr = 0; continue }
+                    out = out c; i++; continue
+                }
+                if (three == "\"\"\"") { out = out three; i += 3; instr = 3; continue }
+                if (c == "\"") { out = out c; i++; instr = 1; continue }
+                if (two == "//") break
+                if (two == "/*") { depth++; i += 2; continue }
+                out = out c; i++
+            }
+            print FILENAME ":" FNR ":" out
+        }
+    ' {} +
+}
+
+# `code_lines` en una variable; si el escaneo falla, lo dice y deja el gate en rojo.
+# Uso: `scan_code "$dir"…` (el resultado queda en `SCANNED`).
+scan_code() {
+    if ! SCANNED="$(code_lines "$@")"; then
+        err "$1" "no se pudo escanear el código Swift de $*. El gate no se declara en verde sin haber comprobado."
+        SCANNED=""
+    fi
+}
+
+# Prefijo de `grep -E` sobre la salida de `code_lines`: el código empieza tras
+# `fichero:línea:`, y lo buscado va al principio o tras un carácter que no es de nombre.
+code_at='^[^:]+:[0-9]+:(.*[^A-Za-z0-9_])?'
+
+# ── 7. CoreMotion solo en el adapter de movimiento (AD-10) ───────────────────
+# `MotionAdapter` es el único que conoce CoreMotion; el resto de la app habla con
+# `MotionPort`. `Domain/` ya lo cubre la sección 4, y los tests de adapters quedan fuera.
+if [ -d "$ROOT/WalkTracker" ]; then
+    while IFS= read -r hit; do
+        [ -n "$hit" ] || continue
+        hit_file="${hit%%:*}"
+        case "$hit_file" in
+            "$ROOT/WalkTracker/Adapters/Motion/"*) continue ;;
+        esac
+        rest="${hit#*:}"
+        hit_line="${rest%%:*}"
+        err "$hit_file:$hit_line" "AD-10: CoreMotion solo en \`WalkTracker/Adapters/Motion/\`. Este fichero importa CoreMotion: el resto de la app cuenta pasos a través de \`MotionPort\`, que implementa \`MotionAdapter\`."
+    done < <(grep -rnE "$(import_re 'CoreMotion')" "$ROOT/WalkTracker" --include='*.swift' 2>/dev/null)
+fi
+
+# ── 8. El dominio no lee el reloj ni el calendario del sistema (AD-3, AD-19) ─
+# Todo instante entra por `ClockPort` (o como argumento), para que el dominio sea
+# determinista y probable con vectores. Solo cuenta el código: los comentarios que
+# nombran `Date()` —como el de `ClockPort`— no son una llamada.
+if [ -d "$ROOT/Domain" ]; then
+    time_call='(Date[[:space:]]*(\.[[:space:]]*init[[:space:]]*)?\([[:space:]]*(\)|timeIntervalSinceNow[[:space:]]*:)|Date[[:space:]]*\.[[:space:]]*now\b|Calendar[[:space:]]*\.[[:space:]]*(current|autoupdatingCurrent)\b)'
+    scan_code "$ROOT/Domain"
+    while IFS= read -r hit; do
+        [ -n "$hit" ] || continue
+        hit_file="${hit%%:*}"
+        rest="${hit#*:}"
+        hit_line="${rest%%:*}"
+        code="${rest#*:}"
+        [[ "$code" =~ ^[[:space:]]*(.*[^[:space:]])[[:space:]]*$ ]] && code="${BASH_REMATCH[1]}"
+        err "$hit_file:$hit_line" "AD-3/AD-19: \`Domain/\` no lee el reloj ni el calendario del sistema (\`Date()\`, \`Date.init()\`, \`Date(timeIntervalSinceNow:)\`, \`Date.now\`, \`Calendar.current\`, \`Calendar.autoupdatingCurrent\`). El instante entra por \`ClockPort\` o como argumento (\`at now: Date\`). Código: \`$code\`"
+    done < <(grep -E "$code_at$time_call" <<< "$SCANNED")
+fi
+
+# ── 9. Solo `SessionStore` usa `StoragePort` (AD-16) ────────────────────────
+# El store es el único escritor y lector del snapshot. Se admiten las llamadas en
+# `WalkTracker/Application/SessionStore*.swift` y en el adapter de persistencia, que las
+# implementa. Las declaraciones (`func loadActiveSession`) no son llamadas, y los
+# comentarios que las nombran tampoco; una línea que declara Y llama sí cuenta.
+storage_names='(load|save|clear|setAside)ActiveSession'
+# Sin `\b`: se evalúa con `[[ =~ ]]`, y el ERE del sistema no lo garantiza.
+storage_call_bash="(^|[^A-Za-z0-9_])$storage_names([^A-Za-z0-9_]|\$)"
+scan_code "$ROOT/WalkTracker" "$ROOT/Domain"
+while IFS= read -r hit; do
+    [ -n "$hit" ] || continue
+    hit_file="${hit%%:*}"
+    case "$hit_file" in
+        "$ROOT/WalkTracker/Application/SessionStore"*.swift)
+            # Solo los ficheros de `Application/`, no un subdirectorio que empiece igual.
+            [[ "${hit_file#"$ROOT/WalkTracker/Application/"}" == */* ]] || continue
+            ;;
+        "$ROOT/WalkTracker/Adapters/Persistence/"*) continue ;;
+    esac
+    rest="${hit#*:}"
+    hit_line="${rest%%:*}"
+    code="${rest#*:}"
+    # Se quitan las declaraciones y se vuelve a buscar: lo que queda es una llamada.
+    calls="$(sed -E "s/(^|[^A-Za-z0-9_])func[[:space:]]+$storage_names/\\1/g" <<< "$code")"
+    [[ "$calls" =~ $storage_call_bash ]] || continue
+    err "$hit_file:$hit_line" "AD-16: solo \`SessionStore\` usa \`StoragePort\`. \`loadActiveSession\`, \`saveActiveSession\`, \`clearActiveSession\` y \`setAsideActiveSession\` se llaman desde \`WalkTracker/Application/SessionStore*.swift\`; fuera de ahí se pide al store una intención."
+done < <(grep -E "$code_at$storage_names\b" <<< "$SCANNED")
+
+# ── 10. Ninguna vista importa un framework de sistema (AD-10) ───────────────
+# La UI solo pinta el estado del store y llama a sus intenciones. Sensores, salud,
+# Live Activities, háptica, sonido y notificaciones entran por un puerto y su adapter.
+# `UIKit` también, sin excepciones: para abrir Ajustes basta el `openURL` de SwiftUI.
+# Como SwiftUI reexporta UIKit, prohibir el import no basta: también se buscan en el
+# código los tipos de UIKit que una vista podría usar sin importarlo.
+if [ -d "$ROOT/WalkTracker/UI" ]; then
+    ui_banned='CoreMotion|CoreLocation|HealthKit|ActivityKit|WidgetKit|CoreHaptics|AVFoundation|AudioToolbox|UserNotifications|UIKit'
+    while IFS= read -r hit; do
+        [ -n "$hit" ] || continue
+        hit_file="${hit%%:*}"
+        rest="${hit#*:}"
+        hit_line="${rest%%:*}"
+        module="$(imported_module "${rest#*:}")"
+        err "$hit_file:$hit_line" "AD-10: la UI no importa frameworks de sistema, y esta vista importa \`$module\`. CoreMotion, CoreLocation, HealthKit, ActivityKit, WidgetKit, CoreHaptics, AVFoundation, AudioToolbox, UserNotifications y UIKit entran por un puerto y su adapter; la vista lee el store."
+    done < <(grep -rnE "$(import_re "$ui_banned")" "$ROOT/WalkTracker/UI" --include='*.swift' 2>/dev/null)
+
+    uikit_symbol='UI(Application|Device|Screen|ViewController|View)\b'
+    scan_code "$ROOT/WalkTracker/UI"
+    while IFS= read -r hit; do
+        [ -n "$hit" ] || continue
+        hit_file="${hit%%:*}"
+        rest="${hit#*:}"
+        hit_line="${rest%%:*}"
+        err "$hit_file:$hit_line" "AD-10: la UI no usa UIKit, tampoco sin importarlo: \`UIApplication\`, \`UIDevice\`, \`UIScreen\`, \`UIViewController\` y \`UIView\` son cosa de un adapter. Ajustes se abre con el \`openURL\` de SwiftUI."
+    done < <(grep -E "$code_at$uikit_symbol" <<< "$SCANNED")
+fi
 
 # ── Veredicto ────────────────────────────────────────────────────────────────
 if [ "$fail_count" -gt 0 ]; then

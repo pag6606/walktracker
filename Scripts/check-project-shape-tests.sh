@@ -44,12 +44,90 @@ make_fixture() {
     local root
     root="$(mktemp -d)"
 
-    mkdir -p "$root/Domain/Ports" "$root/Shared" \
-             "$root/WalkTracker/App" "$root/WalkTracker/UI" "$root/WalkTrackerActivity" "$root/WalkTrackerTests"
+    mkdir -p "$root/Domain/Ports" "$root/Domain/Session" "$root/Shared" \
+             "$root/WalkTracker/App" "$root/WalkTracker/UI" "$root/WalkTracker/Application" \
+             "$root/WalkTracker/Adapters/Motion" "$root/WalkTracker/Adapters/Persistence" \
+             "$root/WalkTracker/Adapters/Clock" \
+             "$root/WalkTrackerActivity" "$root/WalkTrackerTests/Adapters"
 
     echo 'import Foundation' > "$root/Domain/DomainError.swift"
-    echo 'import Foundation' > "$root/Domain/Ports/ClockPort.swift"
     echo 'import Foundation' > "$root/Shared/ActivitySnapshot.swift"
+
+    # Usos legítimos de las secciones 7–10: si una regla lo marcara todo, el árbol
+    # limpio dejaría de pasar.
+    # 8 · El dominio NOMBRA el reloj en comentarios, y usa `Date` sin leer el reloj.
+    cat > "$root/Domain/Ports/ClockPort.swift" <<'SWIFT'
+import Foundation
+
+/// El dominio nunca llama a `Date()`, `Date.now` ni a `Calendar.current` (AD-3, AD-19).
+public protocol ClockPort: Sendable {
+    /// Instante actual, inyectado. Nunca `Date()` dentro del dominio.
+    var now: Date { get }
+}
+SWIFT
+    cat > "$root/Domain/Session/Session.swift" <<'SWIFT'
+import Foundation
+
+public struct Session {
+    public let startedAt: Date  // nunca Date.now: llega como argumento
+    /* Ni `Calendar.current`:
+       ni Date() en una línea intermedia:
+       el calendario también se inyecta. */
+    /* a /* b */ Date() */
+    public static let epoch = Date(timeIntervalSince1970: 0)
+    public func elapsedS(at now: Date) -> TimeInterval { now.timeIntervalSince(startedAt) }
+    public var nowDate: Date? { nil }
+}
+SWIFT
+    # 9 · El puerto declara los métodos; el store los llama; el adapter los implementa.
+    cat > "$root/Domain/Ports/StoragePort.swift" <<'SWIFT'
+import Foundation
+
+public protocol StoragePort: Sendable {
+    func loadActiveSession() throws -> Data?
+    func saveActiveSession(_ data: Data) throws
+    func clearActiveSession() throws
+    func setAsideActiveSession() throws
+}
+SWIFT
+    cat > "$root/WalkTracker/Application/SessionStore+Recovery.swift" <<'SWIFT'
+import Domain
+
+extension SessionStore {
+    func restoreOnLaunch() {
+        guard let loaded = try? storage.loadActiveSession() else { return }
+        try? storage.setAsideActiveSession()
+        try? storage.saveActiveSession(loaded)
+        try? storage.clearActiveSession()
+    }
+}
+SWIFT
+    cat > "$root/WalkTracker/Adapters/Persistence/ActiveSessionFileAdapter.swift" <<'SWIFT'
+import Foundation
+import Domain
+
+final class ActiveSessionFileAdapter: StoragePort {
+    func loadActiveSession() throws -> Data? { nil }
+    func saveActiveSession(_ data: Data) throws {}
+    func clearActiveSession() throws {}
+    func setAsideActiveSession() throws { try clearActiveSession() }
+}
+SWIFT
+    # Fuera de `Domain/`, el reloj del sistema es legítimo: es el adapter de `ClockPort`.
+    cat > "$root/WalkTracker/Adapters/Clock/SystemClock.swift" <<'SWIFT'
+import Foundation
+import Domain
+
+struct SystemClock: ClockPort {
+    var now: Date { Date() }
+}
+SWIFT
+    # 7 · CoreMotion en su adapter y en los tests de adapters (fuera del gate).
+    printf 'import CoreMotion\nimport Domain\n' > "$root/WalkTracker/Adapters/Motion/MotionAdapter.swift"
+    printf '@testable import WalkTracker\nimport CoreMotion\n' > "$root/WalkTrackerTests/Adapters/MotionAdapterTests.swift"
+    # 10 · Frameworks de sistema fuera de `WalkTracker/UI/`: en `Shared/` y en la extensión.
+    echo 'import ActivityKit' > "$root/Shared/WalkTrackerActivityAttributes.swift"
+    echo 'import ActivityKit' > "$root/WalkTrackerActivity/WalkTrackerLiveActivity.swift"
     echo 'import SwiftUI'    > "$root/WalkTracker/App/WalkTrackerApp.swift"
     echo 'import WidgetKit'  > "$root/WalkTrackerActivity/Bundle.swift"
     echo 'import Testing'    > "$root/WalkTrackerTests/SmokeTests.swift"
@@ -62,6 +140,11 @@ struct SessionView: View {
         Button("Pausar") { store.pause() }
             .disabled(store.isReconciling == true || store.session?.status != .active)
             .task { await root.sessionStore.restoreOnLaunch() }
+    }
+    // Ajustes se abre con el `openURL` de SwiftUI, sin UIKit; guardar el snapshot
+    // (`saveActiveSession`) es cosa del store.
+    func openSettings(_ openURL: OpenURLAction) {
+        if let url = URL(string: "app-settings:") { openURL(url) }
     }
 }
 SWIFT
@@ -186,6 +269,123 @@ for call in 'store.persist()' 'store.record(sample)' 'await store.reconcile(unti
     assert_gate "\`$call\` en UI/ falla" "$ROOT" 1 "AD-7/AD-16"
     rm -rf "$ROOT"
 done
+
+# ── 4d. Rojo: CoreMotion fuera de su adapter (AD-10) ────────────────────────
+# En `Application/` solo lo detecta la sección 7; en `UI/` también la 10, así que se
+# busca el mensaje propio de la 7.
+ROOT="$(make_fixture)"
+printf 'import Foundation\nimport CoreMotion\n' > "$ROOT/WalkTracker/Application/Pasos.swift"
+assert_gate "import CoreMotion en Application/ falla" "$ROOT" 1 \
+    "Application/Pasos.swift:2: error: AD-10: CoreMotion solo en"
+rm -rf "$ROOT"
+
+ROOT="$(make_fixture)"
+echo '@preconcurrency import CoreMotion' >> "$ROOT/WalkTracker/UI/SessionView.swift"
+assert_gate "import CoreMotion en UI/ falla" "$ROOT" 1 "UI/SessionView.swift:[0-9]*: error: AD-10: CoreMotion solo en"
+rm -rf "$ROOT"
+
+# ── 4e. Rojo: el dominio lee el reloj o el calendario (AD-3, AD-19) ─────────
+# El fixture limpio ya nombra los tres en comentarios: aquí son código.
+for call in 'let now = Date()' 'let now = Date.now' 'let cal = Calendar.current' \
+            'let now = Foundation.Date()' 'let t = Date() // la hora' \
+            'let now = Date.init()' 'let hace = Date(timeIntervalSinceNow: -60)' \
+            'let cal = Calendar.autoupdatingCurrent' 'let u = "//"; let t = Date()'; do
+    ROOT="$(make_fixture)"
+    printf 'import Foundation\nfunc f() {\n    %s\n}\n' "$call" > "$ROOT/Domain/Session/Reloj.swift"
+    assert_gate "\`$call\` en Domain/ falla" "$ROOT" 1 "Session/Reloj.swift:3: error: AD-3/AD-19"
+    rm -rf "$ROOT"
+done
+
+# En la columna 0, sin carácter delante.
+ROOT="$(make_fixture)"
+printf 'import Foundation\nlet t =\nDate()\n' > "$ROOT/Domain/Session/Reloj.swift"
+assert_gate "\`Date()\` en la columna 0 en Domain/ falla" "$ROOT" 1 "Session/Reloj.swift:3: error: AD-3/AD-19"
+rm -rf "$ROOT"
+
+# Un `/*` dentro de una cadena no abre comentario ni oculta el resto del fichero.
+ROOT="$(make_fixture)"
+printf 'import Foundation\nlet p = "/*"\nlet q = "a\\"b"\nfunc f() { _ = Date() }\n' > "$ROOT/Domain/Session/Reloj.swift"
+assert_gate "\`Date()\` tras una cadena con \`/*\` en Domain/ falla" "$ROOT" 1 "Session/Reloj.swift:4: error: AD-3/AD-19"
+rm -rf "$ROOT"
+
+# Si no se puede leer el código, el gate no da el verde.
+ROOT="$(make_fixture)"
+chmod 000 "$ROOT/Domain/Session/Session.swift"
+assert_gate "un fichero ilegible en Domain/ falla" "$ROOT" 1 "no se pudo escanear"
+chmod 644 "$ROOT/Domain/Session/Session.swift"
+rm -rf "$ROOT"
+
+# ── 4f. Rojo: `StoragePort` fuera del store (AD-16) ─────────────────────────
+ROOT="$(make_fixture)"
+echo '        try? storage.saveActiveSession(snapshot)' >> "$ROOT/WalkTracker/UI/SessionView.swift"
+assert_gate "\`storage.saveActiveSession\` en UI/ falla" "$ROOT" 1 \
+    "UI/SessionView.swift:[0-9]*: error: AD-16: solo .SessionStore. usa .StoragePort."
+rm -rf "$ROOT"
+
+ROOT="$(make_fixture)"
+echo '        _ = try? root.storage.loadActiveSession()' >> "$ROOT/WalkTracker/App/WalkTrackerApp.swift"
+assert_gate "\`storage.loadActiveSession\` en App/ falla" "$ROOT" 1 \
+    "App/WalkTrackerApp.swift:2: error: AD-16: solo .SessionStore. usa .StoragePort."
+rm -rf "$ROOT"
+
+# Un fichero de `Application/` que no es del store tampoco.
+ROOT="$(make_fixture)"
+printf 'import Domain\nfunc wipe(_ s: StoragePort) {\n    try? s.clearActiveSession()\n}\n' \
+    > "$ROOT/WalkTracker/Application/Limpieza.swift"
+assert_gate "\`clearActiveSession\` en Application/ fuera del store falla" "$ROOT" 1 \
+    "Application/Limpieza.swift:3: error: AD-16: solo"
+rm -rf "$ROOT"
+
+# En la columna 0.
+ROOT="$(make_fixture)"
+printf 'import SwiftUI\nsaveActiveSession(snapshot)\n' > "$ROOT/WalkTracker/UI/Vista.swift"
+assert_gate "\`saveActiveSession\` en la columna 0 en UI/ falla" "$ROOT" 1 "UI/Vista.swift:2: error: AD-16: solo"
+rm -rf "$ROOT"
+
+# En el dominio.
+ROOT="$(make_fixture)"
+printf 'import Foundation\nfunc wipe(_ s: StoragePort) {\n    try? s.clearActiveSession()\n}\n' \
+    > "$ROOT/Domain/Session/Limpieza.swift"
+assert_gate "\`clearActiveSession\` en Domain/ falla" "$ROOT" 1 "Session/Limpieza.swift:3: error: AD-16: solo"
+rm -rf "$ROOT"
+
+# En un subdirectorio de `Application/` que empieza por `SessionStore`: no es el store.
+ROOT="$(make_fixture)"
+mkdir -p "$ROOT/WalkTracker/Application/SessionStoreKit"
+printf 'import Domain\nfunc wipe(_ s: StoragePort) {\n    try? s.clearActiveSession()\n}\n' \
+    > "$ROOT/WalkTracker/Application/SessionStoreKit/Limpieza.swift"
+assert_gate "\`clearActiveSession\` en Application/SessionStoreKit/ falla" "$ROOT" 1 \
+    "SessionStoreKit/Limpieza.swift:3: error: AD-16: solo"
+rm -rf "$ROOT"
+
+# Una línea que declara un método del puerto y llama a otro.
+for dir in Domain/Ports WalkTracker/UI; do
+    ROOT="$(make_fixture)"
+    printf 'import Foundation\nextension StoragePort { func setAsideActiveSession() throws { try clearActiveSession() } }\n' \
+        > "$ROOT/$dir/Ext.swift"
+    assert_gate "declarar y llamar en la misma línea en $dir/ falla" "$ROOT" 1 "$dir/Ext.swift:2: error: AD-16: solo"
+    rm -rf "$ROOT"
+done
+
+# ── 4g. Rojo: una vista importa un framework de sistema (AD-10) ─────────────
+for module in CoreMotion CoreLocation HealthKit ActivityKit WidgetKit CoreHaptics AVFoundation AudioToolbox \
+              UserNotifications UIKit 'struct UIKit.UIApplication' 'internal import UIKit' \
+              '@_spi(X) import HealthKit'; do
+    ROOT="$(make_fixture)"
+    case "$module" in
+        *import*) line="$module" ;;
+        *)        line="import $module" ;;
+    esac
+    printf 'import SwiftUI\n%s\n' "$line" > "$ROOT/WalkTracker/UI/Vista.swift"
+    assert_gate "\`$line\` en UI/ falla" "$ROOT" 1 "UI/Vista.swift:2: error: AD-10: la UI no importa frameworks de sistema"
+    rm -rf "$ROOT"
+done
+
+# SwiftUI reexporta UIKit: usarlo sin importarlo también falla.
+ROOT="$(make_fixture)"
+printf 'import SwiftUI\nfunc f() {\n    UIApplication.shared.open(url)\n}\n' > "$ROOT/WalkTracker/UI/Vista.swift"
+assert_gate "\`UIApplication.shared\` en UI/ sin import falla" "$ROOT" 1 "UI/Vista.swift:3: error: AD-10: la UI no usa UIKit"
+rm -rf "$ROOT"
 
 # ── 5. Rojo: manifiesto ausente ──────────────────────────────────────────────
 ROOT="$(make_fixture)"
