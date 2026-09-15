@@ -43,7 +43,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: '2026-08-01'
-last_updated: 09-14-2026 15:34
+last_updated: 09-14-2026 20:00
 project: walktracker
 project_key: NOKEY
 tracking_system: file-system
@@ -114,7 +114,7 @@ action_items:
       de sesión, unificar fases de escena y partir SessionStoreTests por suite con
       soporte común"
     owner: "Dev"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-09-14.md"
   - id: "epic-1-retro-item-2-a-2-chore-de-correcciones-y-tests-entre"
     epic: 1
@@ -123,7 +123,7 @@ action_items:
       nombre único del snapshot apartado, tests V1–V4 y prefijo Nativo en escenarios
       1.5/1.6"
     owner: "Dev"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-09-14.md"
   - id: "epic-1-retro-item-3-a-3-instrumentar-la-caminata-de-la-8-4-m"
     epic: 1
