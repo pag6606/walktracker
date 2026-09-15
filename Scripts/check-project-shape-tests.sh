@@ -45,7 +45,7 @@ make_fixture() {
     root="$(mktemp -d)"
 
     mkdir -p "$root/Domain/Ports" "$root/Shared" \
-             "$root/WalkTracker/App" "$root/WalkTrackerActivity" "$root/WalkTrackerTests"
+             "$root/WalkTracker/App" "$root/WalkTracker/UI" "$root/WalkTrackerActivity" "$root/WalkTrackerTests"
 
     echo 'import Foundation' > "$root/Domain/DomainError.swift"
     echo 'import Foundation' > "$root/Domain/Ports/ClockPort.swift"
@@ -53,6 +53,18 @@ make_fixture() {
     echo 'import SwiftUI'    > "$root/WalkTracker/App/WalkTrackerApp.swift"
     echo 'import WidgetKit'  > "$root/WalkTrackerActivity/Bundle.swift"
     echo 'import Testing'    > "$root/WalkTrackerTests/SmokeTests.swift"
+    # Lo que la UI y la app sí hacen con el store: leer, comparar y llamar a intenciones.
+    cat > "$root/WalkTracker/UI/SessionView.swift" <<'SWIFT'
+import SwiftUI
+struct SessionView: View {
+    let store: SessionStore
+    var body: some View {
+        Button("Pausar") { store.pause() }
+            .disabled(store.isReconciling == true || store.session?.status != .active)
+            .task { await root.sessionStore.restoreOnLaunch() }
+    }
+}
+SWIFT
 
     cat > "$root/project.yml" <<'YAML'
 name: WalkTracker
@@ -152,6 +164,28 @@ ROOT="$(make_fixture)"
 echo 'import Domain' > "$ROOT/WalkTrackerActivity/Bundle.swift"
 assert_gate "import Domain en la extensión falla" "$ROOT" 1 "AD-15"
 rm -rf "$ROOT"
+
+# ── 4c. Rojo: la UI o la app escriben el estado del store (AD-7, AD-16) ─────
+# Las propiedades y los pasos internos de `SessionStore` tienen acceso de módulo desde el
+# A-1: el compilador no lo impide.
+ROOT="$(make_fixture)"
+echo '        Button("x") { store.session = nil }' >> "$ROOT/WalkTracker/UI/SessionView.swift"
+assert_gate "asignar una propiedad del store en UI/ falla" "$ROOT" 1 "AD-7/AD-16"
+rm -rf "$ROOT"
+
+ROOT="$(make_fixture)"
+echo '        root.sessionStore.isReconciling = false' >> "$ROOT/WalkTracker/App/WalkTrackerApp.swift"
+assert_gate "asignar una propiedad del store en App/ falla" "$ROOT" 1 "AD-7/AD-16"
+rm -rf "$ROOT"
+
+for call in 'store.persist()' 'store.record(sample)' 'await store.reconcile(until: now)' 'store.countSteps(from: now)' \
+            'store.stopCountingSteps()' 'store.clearSnapshot()' 'store.capLastSampleAt(at: now)' \
+            'try store.storage.clearActiveSession()' 'store.motion.status' 'store.clock.now'; do
+    ROOT="$(make_fixture)"
+    echo "        $call" >> "$ROOT/WalkTracker/UI/SessionView.swift"
+    assert_gate "\`$call\` en UI/ falla" "$ROOT" 1 "AD-7/AD-16"
+    rm -rf "$ROOT"
+done
 
 # ── 5. Rojo: manifiesto ausente ──────────────────────────────────────────────
 ROOT="$(make_fixture)"

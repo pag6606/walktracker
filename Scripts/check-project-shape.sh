@@ -22,6 +22,11 @@
 #      NO puede hacer cumplir AD-3 en su mitad de "imports". La restricción congelada
 #      del spec lo exige explícitamente: "un `import SwiftUI` o `import CoreMotion`
 #      ahí tiene que romper el build". Sin esta comprobación, no se rompe.
+#   5. Que la extensión no importe `Domain` (AD-15). Ver la sección.
+#   6. Que la UI y la app no escriban el estado de `SessionStore` (AD-7, AD-16). Desde el
+#      A-1 de la retro del Epic 1 sus propiedades y pasos internos tienen acceso de
+#      módulo, porque los comparten sus extensiones: el compilador ya no impide un
+#      `store.session = nil` en una vista.
 #
 # Uso:  check-project-shape.sh [raíz-del-repo]
 # En el build lo invoca la preBuildScript de `WalkTracker` y la de
@@ -169,6 +174,26 @@ if [ -d "$ROOT/WalkTrackerActivity" ]; then
         err "$hit_file:$hit_line" "AD-15: \`WalkTrackerActivity\` no puede importar \`Domain\`. La extensión SOLO renderiza: no calcula, no lee ficheros y no tiene dominio. Su contrato de datos es \`ActivitySnapshot\`, en \`Shared/\`, con los valores ya formateados."
     done < <(grep -rnE "^[[:space:]]*import[[:space:]]+Domain\b" "$ROOT/WalkTrackerActivity" --include='*.swift' 2>/dev/null)
 fi
+
+# ── 6. La UI y la app no escriben el estado del store (AD-7, AD-16) ─────────
+# `SessionStore` es el único escritor de la sesión y del snapshot. Sus propiedades y sus
+# pasos internos tienen acceso de módulo para que los compartan `SessionStore*.swift`, así
+# que el compilador no lo hace cumplir fuera de ahí. En `WalkTracker/UI` y `WalkTracker/App`
+# se permite leer el estado y llamar a las intenciones (y a `restoreOnLaunch()`); no se
+# permite asignar una propiedad del store, llamar a sus pasos internos ni tocar sus puertos.
+# "Del store" es cualquier receptor que acabe en `store`/`Store` (`store`, `sessionStore`).
+store_write='[sS]tore\.[A-Za-z_][A-Za-z0-9_]*[[:space:]]*=[^=]'
+store_internal='[sS]tore\.(persist|record|reconcile|countSteps|stopCountingSteps|clearSnapshot|capLastSampleAt|storage|motion|clock)\b'
+for dir in "$ROOT/WalkTracker/UI" "$ROOT/WalkTracker/App"; do
+    [ -d "$dir" ] || continue
+    while IFS= read -r hit; do
+        [ -n "$hit" ] || continue
+        hit_file="${hit%%:*}"
+        rest="${hit#*:}"
+        hit_line="${rest%%:*}"
+        err "$hit_file:$hit_line" "AD-7/AD-16: la UI y la app no escriben el estado de \`SessionStore\`: solo leen y llaman a sus intenciones. Asignar una propiedad del store, llamar a \`persist\`, \`record\`, \`reconcile\`, \`countSteps\`, \`stopCountingSteps\`, \`clearSnapshot\` o \`capLastSampleAt\`, o usar \`storage\`/\`motion\`/\`clock\` del store es cosa de \`SessionStore*.swift\`."
+    done < <(grep -rnE "$store_write|$store_internal" "$dir" --include='*.swift' 2>/dev/null)
+done
 
 # ── Veredicto ────────────────────────────────────────────────────────────────
 if [ "$fail_count" -gt 0 ]; then

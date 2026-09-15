@@ -8,8 +8,9 @@ import SwiftUI
 /// tras finalizar. La única salida es "Volver al inicio" en el resumen: el enlace de
 /// presentación ignora cualquier otro intento de cerrarla (AD-20).
 ///
-/// Como está siempre montada, es quien pasa las fases de la escena al store: al ir a
-/// segundo plano abre el gap y al volver lo reconcilia (AD-8). Ninguna de las dos pausa.
+/// Como está siempre montada, es la única que pasa las fases de la escena al store
+/// (`scenePhaseDidChange(to:)`), sin filtrarlas: el gap de AD-8 y la relectura del permiso
+/// los decide el store. Ninguna fase pausa.
 ///
 /// En `DEBUG` Inicio enlaza la pantalla de diagnóstico de la capa nativa (historia 8.6).
 /// Llega ya construida desde la app, así que esta vista no conoce los puertos que usa;
@@ -60,17 +61,8 @@ struct RootView<Diagnostics: View>: View {
             SessionView(store: store)
         }
         .onChange(of: scenePhase) { _, phase in
-            // `.inactive` (centro de control, el diálogo del sistema) no es un gap: el
-            // podómetro sigue entregando. El store ignora las fases sin sesión activa o sin
-            // gap pendiente.
-            switch phase {
-            case .background:
-                store.appDidEnterBackground()
-            case .active:
-                Task { await store.appDidBecomeActive() }
-            default:
-                break
-            }
+            // Cada fase va al store sin filtrar: él decide qué hace con ella.
+            store.scenePhaseDidChange(to: SessionStore.ScenePhase(phase))
         }
     }
 
@@ -86,6 +78,23 @@ extension RootView where Diagnostics == Never {
     init(store: SessionStore) {
         self.store = store
         self.diagnostics = nil
+    }
+}
+
+/// La fase de SwiftUI en el vocabulario del store. Vive en `UI/` para que `Application/` no
+/// importe SwiftUI, y es interna para que la pruebe `ScenePhaseTranslationTests`: es lo único
+/// que alimenta el gap de AD-8, el tope de R4, el guardado en background y la relectura del
+/// permiso.
+extension SessionStore.ScenePhase {
+
+    /// Una fase futura desconocida cuenta como `.inactive`, que el store ignora.
+    init(_ phase: SwiftUI.ScenePhase) {
+        switch phase {
+        case .active: self = .active
+        case .background: self = .background
+        case .inactive: self = .inactive
+        @unknown default: self = .inactive
+        }
     }
 }
 
