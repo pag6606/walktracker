@@ -44,6 +44,45 @@ struct ActiveSessionFileAdapterTests {
         try body(directory)
     }
 
+    /// Nombres de los snapshots apartados en `directory` (`activeSession.corrupt.<marca>.json`),
+    /// en orden alfabético.
+    private static func setAsideNames(in directory: URL) throws -> [String] {
+        guard FileManager.default.fileExists(atPath: directory.path(percentEncoded: false)) else { return [] }
+        return try FileManager.default.contentsOfDirectory(atPath: directory.path(percentEncoded: false)).filter {
+            $0.hasPrefix(ActiveSessionFileAdapter.setAsideFilePrefix) && $0.hasSuffix(ActiveSessionFileAdapter.setAsideFileExtension)
+        }.sorted()
+    }
+
+    /// El contenido de cada snapshot apartado en `directory`, uno por fichero y en el orden de
+    /// `setAsideNames(in:)`: dos ficheros iguales cuentan dos veces.
+    private static func setAsideContents(in directory: URL) throws -> [Data] {
+        try setAsideNames(in: directory).map { try Data(contentsOf: directory.appending(path: $0, directoryHint: .notDirectory)) }
+    }
+
+    /// Milisegundos de la marca de un apartado (`activeSession.corrupt.<ms>-<sufijo>.json`),
+    /// o `nil` si el nombre no tiene esa forma.
+    private static func setAsideMs(_ name: String) -> Int64? {
+        guard let match = name.wholeMatch(of: /activeSession\.corrupt\.(\d{13})-([0-9a-f]{8})\.json/) else { return nil }
+        return Int64(match.output.1)
+    }
+
+    /// Dos apartados seguidos, `first` antes que `second`: hay exactamente dos ficheros, con
+    /// nombres únicos y bien formados, cada uno con su contenido, y la marca del primero no es
+    /// posterior a la del segundo. El snapshot ya no está en su sitio.
+    private static func expectTwoSetAside(first: Data, second: Data, in adapter: ActiveSessionFileAdapter) throws {
+        let names = try setAsideNames(in: adapter.directory)
+        let contents = try setAsideContents(in: adapter.directory)
+        #expect(names.count == 2)
+        #expect(Set(names).count == 2, "nombres únicos")
+        #expect(contents.count == 2)
+        #expect(contents.filter { $0 == first }.count == 1, "el primero sigue apartado")
+        #expect(contents.filter { $0 == second }.count == 1)
+        #expect(!FileManager.default.fileExists(atPath: adapter.fileURL.path(percentEncoded: false)))
+        let firstMs = try #require(zip(names, contents).first { $0.1 == first }.flatMap { setAsideMs($0.0) })
+        let secondMs = try #require(zip(names, contents).first { $0.1 == second }.flatMap { setAsideMs($0.0) })
+        #expect(firstMs <= secondMs, "la marca ordena los apartados por tiempo")
+    }
+
     private static func json(_ data: Data) throws -> [String: Any] {
         try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
     }
@@ -154,7 +193,7 @@ struct ActiveSessionFileAdapterTests {
             #expect(try adapter.loadActiveSession() == nil)
             try adapter.clearActiveSession()
             try adapter.setAsideActiveSession()
-            #expect(!FileManager.default.fileExists(atPath: adapter.setAsideURL.path(percentEncoded: false)))
+            #expect(try Self.setAsideNames(in: directory).isEmpty)
         }
     }
 
@@ -207,7 +246,7 @@ struct ActiveSessionFileAdapterTests {
         }
     }
 
-    @Test("Fichero ilegible: se aparta a activeSession.corrupt.json con su contenido, lanza y la siguiente lectura da nil", arguments: [
+    @Test("Fichero ilegible: se aparta a activeSession.corrupt.<marca>.json con su contenido, lanza y la siguiente lectura da nil", arguments: [
         "{ roto",
         #"{ "schemaVersion": 9 }"#,
     ])
@@ -220,7 +259,7 @@ struct ActiveSessionFileAdapterTests {
             #expect(throws: StorageError.self) { try adapter.loadActiveSession() }
 
             #expect(!FileManager.default.fileExists(atPath: adapter.fileURL.path(percentEncoded: false)))
-            #expect(try Data(contentsOf: adapter.setAsideURL) == Data(contents.utf8), "apartado, no destruido")
+            #expect(try Self.setAsideContents(in: directory) == [Data(contents.utf8)], "apartado, no destruido")
             #expect(try adapter.loadActiveSession() == nil)
         }
     }
@@ -235,7 +274,41 @@ struct ActiveSessionFileAdapterTests {
             try adapter.setAsideActiveSession()
 
             #expect(try adapter.loadActiveSession() == nil)
-            #expect(try Data(contentsOf: adapter.setAsideURL) == contents)
+            #expect(!FileManager.default.fileExists(atPath: adapter.fileURL.path(percentEncoded: false)))
+            #expect(try Self.setAsideContents(in: directory) == [contents])
+        }
+    }
+
+    @Test("Dos ilegibles seguidos: cada uno queda apartado con su nombre y su contenido; el segundo no machaca el primero")
+    func twoUnreadableAreBothKept() throws {
+        try Self.withDirectory { directory in
+            let adapter = ActiveSessionFileAdapter(directory: directory)
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            let first = Data("{ roto".utf8)
+            let second = Data(#"{ "schemaVersion": 9 }"#.utf8)
+
+            try first.write(to: adapter.fileURL)
+            #expect(throws: StorageError.self) { try adapter.loadActiveSession() }
+            try second.write(to: adapter.fileURL)
+            #expect(throws: StorageError.self) { try adapter.loadActiveSession() }
+
+            try Self.expectTwoSetAside(first: first, second: second, in: adapter)
+            #expect(try adapter.loadActiveSession() == nil)
+        }
+    }
+
+    @Test("Apartar dos snapshots rechazados seguidos conserva los dos")
+    func twoSetAsidesAreBothKept() throws {
+        try Self.withDirectory { directory in
+            let adapter = ActiveSessionFileAdapter(directory: directory)
+            try adapter.saveActiveSession(Self.snapshot(stepsMeasured: 100))
+            let first = try Data(contentsOf: adapter.fileURL)
+            try adapter.setAsideActiveSession()
+            try adapter.saveActiveSession(Self.snapshot(stepsMeasured: 200))
+            let second = try Data(contentsOf: adapter.fileURL)
+            try adapter.setAsideActiveSession()
+
+            try Self.expectTwoSetAside(first: first, second: second, in: adapter)
         }
     }
 }

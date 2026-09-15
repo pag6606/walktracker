@@ -17,13 +17,15 @@ import Foundation
 /// el destino con `rename(2)`, que lo sustituye de una vez: un corte a mitad deja el
 /// snapshot anterior entero, nunca uno a medias.
 ///
-/// **Ilegible.** Nunca se borra: se renombra a `activeSession.corrupt.json` (que sustituye
-/// al apartado anterior, si lo hubiera) y la lectura lanza.
+/// **Ilegible.** Nunca se borra: se renombra a `activeSession.corrupt.<marca>.json`, con una
+/// marca única, y la lectura lanza. Un apartado nunca sustituye a otro anterior.
 struct ActiveSessionFileAdapter: StoragePort {
 
     static let supportedSchemaVersion = 1
     static let fileName = "activeSession.json"
-    static let setAsideFileName = "activeSession.corrupt.json"
+    /// Prefijo y extensión de un snapshot apartado: `activeSession.corrupt.<marca>.json`.
+    static let setAsideFilePrefix = "activeSession.corrupt."
+    static let setAsideFileExtension = ".json"
 
     /// Directorio del snapshot: Application Support en la app, uno temporal en los tests.
     let directory: URL
@@ -33,7 +35,17 @@ struct ActiveSessionFileAdapter: StoragePort {
     }
 
     var fileURL: URL { directory.appending(path: Self.fileName, directoryHint: .notDirectory) }
-    var setAsideURL: URL { directory.appending(path: Self.setAsideFileName, directoryHint: .notDirectory) }
+
+    /// Un nombre de apartado nuevo. La marca es el instante en ms, con 13 cifras para que el
+    /// orden alfabético sea el cronológico, y un sufijo aleatorio que la hace única dentro del
+    /// mismo milisegundo: `activeSession.corrupt.1800000000000-1a2b3c4d.json`.
+    private func newSetAsideURL() -> URL {
+        let ms = Int64((Date().timeIntervalSince1970 * 1000).rounded(.down))
+        let suffix = UUID().uuidString.prefix(8).lowercased()
+        let marker = String(repeating: "0", count: max(0, 13 - String(ms).count)) + "\(ms)-\(suffix)"
+        let name = "\(Self.setAsideFilePrefix)\(marker)\(Self.setAsideFileExtension)"
+        return directory.appending(path: name, directoryHint: .notDirectory)
+    }
 
     // MARK: - StoragePort
 
@@ -89,10 +101,18 @@ struct ActiveSessionFileAdapter: StoragePort {
         try setAside()
     }
 
-    /// Renombra el snapshot a `activeSession.corrupt.json`. Sin snapshot no hace nada.
+    /// Renombra el snapshot a `activeSession.corrupt.<marca>.json`. Sin snapshot no hace nada.
+    ///
+    /// `RENAME_EXCL` falla si el destino ya existe en vez de sustituirlo: aunque la marca
+    /// repitiera, un apartado anterior nunca se destruye.
     private func setAside() throws(StorageError) {
         guard FileManager.default.fileExists(atPath: fileURL.path(percentEncoded: false)) else { return }
-        guard rename(fileURL.path(percentEncoded: false), setAsideURL.path(percentEncoded: false)) == 0 else {
+        let destination = newSetAsideURL()
+        guard renamex_np(
+            fileURL.path(percentEncoded: false),
+            destination.path(percentEncoded: false),
+            UInt32(RENAME_EXCL)
+        ) == 0 else {
             throw .failed(operation: "setAside")
         }
     }

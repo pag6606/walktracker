@@ -85,7 +85,7 @@ struct GapReconstructionScenarios {
 
     // MARK: - Agregado
 
-    @Test("addEstimatedSteps: negativo o desbordante lanza invalidValue(steps) y no muta")
+    @Test("Nativo · addEstimatedSteps: negativo o desbordante lanza invalidValue(steps) y no muta")
     func addEstimatedValidatesCount() throws {
         var session = try Self.withEstimated()
         let before = session
@@ -95,7 +95,7 @@ struct GapReconstructionScenarios {
         #expect(session == before)
     }
 
-    @Test("addEstimatedSteps en pausa lanza invalidTransition: no se estima en pausa")
+    @Test("Nativo · addEstimatedSteps en pausa lanza invalidTransition: no se estima en pausa")
     func addEstimatedWhilePausedThrows() throws {
         var session = try Self.started()
         try session.pause(at: Self.now.addingTimeInterval(60))
@@ -105,7 +105,7 @@ struct GapReconstructionScenarios {
         #expect(session.stepsEstimated == 0)
     }
 
-    @Test("Descartar: 400 estimados → 0; distancia y ritmo se recalculan sin ellos")
+    @Test("Nativo · descartar: 400 estimados → 0; distancia y ritmo se recalculan sin ellos")
     func discardRecalculates() throws {
         var session = try Self.started()
         try session.addMeasuredSteps(800)
@@ -125,7 +125,7 @@ struct GapReconstructionScenarios {
         #expect(metrics.cadenceSpm == withEstimated.cadenceSpm, "la cadencia nunca contó los estimados")
     }
 
-    @Test("Descartar en pausa se permite; en una finalizada lanza invalidTransition y no muta")
+    @Test("Nativo · descartar en pausa se permite; en una finalizada lanza invalidTransition y no muta")
     func discardByStatus() throws {
         var paused = try Self.started()
         try paused.addEstimatedSteps(50)
@@ -145,7 +145,7 @@ struct GapReconstructionScenarios {
 
     // MARK: - GapEstimator sobre la sesión
 
-    @Test("GapEstimator: activa 10 min a 80 spm y gap de 300 s → 400 estimados")
+    @Test("Nativo · GapEstimator: activa 10 min a 80 spm y gap de 300 s → 400 estimados")
     func estimatorAt80Spm() throws {
         var session = try Self.started()
         try session.addMeasuredSteps(800)
@@ -155,7 +155,7 @@ struct GapReconstructionScenarios {
         #expect(GapEstimator.steps(for: session, gapStart: gapStart, gapEnd: gapStart.addingTimeInterval(300)) == 400)
     }
 
-    @Test("GapEstimator: con menos de 120 s de muestra previa el gap es 0")
+    @Test("Nativo · GapEstimator: con menos de 120 s de muestra previa el gap es 0")
     func estimatorNeedsPriorSample() throws {
         var session = try Self.started()
         try session.addMeasuredSteps(120)
@@ -168,7 +168,7 @@ struct GapReconstructionScenarios {
         #expect(GapEstimator.steps(for: session, gapStart: atThreshold, gapEnd: atThreshold.addingTimeInterval(300)) == 600)
     }
 
-    @Test("GapEstimator: en pausa o finalizada el gap es 0")
+    @Test("Nativo · GapEstimator: en pausa o finalizada el gap es 0")
     func estimatorOnlyWhenActive() throws {
         var paused = try Self.started()
         try paused.addMeasuredSteps(800)
@@ -182,7 +182,7 @@ struct GapReconstructionScenarios {
         #expect(GapEstimator.steps(for: finished, gapStart: gapStart, gapEnd: gapStart.addingTimeInterval(300)) == 0)
     }
 
-    @Test("GapEstimator: la cadencia es solo de pasos medidos, nunca de los estimados")
+    @Test("Nativo · GapEstimator: la cadencia es solo de pasos medidos, nunca de los estimados")
     func estimatorIgnoresEstimated() throws {
         var session = try Self.started()
         try session.addMeasuredSteps(800)
@@ -192,7 +192,7 @@ struct GapReconstructionScenarios {
         #expect(GapEstimator.steps(for: session, gapStart: gapStart, gapEnd: gapStart.addingTimeInterval(300)) == 400)
     }
 
-    @Test("GapEstimator: un gap negativo (reloj hacia atrás) es 0")
+    @Test("Nativo · GapEstimator: un gap negativo (reloj hacia atrás) es 0")
     func estimatorNegativeGap() throws {
         var session = try Self.started()
         try session.addMeasuredSteps(800)
@@ -201,7 +201,7 @@ struct GapReconstructionScenarios {
         #expect(GapEstimator.steps(for: session, gapStart: gapStart, gapEnd: gapStart.addingTimeInterval(-30)) == 0)
     }
 
-    @Test("estimateSteps: una entrada infinita > 0 lanza con su campo; ≤ 0 da 0")
+    @Test("Nativo · estimateSteps: una entrada infinita > 0 lanza con su campo; ≤ 0 da 0")
     func estimateStepsInfinite() {
         #expect(throws: DomainError.invalidValue(field: "cadenceSpm")) {
             try GapEstimator.estimateSteps(cadenceSpm: .infinity, gapS: 300)

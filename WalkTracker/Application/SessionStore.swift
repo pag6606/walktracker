@@ -111,18 +111,27 @@ final class SessionStore {
     /// acumulada que el stream.
     @ObservationIgnored private var segmentStart: Date?
     /// Instante en que la app pasó a segundo plano con la sesión activa: el inicio del gap
-    /// pendiente de reconciliar. Se limpia al terminar la reconciliación.
+    /// pendiente de reconciliar. Se limpia al terminar la reconciliación y al salir del resumen.
     @ObservationIgnored private var backgroundedAt: Date?
-    /// Mayor acumulado del podómetro visto en el tramo en curso. Los incrementos se miden
-    /// contra él, no contra la última muestra: 350 → 340 → 360 suma 10, no 20.
+    /// Mayor acumulado del podómetro visto en el tramo en curso, que suben la consulta y el
+    /// stream. Los incrementos se miden contra él, no contra la última muestra: 350 → 340 →
+    /// 360 suma 10, no 20.
     @ObservationIgnored private var highestCumulativeSteps = 0
     /// Distancia del sistema acumulada al abrir el tramo en curso. Cada stream da la
     /// distancia desde su propio inicio, así que la de la sesión es esta base más la del
     /// tramo: sigue siendo acumulada desde el inicio y nunca baja.
     @ObservationIgnored private var distanceBaseM: Double = 0
-    /// `end` de la última muestra que sumó pasos: el último dato real del coprocesador, que
-    /// recorta una sesión huérfana (AD-18).
+    /// Último dato real del coprocesador, que recorta una sesión huérfana (AD-18): el `end` de
+    /// la última muestra **del stream** que sumó pasos. La consulta nunca lo mueve. Tras un gap
+    /// puede quedarse en su inicio en vez de en el `end` de la muestra (`lastSampleAtCap`).
     @ObservationIgnored private var lastSampleAt: Date?
+    /// Tope de `lastSampleAt` tras un gap (R4): su inicio. Se fija al pasar a background con la
+    /// sesión activa (`backgroundedAt`) y al restaurar una activa (`savedAt`); con uno ya
+    /// pendiente se conserva el más temprano. La primera muestra del stream con `end` posterior
+    /// al tope trae el acumulado del gap con `end ≈ ahora`, que no es el último paso real: lo
+    /// libera, sume pasos o no. Una con `end` anterior (ya encolada antes del gap) no lo libera.
+    /// Pausar, finalizar y salir del resumen también lo liberan.
+    @ObservationIgnored private var lastSampleAtCap: Date?
     /// Instante del último snapshot guardado, para espaciar el autosave por muestras.
     @ObservationIgnored private var lastSavedAt: Date?
     /// `restoreOnLaunch()` ya corrió: relanzar la tarea de la escena no restaura dos veces.
@@ -284,12 +293,16 @@ final class SessionStore {
     }
 
     /// La app pasó a segundo plano: guarda el snapshot y, con la sesión activa, abre el gap
-    /// pendiente de reconciliar. Nunca pausa (CAP-1). Si ya hay un gap pendiente (la app
-    /// volvió a salir mientras reconciliaba), lo conserva.
+    /// pendiente de reconciliar y topa `lastSampleAt` en su inicio. Nunca pausa (CAP-1). Si ya
+    /// hay un gap pendiente (la app volvió a salir mientras reconciliaba), lo conserva.
     func appDidEnterBackground() {
         guard let status = session?.status, status != .finished else { return }
-        if status == .active, backgroundedAt == nil {
-            backgroundedAt = clock.now
+        if status == .active {
+            let gapStart = backgroundedAt ?? clock.now
+            backgroundedAt = gapStart
+            // Ya aquí, no al volver: la muestra de puesta al día puede llegar antes que la
+            // vuelta a primer plano.
+            capLastSampleAt(at: gapStart)
         }
         if let session { measureTransition(.background, session, at: clock.now) }
         persist()
@@ -325,6 +338,7 @@ final class SessionStore {
         segmentStart = nil
         backgroundedAt = nil
         lastSampleAt = nil
+        lastSampleAtCap = nil
         lastSavedAt = nil
         showsRecoveredNotice = false
         hasSession = false
@@ -519,6 +533,7 @@ final class SessionStore {
         highestCumulativeSteps = snapshot.segmentSteps
         distanceBaseM = snapshot.distanceBaseM
         if restored.status == .active {
+            capLastSampleAt(at: snapshot.savedAt)
             countSteps(from: snapshot.segmentStart, restoring: (snapshot.segmentSteps, snapshot.distanceBaseM))
             backgroundedAt = snapshot.savedAt
             await reconcile(until: now)
@@ -729,6 +744,26 @@ final class SessionStore {
     private func stopCountingSteps() {
         stepCounting?.cancel()
         isCountingSteps = false
+        // El tope era para la muestra de este stream: el tramo siguiente trae `end` reales.
+        lastSampleAtCap = nil
+    }
+
+    /// Topa `lastSampleAt` en `gapStart` hasta la siguiente muestra del stream. Con un tope ya
+    /// pendiente (no llegó ninguna muestra entre medias) conserva el más temprano: esa muestra
+    /// puede traer también el gap anterior.
+    private func capLastSampleAt(at gapStart: Date) {
+        lastSampleAtCap = min(lastSampleAtCap ?? gapStart, gapStart)
+    }
+
+    /// `lastSampleAt` tras una muestra del stream que sumó pasos y terminó en `end`. Con un tope
+    /// (`cap`, R4) no pasa del inicio del gap ni retrocede; sin él, es `end`.
+    private func moveLastSampleAt(to end: Date, cap: Date?) {
+        guard let cap else {
+            lastSampleAt = end
+            return
+        }
+        let capped = min(end, cap)
+        lastSampleAt = lastSampleAt.map { max($0, capped) } ?? capped
     }
 
     /// Aplica pasos y distancia de la muestra y recalcula las métricas en `clock.now`.
@@ -737,16 +772,21 @@ final class SessionStore {
     ///
     /// Solo una muestra del stream mueve `lastSampleAt`: la de la consulta (`fromQuery`)
     /// termina en el instante pedido (volver o relanzar), no en el último paso real, y
-    /// recortar ahí una huérfana contaría como caminadas las horas quietas.
+    /// recortar ahí una huérfana contaría como caminadas las horas quietas. Por lo mismo, la
+    /// primera del stream con `end` posterior al inicio del gap no lo lleva más allá de él, y
+    /// libera el tope sume pasos o no. Una con `end` anterior es un dato previo al gap: lo mueve
+    /// como siempre y el tope sigue pendiente. La consulta no lo libera.
     private func record(_ sample: PedometerSample, fromQuery: Bool = false) {
         if !fromQuery, let startedAt = session?.startedAt {
             measure(MeasurementLog.sampleLine(sessionStartedAt: startedAt, sample: sample))
         }
+        let cap = fromQuery ? nil : lastSampleAtCap.flatMap { sample.end > $0 ? $0 : nil }
+        if cap != nil { lastSampleAtCap = nil }
         guard session?.status == .active else { return }
         if sample.steps > highestCumulativeSteps {
             let increment = sample.steps - highestCumulativeSteps
             highestCumulativeSteps = sample.steps
-            if !fromQuery { lastSampleAt = sample.end }
+            if !fromQuery { moveLastSampleAt(to: sample.end, cap: cap) }
             do {
                 try session?.addMeasuredSteps(increment)
             } catch {
