@@ -28,6 +28,8 @@ struct SessionStoreFixture {
     nonisolated static let t0 = Date(timeIntervalSince1970: 1_800_000_000)
     /// Umbral de la sesión huérfana del montaje: 6 h, el valor actual de `formulas.json` (21600 s).
     nonisolated static let orphanThresholdS: TimeInterval = 6 * 60 * 60
+    /// Gap máximo estimable del montaje: 20 min, el valor de `formulas.json` (1200 s).
+    nonisolated static let maxEstimableGapS: TimeInterval = 20 * 60
 
     let clock: ClockStub
     let motion: MotionStub
@@ -45,6 +47,7 @@ struct SessionStoreFixture {
     ///   - timeoutS: tope de la reconciliación. Largo por defecto: una consulta inmediata nunca
     ///     pierde contra el temporizador en una máquina cargada.
     ///   - orphanThresholdS: umbral de la sesión huérfana.
+    ///   - maxEstimableGapS: gap máximo estimable (R1); por encima no se estima nada.
     ///   - location: permiso de ubicación **denegado** por defecto: sin pre-pantalla ni clima, así
     ///     las suites anteriores a la 2.1 no ven la captura.
     ///   - weather: responde WMO 61 y 18 °C por defecto.
@@ -56,6 +59,7 @@ struct SessionStoreFixture {
         strideM: Double = 0.655,
         timeoutS: TimeInterval = 5,
         orphanThresholdS: TimeInterval = SessionStoreFixture.orphanThresholdS,
+        maxEstimableGapS: TimeInterval = SessionStoreFixture.maxEstimableGapS,
         location: LocationStub = LocationStub(status: .denied),
         weather: WeatherStub = WeatherStub(),
         weatherStepTimeoutS: TimeInterval = 5
@@ -74,6 +78,7 @@ struct SessionStoreFixture {
             strideM: strideM,
             reconciliationTimeoutS: timeoutS,
             orphanSessionThresholdS: orphanThresholdS,
+            maxEstimableGapS: maxEstimableGapS,
             location: location,
             weather: weather,
             weatherStepTimeoutS: weatherStepTimeoutS,

@@ -32,6 +32,37 @@ struct CompositionRootTests {
         #expect(session.stepsMeasured == 4000)
     }
 
+    @Test("El store recibe el tope de gap estimable de formulas.json: un gap de 25 min no estima y uno de 20 sí")
+    func storeGetsMaxEstimableGap() async throws {
+        // Comportamental: si el cableado cogiera otra constante (p. ej. las 6 h del umbral de
+        // huérfana), el gap de 25 min cabría y estimaría.
+        let clock = ClockStub(now: Date(timeIntervalSince1970: 1_800_000_000))
+        let motion = MotionStub(status: .granted)
+        let root = CompositionRoot(
+            clock: clock, motion: motion, storage: StorageStub(),
+            location: LocationStub(status: .denied), weather: WeatherStub()
+        )
+        let store = root.sessionStore
+        #expect(store.maxEstimableGapS == root.formulas.maxEstimableGapS)
+
+        await store.start()
+        motion.emit(steps: 800)
+        await waitUntil { store.session?.stepsMeasured == 800 }
+        clock.advance(by: 600)
+        store.appDidEnterBackground()
+        clock.advance(by: 25 * 60)
+        motion.setQueryResponse(.none)
+        await store.appDidBecomeActive()
+        #expect(store.session?.stepsEstimated == 0, "25 min pasan del tope de 20 de formulas.json")
+
+        // Y con un gap de justo 20 min, la misma degradación sí estima: 800 pasos en 35 min de
+        // sesión son 22,9 spm (la cadencia se redondea a un decimal) × 20 min.
+        store.appDidEnterBackground()
+        clock.advance(by: 20 * 60)
+        await store.appDidBecomeActive()
+        #expect(store.session?.stepsEstimated == 458)
+    }
+
     @Test("El store recibe la ubicación y el clima del composition root: al iniciar, el clima del WeatherPort llega a la sesión")
     func storeGetsLocationAndWeather() async throws {
         let location = LocationStub(status: .granted)

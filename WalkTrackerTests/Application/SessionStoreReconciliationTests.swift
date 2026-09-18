@@ -67,11 +67,10 @@ struct SessionStoreReconciliationTests: SessionStoreSuite {
 
     // MARK: - Degradación
 
-    @Test("Query nil, vacía o con error: activa 10 min a 80 spm y gap de 300 s → ~400 estimados", arguments: [
+    @Test("Sin respuesta (nil o error): activa 10 min a 80 spm y gap de 300 s → ~400 estimados", arguments: [
         MotionStub.QueryResponse.none,
         .failure(.failed(operation: "pedometer")),
         .failure(.notAuthorized),
-        .sample(steps: 0, distance: nil),
     ])
     func gapWithoutData(response: MotionStub.QueryResponse) async throws {
         let fixture = Fixture()
@@ -125,7 +124,7 @@ struct SessionStoreReconciliationTests: SessionStoreSuite {
         #expect(fixture.session?.stepsMeasured == 120)
     }
 
-    @Test("Tramo de más de 7 días: no se consulta y se estima")
+    @Test("Tramo de más de 7 días: no se consulta, y el gap pasa del tope de 20 min, así que tampoco se estima")
     func stretchOlderThanSevenDays() async {
         let fixture = Fixture()
         await fixture.startWalking(steps: 800)
@@ -137,9 +136,26 @@ struct SessionStoreReconciliationTests: SessionStoreSuite {
         await fixture.store.appDidBecomeActive()
 
         #expect(fixture.motion.queriedRanges.isEmpty)
-        // 80 spm × (8 días − 600 s) / 60.
-        #expect(fixture.session?.stepsEstimated == 920_800)
+        // Con la regla vieja eran 920.800 pasos fantasma: 80 spm × (8 días − 600 s) / 60.
+        #expect(fixture.session?.stepsEstimated == 0)
         #expect(fixture.session?.stepsMeasured == 800)
+    }
+
+    @Test("Tramo de más de 7 días con un gap corto: no se consulta, pero el gap cabe en el tope y sí se estima")
+    func stretchOlderThanSevenDaysWithShortGapIsEstimated() async {
+        // La rama que sobrevive al tope: sesión larga, gap corto. 100.800 pasos en 7 días de
+        // sesión son 10 spm; el gap de 5 min añade 50.
+        let fixture = Fixture()
+        await fixture.startWalking(steps: 100_800)
+        fixture.clock.advance(by: 7 * Self.day)
+        fixture.store.appDidEnterBackground()
+        fixture.clock.advance(by: 300)
+
+        await fixture.store.appDidBecomeActive()
+
+        #expect(fixture.motion.queriedRanges.isEmpty, "el tramo pasa de 7 días: no se consulta")
+        #expect(fixture.session?.stepsEstimated == 50)
+        #expect(fixture.session?.stepsMeasured == 100_800)
     }
 
     @Test("Tramo de justo 7 días: todavía se consulta")
@@ -158,8 +174,8 @@ struct SessionStoreReconciliationTests: SessionStoreSuite {
         #expect(fixture.session?.stepsEstimated == 0)
     }
 
-    @Test("Query menor que lo visto: 300 pasos vistos y query → 120 se trata como sin dato")
-    func queryBelowSeenIsNoData() async throws {
+    @Test("Query menor que lo visto: cuenta como dato, no baja los medidos y no estima (R1)")
+    func queryBelowSeenIsStillData() async throws {
         let fixture = Fixture()
         await fixture.startWalking(steps: 300)
         fixture.clock.advance(by: 600)
@@ -170,10 +186,108 @@ struct SessionStoreReconciliationTests: SessionStoreSuite {
         await fixture.store.appDidBecomeActive()
 
         let session = try #require(fixture.session)
+        #expect(session.stepsMeasured == 300, "record nunca resta")
+        #expect(session.systemDistanceM == 50)
+        // Con la regla vieja eran 150 pasos fantasma: 30 spm (300 pasos en 10 min) × 5 min.
+        #expect(session.stepsEstimated == 0)
+        #expect(fixture.measurementLines("query").first?.contains("outcome=belowSeen") == true)
+    }
+
+    @Test("Query menor que lo visto: la distancia tampoco baja, aunque la consulta traiga menos metros (R1)")
+    func queryBelowSeenDoesNotLowerSystemDistance() async throws {
+        let fixture = Fixture()
+        await fixture.startWalking(steps: 300, distance: 200)
+        fixture.clock.advance(by: 600)
+        fixture.store.appDidEnterBackground()
+        fixture.clock.advance(by: 300)
+        fixture.motion.setQueryResponse(.sample(steps: 120, distance: 50))
+
+        await fixture.store.appDidBecomeActive()
+
+        let session = try #require(fixture.session)
         #expect(session.stepsMeasured == 300)
-        #expect(session.systemDistanceM == nil, "nada de la muestra incoherente se aplica")
-        // 30 spm (300 pasos en 10 min) × 5 min.
-        #expect(session.stepsEstimated == 150)
+        #expect(session.systemDistanceM == 200, "record nunca resta: la distancia se queda en la mayor vista")
+        #expect(session.stepsEstimated == 0)
+    }
+
+    @Test("El caso real del iPhone 14: visto 2149 y consulta → 2143 tras un gap de 8,8 min, sin un solo paso estimado")
+    func realBelowSeenWalkHasNoPhantomSteps() async throws {
+        // Registro WTM1 del 2026-09-17, sesión 1789649385424: la consulta devolvió 6 pasos
+        // menos que el acumulado del stream y la regla vieja estimó 1796 pasos fantasma.
+        let fixture = Fixture()
+        await fixture.startWalking(steps: 1156)
+        fixture.clock.advance(by: 631)
+        fixture.store.appDidEnterBackground()
+        fixture.motion.emit(steps: 2149)
+        await waitUntil { fixture.session?.stepsMeasured == 2149 }
+        fixture.clock.advance(by: 528)
+        fixture.motion.setQueryResponse(.sample(steps: 2143, distance: nil))
+
+        await fixture.store.appDidBecomeActive()
+
+        let session = try #require(fixture.session)
+        #expect(session.stepsMeasured == 2149)
+        #expect(session.stepsEstimated == 0)
+        #expect(fixture.measurementLines("estimate").isEmpty, "con dato no se llega a estimar")
+    }
+
+    @Test("Una muestra de 0 pasos es respuesta del sistema: cuenta como dato y no estima")
+    func zeroSampleCountsAsData() async throws {
+        let fixture = Fixture()
+        await fixture.walkTenMinutesThenBackgroundFive()
+        fixture.motion.setQueryResponse(.sample(steps: 0, distance: nil))
+
+        await fixture.store.appDidBecomeActive()
+
+        #expect(fixture.session?.stepsMeasured == 800)
+        #expect(fixture.session?.stepsEstimated == 0)
+    }
+
+    @Test("El stream ya trajo los pasos del gap: sin respuesta del sistema tampoco se estima (R1)")
+    func streamDuringGapDoesNotEstimate() async throws {
+        let fixture = Fixture()
+        await fixture.walkTenMinutesThenBackgroundFive()
+        // La muestra de puesta al día llega antes de volver a primer plano.
+        fixture.motion.emit(steps: 1200)
+        await waitUntil { fixture.session?.stepsMeasured == 1200 }
+        fixture.motion.setQueryResponse(.none)
+
+        await fixture.store.appDidBecomeActive()
+
+        #expect(fixture.session?.stepsMeasured == 1200)
+        #expect(fixture.session?.stepsEstimated == 0)
+        #expect(fixture.measurementLines("estimate").first?.contains("skipped=streamAdvanced") == true)
+    }
+
+    @Test("Gap por encima del tope de 20 min: sin respuesta del sistema no se estima nada (R1)")
+    func gapAboveTheCapIsNotEstimated() async throws {
+        let fixture = Fixture()
+        await fixture.startWalking(steps: 800)
+        fixture.clock.advance(by: 600)
+        fixture.store.appDidEnterBackground()
+        fixture.clock.advance(by: 25 * 60)
+        fixture.motion.setQueryResponse(.none)
+
+        await fixture.store.appDidBecomeActive()
+
+        #expect(fixture.motion.queriedRanges.count == 1)
+        #expect(fixture.session?.stepsEstimated == 0)
+        #expect(fixture.session?.stepsMeasured == 800)
+    }
+
+    @Test("Gap de justo 20 min: todavía se estima")
+    func gapAtTheCapIsEstimated() async throws {
+        let fixture = Fixture()
+        await fixture.startWalking(steps: 800)
+        fixture.clock.advance(by: 600)
+        fixture.store.appDidEnterBackground()
+        fixture.clock.advance(by: 20 * 60)
+        fixture.motion.setQueryResponse(.none)
+
+        await fixture.store.appDidBecomeActive()
+
+        // 80 spm al empezar el gap × 20 min.
+        #expect(fixture.session?.stepsEstimated == 1600)
     }
 
     @Test("Una muestra del stream que llega durante la consulta no convierte la consulta en incoherente")
@@ -292,6 +406,30 @@ struct SessionStoreReconciliationTests: SessionStoreSuite {
         // El gap ya se reconcilió: volver no consulta otra vez.
         await fixture.store.appDidBecomeActive()
         #expect(fixture.motion.queriedRanges.count == 1)
+    }
+
+    @Test("Dos salidas a segundo plano con el stream avanzando en medio: los pasos del gap son los de la primera y no se estima")
+    func secondBackgroundKeepsTheFirstGapSteps() async throws {
+        let fixture = Fixture()
+        await fixture.startWalking(steps: 800)
+        fixture.clock.advance(by: 600)
+        fixture.store.appDidEnterBackground()
+        // El stream entrega la puesta al día del primer gap antes de la segunda salida: los
+        // pasos del inicio del gap siguen siendo los 800 de entonces, no los 1200 de ahora.
+        fixture.clock.advance(by: 120)
+        fixture.motion.emit(steps: 1200)
+        await waitUntil { fixture.session?.stepsMeasured == 1200 }
+        fixture.store.appDidEnterBackground()
+        fixture.clock.advance(by: 180)
+        fixture.motion.setQueryResponse(.none)
+
+        await fixture.store.appDidBecomeActive()
+
+        #expect(fixture.session?.stepsMeasured == 1200)
+        // Sin conservar los pasos del primer gap, la defensa no vería el avance del stream y
+        // estimaría sobre una cadencia inflada.
+        #expect(fixture.session?.stepsEstimated == 0)
+        #expect(fixture.measurementLines("estimate").first?.contains("skipped=streamAdvanced") == true)
     }
 
     @Test("Volver sin haber pasado a segundo plano no consulta")

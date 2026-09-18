@@ -46,7 +46,7 @@ elapsedS = (now − startedAt) − totalPausesS
 | Tiempo | `elapsedS = (now − startedAt) − totalPausesS` | Siempre |
 | Ritmo | `paceSecPerKm = elapsedMovS / (distanceM/1000)` | Solo si `distanceM ≥ 100`, si no `null` |
 | Cadencia | `cadenceSpm = stepsMeasured / minutosConSensorActivo` | **Solo sobre tramos medidos** — nunca sobre estimados (evita realimentar la estimación) |
-| Gap (degradación) | `stepsEstimated += cadenceSpm × (gapS/60)` | Solo si el sistema no puede reconstruir el gap, sesión activa y muestra previa ≥ 120 s; si no, gap = 0 |
+| Gap (degradación) | `stepsEstimated += cadenceSpm × (gapS/60)` | Solo si el sistema no puede reconstruir el gap, sesión activa, muestra previa ≥ 120 s, los pasos medidos no han crecido desde el inicio del gap (si crecieron, el stream ya los trajo) y `gapS ≤ maxEstimableGapS`; si no, gap = 0. La `cadenceSpm` es la del **inicio del gap** (pasos medidos y tiempo de sesión en ese instante), nunca la de ahora (R1, 2026-09-17) |
 
 Validación en la frontera: `strideM` y `weeklyGoalKm` se validan (> 0, finitos) antes de materializar aggregates; el dominio permanece siempre-válido. Errores de dominio específicos (violación de invariante vs input inválido), no genéricos.
 
@@ -70,7 +70,7 @@ Catálogo y reglas completas en `achievements.md`. Evalúa al cierre de sesión 
 
 ## 6. GapEstimator (solo degradación)
 
-En la PWA era la estrategia principal para background. En nativo, CAP-3 reconstruye por consulta al sistema y el GapEstimator solo opera cuando el sistema no puede proveer el dato. Sus reglas de dominio se preservan intactas: cadencia solo sobre tramos medidos, muestra previa ≥ 120 s, sesión no pausada, resultado siempre desglosado en `stepsEstimated`, marcado "~" y descartable.
+En la PWA era la estrategia principal para background. En nativo, CAP-3 reconstruye por consulta al sistema y el GapEstimator solo opera cuando el sistema **no responde** (`nil`, error o timeout): cualquier respuesta no nula cuenta como dato y corta la estimación (R1, 2026-09-17). Sus reglas heredadas se preservan: cadencia solo sobre tramos medidos, muestra previa ≥ 120 s, sesión no pausada, resultado siempre desglosado en `stepsEstimated`, marcado "~" y descartable. R1 añade dos reglas más, ya recogidas en §4: la cadencia se toma en el **inicio del gap** (pasos medidos y tiempo de sesión de ese instante, nunca los de ahora) y no se estima nada por encima de `maxEstimableGapS`. Cuando no estima, el desenlace dice qué defensa actuó (`notActive`, `streamAdvanced`, `noPriorSample`, `gapAboveCap`, `noCadence`).
 
 ## 7. Provenance (`source`) — e importación PWA (archivada)
 

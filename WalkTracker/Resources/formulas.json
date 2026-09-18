@@ -3,5 +3,6 @@
   "defaultStrideM": 0.655,
   "reconciliationTimeoutS": 1,
   "orphanSessionThresholdS": 21600,
+  "maxEstimableGapS": 1200,
   "provisional": []
 }

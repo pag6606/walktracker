@@ -3,8 +3,9 @@ import Foundation
 /// Degradación excepcional de la reconstrucción del background (CAP-3, domain-model.md §4,
 /// `domain.js:508` `estimateSteps`).
 ///
-/// Los pasos de un gap salen **primero** de la consulta por rango al coprocesador; solo si
-/// el sistema no tiene el dato (nil, vacío, error o timeout) se estiman por cadencia:
+/// Los pasos de un gap salen **primero** de la consulta por rango al coprocesador: la
+/// respuesta del sistema manda y cualquier muestra no nula cuenta como dato (R1). Solo sin
+/// respuesta —`nil`, error o timeout— se estiman por cadencia:
 ///
 /// ```
 /// stepsEstimated += round(cadenceSpm × gapS / 60)
@@ -39,23 +40,78 @@ public enum GapEstimator {
         return Int(steps)
     }
 
-    /// Pasos estimados para el gap `[gapStart, gapEnd]` de `session`.
+    /// Por qué no se estimó nada para un gap. Cada caso es una defensa concreta, y su
+    /// `rawValue` es el que sale en el registro `WTM1` (`MeasurementLog.EstimateSkip`).
+    public enum Skip: String, Sendable, CaseIterable {
+        /// La sesión no está `active`: pausada, finalizada o aún sin empezar.
+        case notActive
+        /// Los pasos medidos crecieron desde el inicio del gap: el stream ya los trajo.
+        case streamAdvanced
+        /// Menos de `minPriorSampleS` de sesión en el inicio del gap: la cadencia medida
+        /// todavía no es representativa.
+        case noPriorSample
+        /// El gap supera `maxEstimableGapS`.
+        case gapAboveCap
+        /// La estimación no da ni un paso: sin pasos medidos al abrir el gap (cadencia 0), con
+        /// un gap no positivo —el reloj fue hacia atrás— o con un valor no representable.
+        case noCadence
+    }
+
+    /// Lo que decide la estimación de un gap: los pasos, o la defensa que la suprimió.
+    public enum Outcome: Sendable, Equatable {
+        case estimated(Int)
+        case skipped(Skip)
+    }
+
+    /// Pasos estimados para el gap `[gapStart, gapEnd]` de `session`, o la razón por la que no
+    /// se estima.
     ///
-    /// Devuelve `0` salvo con la sesión `active` y al menos `minPriorSampleS` de sesión en
-    /// `gapStart`. La cadencia es la de `session.metrics(at: gapStart)`, que solo cuenta
-    /// pasos medidos: nunca se estima sobre lo estimado. Un gap negativo (el reloj fue hacia
-    /// atrás) es 0.
-    public static func steps(for session: Session, gapStart: Date, gapEnd: Date) -> Int {
-        guard session.status == .active,
-              session.elapsedS(at: gapStart) >= minPriorSampleS
-        else { return 0 }
-        let cadence = session.metrics(at: gapStart).cadenceSpm
+    /// Se comprueban en este orden las cinco razones de `Skip`: la sesión no está `active`
+    /// (`.notActive`); los pasos medidos crecieron desde el inicio del gap (`.streamAdvanced`);
+    /// hay menos de `minPriorSampleS` de sesión en `gapStart` (`.noPriorSample`); el gap supera
+    /// `maxEstimableGapS` (`.gapAboveCap`); y no sale cadencia con la que estimar —incluido un
+    /// gap negativo porque el reloj fue hacia atrás— (`.noCadence`).
+    ///
+    /// **Pasos ya contados (R1).** `measuredAtGapStart` es el acumulado medido al abrir el gap;
+    /// si `session.stepsMeasured` es mayor, el stream ya entregó los pasos de ese rato y
+    /// estimarlos los contaría dos veces. La comprobación vive aquí, y no en quien llama, para
+    /// que los dos argumentos no puedan contradecirse sin que nadie lo mire.
+    ///
+    /// **Cadencia del inicio del gap (R1).** Se calcula con `measuredAtGapStart` sobre el
+    /// tiempo de sesión en ese mismo instante, nunca con los pasos de ahora: mezclar los pasos
+    /// de ahora con el tiempo de entonces dobla la cadencia y estima pasos que el stream ya
+    /// trajo. Solo cuenta pasos medidos: nunca se estima sobre lo estimado.
+    ///
+    /// **Tope de gap (R1).** Por encima de `maxEstimableGapS` no se estima nada: la cadencia
+    /// de hace tanto ya no dice gran cosa del rato sin datos.
+    ///
+    /// - Parameters:
+    ///   - measuredAtGapStart: `session.stepsMeasured` en `gapStart`, no el de ahora.
+    ///   - maxEstimableGapS: gap máximo estimable (`formulas.json`).
+    public static func outcome(
+        for session: Session,
+        measuredAtGapStart: Int,
+        gapStart: Date,
+        gapEnd: Date,
+        maxEstimableGapS: TimeInterval
+    ) -> Outcome {
+        guard session.status == .active else { return .skipped(.notActive) }
+        guard session.stepsMeasured <= measuredAtGapStart else { return .skipped(.streamAdvanced) }
+        guard session.elapsedS(at: gapStart) >= minPriorSampleS else { return .skipped(.noPriorSample) }
+        let gapS = gapEnd.timeIntervalSince(gapStart)
+        guard gapS <= maxEstimableGapS else { return .skipped(.gapAboveCap) }
         do {
-            return try estimateSteps(cadenceSpm: cadence, gapS: gapEnd.timeIntervalSince(gapStart))
+            let cadence = try MetricsCalculator.cadenceSpm(
+                stepsMeasured: measuredAtGapStart,
+                activeSeconds: session.elapsedS(at: gapStart)
+            )
+            let steps = try estimateSteps(cadenceSpm: cadence, gapS: gapS)
+            return steps > 0 ? .estimated(steps) : .skipped(.noCadence)
         } catch {
-            // Inalcanzable en la práctica: la cadencia del agregado es finita y los `Date`
-            // dan un intervalo finito. Sin un valor representable no se estima.
-            return 0
+            // Inalcanzable en la práctica: los pasos medidos no son negativos, el tiempo del
+            // cronómetro es finito y los `Date` dan un intervalo finito. Sin un valor
+            // representable no se estima.
+            return .skipped(.noCadence)
         }
     }
 }

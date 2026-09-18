@@ -18,9 +18,19 @@ extension SessionStore {
     ///
     /// Consulta el tramo, no el gap: `[segmentStart, end]` da el acumulado del tramo y
     /// entra por `record(_:)`, así que el máximo de `highestCumulativeSteps` evita contar dos
-    /// veces lo que el stream entregue después. Un resultado menor que lo visto al empezar
-    /// es incoherente y cuenta como sin dato. Sin dato, y solo con un gap de background
-    /// pendiente, suma los pasos del `GapEstimator` para `[backgroundedAt, end]`.
+    /// veces lo que el stream entregue después.
+    ///
+    /// **La respuesta del sistema manda (R1).** Cualquier muestra no nula cuenta como dato y
+    /// corta la estimación, aunque traiga menos pasos de los ya vistos: el sistema consolida
+    /// su histórico con retraso y la consulta va unos pasos por detrás del stream (6 en la
+    /// caminata del 2026-09-17). Aplicarla es seguro porque `record` solo sube el máximo.
+    ///
+    /// Solo **sin respuesta** —`nil`, error, timeout o un tramo de más de 7 días— se degrada
+    /// al `GapEstimator` para `[backgroundedAt, end]`, y con tres defensas: no estimar si los
+    /// pasos medidos crecieron desde el inicio del gap (el stream ya los trajo), cadencia
+    /// tomada en el inicio del gap y tope de `maxEstimableGapS`. Quien decide es
+    /// `GapEstimator.outcome(...)`; aquí solo se aplica lo estimado o se escribe en el registro
+    /// **qué** defensa lo suprimió (`GapEstimator.Skip` → `MeasurementLog.EstimateSkip`).
     func reconcile(until end: Date) async {
         guard session?.status == .active, let start = segmentStart else { return }
         isReconciling = true
@@ -48,29 +58,42 @@ extension SessionStore {
                 ))
             }
         } else {
-            log.info("Tramo de más de 7 días: no se consulta y se estima")
+            log.info("Tramo de más de 7 días: no se consulta; se estima solo si el gap cabe en el tope")
         }
 
         // Durante la espera los comandos están rechazados, pero la sesión sí puede cambiar: las
         // muestras del stream suman pasos y el clima del inicio (2.1) puede adjuntarse. Por eso
         // se vuelve a leer aquí, y lo que llegó se conserva.
         guard var session, session.status == .active else { return }
-        if let sample, sample.steps >= seen {
+        // Con respuesta del sistema no se estima: `record` nunca resta, así que un acumulado
+        // menor que lo visto no baja nada y deja los medidos donde estaban.
+        if let sample {
             record(sample, fromQuery: true)
             return
         }
-        // Si el stream avanzó durante la consulta, su acumulado ya cubre el gap: el sistema sí
-        // tenía el dato, y estimar lo contaría dos veces con una cadencia inflada.
-        guard let gapStart = backgroundedAt else { return }
-        guard highestCumulativeSteps == seen else {
+        guard let gapStart = backgroundedAt, let measuredAtGapStart = stepsMeasuredAtGapStart else { return }
+        let estimated: Int
+        switch GapEstimator.outcome(
+            for: session,
+            measuredAtGapStart: measuredAtGapStart,
+            gapStart: gapStart,
+            gapEnd: end,
+            maxEstimableGapS: maxEstimableGapS
+        ) {
+        case .estimated(let steps):
+            estimated = steps
             measure(MeasurementLog.estimateLine(
-                sessionStartedAt: session.startedAt, gapStart: gapStart, gapEnd: end, steps: 0, skipped: .streamAdvanced
+                sessionStartedAt: session.startedAt, gapStart: gapStart, gapEnd: end, steps: steps
+            ))
+        case .skipped(let reason):
+            // El registro dice qué defensa actuó: sin esto, un 0 no distingue "el tope cortó"
+            // de "estimó y salió 0".
+            measure(MeasurementLog.estimateLine(
+                sessionStartedAt: session.startedAt, gapStart: gapStart, gapEnd: end, steps: 0,
+                skipped: MeasurementLog.EstimateSkip(reason)
             ))
             return
         }
-        let estimated = GapEstimator.steps(for: session, gapStart: gapStart, gapEnd: end)
-        measure(MeasurementLog.estimateLine(sessionStartedAt: session.startedAt, gapStart: gapStart, gapEnd: end, steps: estimated))
-        guard estimated > 0 else { return }
         do {
             try session.addEstimatedSteps(estimated)
         } catch {
