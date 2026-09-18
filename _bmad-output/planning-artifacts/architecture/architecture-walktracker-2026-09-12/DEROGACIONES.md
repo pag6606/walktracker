@@ -50,11 +50,36 @@ nada que vaya a existir. Va en el mismo ciclo de `bmad-spec`.
 | --- | --- | --- | --- |
 | **UX-DR5** | *"navegación iconos top-right (⚙📋🏆) sin tab bar"* | **AD-14** | Describía una PWA de reemplazo de pantalla. En iOS el tab bar es el patrón, y es donde Liquid Glass trabaja |
 | **UX-DR7** | *"prohibidos: swipe-to-delete"* | **AD-20** | Restricción de la web. En iOS el swipe **es** el gesto de borrado; el icono embebido es el antipatrón (B-11 de la validación) |
-| **UX-DR1** | Design tokens Volt (`#CCFF00`, `#1A1A1A`…) | **AD-13** | Colores del sistema y Liquid Glass heredado. Cablear hexadecimales pelea con el SDK |
+| **UX-DR1** | Design tokens Volt (`#CCFF00`, `#1A1A1A`…) | **AD-13** | Colores del sistema y Liquid Glass heredado. Cablear hexadecimales pelea con el SDK. **Con una excepción declarada desde el 2026-09-18: ver abajo** |
 | **UX-DR2** | Tipografía en `px` con `clamp()` | **AD-13** + convención de accesibilidad | Dynamic Type nativo; `px` y `clamp()` son conceptos de CSS |
 
 `UX-DR3`, `UX-DR4`, `UX-DR6` y `UX-DR8` siguen vigentes: espaciado, catálogo de componentes,
 accesibilidad WCAG AA y los seis flujos no dependen del sustrato.
+
+### Excepción declarada a UX-DR1 — dos colores propios (chore de tokens, 2026-09-18)
+
+La derogación sigue en pie: **no vuelve la paleta Volt** y ninguna vista cablea un hexadecimal. Lo que
+se promueve a excepción es distinto, y son exactamente **dos colores**, en
+`WalkTracker/Resources/Assets.xcassets/`:
+
+| Colorset | Claro | Oscuro | Por qué existe |
+| --- | --- | --- | --- |
+| `AccentColor` | `#4F7200` oliva — **5,62:1** sobre blanco | `#CCFF00` lima — **17,87:1** sobre negro | El acento de la app **no estaba elegido**: sin él `.tint` salía azul del sistema *por omisión, no por decisión*. Recupera el `#CCFF00` de UX-DR1 **solo en oscuro**; en claro el `#CC9900` original da 2,58:1 e incumple AA, así que se sustituye por un oliva |
+| `EstimatedSteps` | `#A34F00` — **5,71:1** sobre blanco, **4,81:1** sobre el fondo del propio aviso | `#FF9F0A` (el naranja del sistema) | El `.orange` del sistema daba **2,20:1 sobre blanco**: un incumplimiento WCAG AA **vivo en producción**, que AD-13 por sí solo no arreglaba porque el color del sistema *era* el problema |
+
+Las condiciones de la excepción, y son las que la hacen compatible con AD-13:
+
+- Son **colorsets con variante clara y oscura**, no hexadecimales en código. Las vistas los
+  referencian por nombre (`Colors.accent`, `Colors.estimated`, en
+  `WalkTracker/UI/Style/DesignTokens.swift`); el hexadecimal solo existe dentro del catálogo.
+- El **contraste está medido** en los dos temas contra el fondo real sobre el que se pintan, y
+  `WalkTrackerTests/UI/DesignTokensTests.swift` lo **recalcula en cada ejecución de la suite**: si
+  alguien retoca un colorset y cae de 4,5:1, la suite lo dice.
+- `Scripts/check-project-shape.sh` (sección 12) **falla** si una vista escribe un hexadecimal, un
+  color por componentes o `.orange`. La excepción es de dos ficheros del catálogo, no una puerta
+  abierta a una paleta.
+- El resto de la paleta sigue siendo del sistema y se referencia por su nombre (`.secondary`,
+  `.fill.quaternary`): esto son **dos decisiones de color**, no una capa de apariencia.
 
 ## 5. Requisitos adicionales de los epics (`AR-*`)
 

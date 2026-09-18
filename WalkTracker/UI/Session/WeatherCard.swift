@@ -36,9 +36,9 @@ struct WeatherCard: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(.fill.quaternary, in: .rect(cornerRadius: 16))
+        .padding(.horizontal, Surface.cardPaddingHorizontal)
+        .padding(.vertical, Surface.cardPaddingVertical)
+        .background(.fill.quaternary, in: .rect(cornerRadius: Radius.card))
     }
 
     /// Destino de la atribución (CC-BY 4.0).
@@ -51,7 +51,7 @@ struct WeatherCard: View {
                 Text("Datos: Open-Meteo")
                     .font(.caption2)
                     .underline()
-                    .frame(minHeight: 44)
+                    .frame(minHeight: LayoutMetrics.touchTargetMin)
                     .contentShape(.rect)
             }
             .foregroundStyle(.secondary)
@@ -60,15 +60,15 @@ struct WeatherCard: View {
     }
 
     private func summary(_ weather: WeatherSnapshot) -> some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 12) {
+        VStack(spacing: Spacing.s) {
+            HStack(spacing: Spacing.m) {
                 Image(systemName: WeatherFormat.symbolName(wmoCode: weather.wmoCode))
                     .symbolRenderingMode(.multicolor)
                     .font(.largeTitle)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(verbatim: WeatherFormat.temperature(weather.tempC))
-                        .font(.system(.title, design: .rounded, weight: .bold))
+                        .font(Typography.metricValue)
                         .monospacedDigit()
                     Text(WeatherFormat.condition(wmoCode: weather.wmoCode))
                         .font(.subheadline)
@@ -77,8 +77,8 @@ struct WeatherCard: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             ViewThatFits(in: .horizontal) {
-                HStack(spacing: 16) { details(weather) }
-                VStack(alignment: .leading, spacing: 4) { details(weather) }
+                HStack(spacing: Spacing.l) { details(weather) }
+                VStack(alignment: .leading, spacing: Spacing.xs) { details(weather) }
             }
             .font(.footnote)
             .foregroundStyle(.secondary)
@@ -109,7 +109,7 @@ struct WeatherCard: View {
     }
 
     private func placeholder<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Spacing.s) {
             content()
         }
         .font(.subheadline)

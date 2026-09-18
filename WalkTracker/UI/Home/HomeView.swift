@@ -40,7 +40,7 @@ struct HomeView<Diagnostics: View>: View {
     }
 
     private var home: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: Spacing.xl) {
             Spacer()
             Image(systemName: "figure.walk")
                 .font(.largeTitle)
@@ -51,8 +51,8 @@ struct HomeView<Diagnostics: View>: View {
                 Task { await store.start() }
             } label: {
                 Text("Iniciar caminata")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .font(Typography.buttonLabel)
+                    .frame(maxWidth: .infinity, minHeight: LayoutMetrics.touchTargetMin)
             }
             .buttonStyle(.glassProminent)
             .controlSize(.extraLarge)
@@ -67,7 +67,7 @@ struct HomeView<Diagnostics: View>: View {
                 }
             }
         }
-        .padding()
+        .padding(LayoutMetrics.margin)
         .navigationTitle("Inicio")
         .alert("No se pudo iniciar la caminata", isPresented: startFailed) {
             Button("Aceptar", role: .cancel) {}

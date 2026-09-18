@@ -25,15 +25,15 @@ struct MotionPermissionView: View {
                         Text("Continuar")
                     }
                 }
-                .font(.headline)
-                .frame(maxWidth: .infinity, minHeight: 44)
+                .font(Typography.buttonLabel)
+                .frame(maxWidth: .infinity, minHeight: LayoutMetrics.touchTargetMin)
             }
             .buttonStyle(.glassProminent)
             .controlSize(.extraLarge)
 
             Button(action: onDecline) {
                 Text("Ahora no")
-                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .frame(maxWidth: .infinity, minHeight: LayoutMetrics.touchTargetMin)
             }
             .buttonStyle(.glass)
             .controlSize(.extraLarge)
@@ -53,7 +53,7 @@ struct PermissionScreen<Actions: View>: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 16) {
+            VStack(spacing: Spacing.l) {
                 Image(systemName: systemImage)
                     .font(.largeTitle)
                     .imageScale(.large)
@@ -69,15 +69,15 @@ struct PermissionScreen<Actions: View>: View {
                     .multilineTextAlignment(.center)
             }
             .frame(maxWidth: .infinity)
-            .padding(.horizontal)
+            .padding(.horizontal, LayoutMetrics.margin)
             .padding(.top, 48)
         }
         .scrollBounceBehavior(.basedOnSize)
         .safeAreaInset(edge: .bottom) {
-            VStack(spacing: 12) {
+            VStack(spacing: Spacing.m) {
                 actions
             }
-            .padding()
+            .padding(LayoutMetrics.margin)
         }
     }
 }

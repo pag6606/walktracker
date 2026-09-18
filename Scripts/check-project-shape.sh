@@ -44,8 +44,22 @@
 #  11. Que la red solo salga del adapter del clima (2.1, AD-10): en `WalkTracker/` y
 #      `Domain/`, `URLSession`, `URLRequest` e `import Network` solo en
 #      `WalkTracker/Adapters/Weather/`. Open-Meteo es la única llamada de red del producto.
+#  12. Que ninguna vista cablee el vocabulario visual (AD-13, UX-DR3, AD-20): en
+#      `WalkTracker/UI/` —salvo `Style/DesignTokens.swift` y `Diagnostics/`— no se escribe
+#      a mano un lado de marco numérico (el 44 pt del objetivo táctil), ni un radio de
+#      esquina numérico, ni un color en hexadecimal o por componentes, ni `.orange` (el
+#      color que los tokens sustituyen porque incumplía AA), ni los peldaños de la escala
+#      —4, 8, 12, 16, 24— en `spacing:`, `minLength:` o `.padding(…)`. Viven en
+#      `WalkTracker/UI/Style/DesignTokens.swift`. Los valores que la spec decide NO
+#      tokenizar (`spacing: 0`, `spacing: 2`, `.padding(.top, 48)`) siguen permitidos.
+#      Además: la key `UIDesignRequiresCompatibility` no aparece en ningún `Info.plist`
+#      del manifiesto (AD-13), y `project.yml` fija
+#      `ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor`, sin la cual el
+#      acento de la app vuelve al azul del sistema POR OMISIÓN, no por decisión.
+#      Sin target de UI tests, este check es lo único que impide que el vocabulario se
+#      erosione en la primera historia que lo use.
 #
-#   Las secciones 7–11 no miran `WalkTrackerTests/`, `Shared/` ni `WalkTrackerActivity/`.
+#   Las secciones 7–12 no miran `WalkTrackerTests/`, `Shared/` ni `WalkTrackerActivity/`.
 #
 # Uso:  check-project-shape.sh [raíz-del-repo]
 # En el build lo invoca la preBuildScript de `WalkTracker` y la de
@@ -274,13 +288,23 @@ code_lines() {
     ' {} +
 }
 
-# `code_lines` en una variable; si el escaneo falla, lo dice y deja el gate en rojo.
-# Uso: `scan_code "$dir"…` (el resultado queda en `SCANNED`).
-scan_code() {
-    if ! SCANNED="$(code_lines "$@")"; then
+# `code_lines` en la variable que se nombre; si el escaneo falla, lo dice y deja el gate
+# en rojo. Uso: `scan_code_into VARIABLE "$dir"…`. Cada sección escanea en su propia
+# variable: una sección que pisara `SCANNED` dejaría a la siguiente escaneando otro árbol.
+scan_code_into() {
+    local __var="$1"
+    shift
+    local __out
+    if ! __out="$(code_lines "$@")"; then
         err "$1" "no se pudo escanear el código Swift de $*. El gate no se declara en verde sin haber comprobado."
-        SCANNED=""
+        __out=""
     fi
+    printf -v "$__var" '%s' "$__out"
+}
+
+# El caso común: el resultado queda en `SCANNED`. Uso: `scan_code "$dir"…`.
+scan_code() {
+    scan_code_into SCANNED "$@"
 }
 
 # Prefijo de `grep -E` sobre la salida de `code_lines`: el código empieza tras
@@ -400,6 +424,107 @@ while IFS= read -r hit; do
     hit_line="${rest%%:*}"
     err "$hit_file:$hit_line" "AD-10: la red solo sale de \`WalkTracker/Adapters/Weather/\`. \`URLSession\`, \`URLRequest\` e \`import Network\` son del adapter del clima: la única llamada de red del producto es Open-Meteo, a través de \`WeatherPort\`."
 done < <(grep -E "$code_at$network_symbol|^[^:]+:[0-9]+:$(import_re 'Network' | sed 's/^\^//')" <<< "$SCANNED")
+
+# ── 12. La UI no cablea el vocabulario visual (AD-13, UX-DR3, AD-20) ────────
+# El espaciado, el margen, el objetivo táctil de 44 pt, el radio de tarjeta, el relleno de
+# una superficie y los dos colores propios viven en `WalkTracker/UI/Style/DesignTokens.swift`.
+# Una vista que los reteclea rompe el vocabulario en silencio: no hay target de UI tests, y
+# las cuatro superficies que faltan (anillo 3.1, logros 3.3, historial 5.2, ajustes 2.3)
+# heredarían la erosión.
+#
+# La exención es de UN fichero, no de una carpeta: `Style/DesignTokens.swift` es la única
+# definición del vocabulario, así que un `Style/AchievementBadge.swift` con un hexadecimal
+# o un `minHeight: 44` es exactamente la erosión que esto impide. `Diagnostics/` queda fuera
+# porque es `#if DEBUG` y está marcada para borrado en `deferred-work.md`.
+#
+# Lo que NO se prohíbe, y es deliberado: los valores que la spec decide no tokenizar
+# —`spacing: 0`, `spacing: 2`, `.padding(.top, 48)`, `.frame(maxWidth: .infinity)`—. Se
+# prohíben los peldaños de la escala de UX-DR3 (4, 8, 12, 16, 24) escritos a mano, que es
+# reteclear el token; no todo número, que criminalizaría lo que a propósito no es token.
+#
+# Solo cuenta el código: `code_lines` quita los comentarios, así que un doc comment que
+# cite `#CCFF00` o el 44 pt para explicarse no es una violación. Los literales de cadena SÍ
+# cuentan, a propósito: un color escrito dentro de una cadena sigue siendo un color cableado.
+if [ ! -d "$ROOT/WalkTracker/UI" ]; then
+    err "$ROOT/WalkTracker/UI" "no existe \`WalkTracker/UI/\`: el gate no puede comprobar el vocabulario visual y no se declara en verde por no haber mirado."
+else
+    # Variable propia: `SCANNED` es de las secciones 7–11 y pisarla dejaría a una sección
+    # futura heredando un escaneo reducido a `UI/`.
+    scan_code_into UI_CODE "$ROOT/WalkTracker/UI"
+
+    # Uso: `ui_token_rule PATRÓN EXPLICACIÓN`.
+    ui_token_rule() {
+        local pattern="$1" why="$2"
+        local hit hit_file rest hit_line
+        while IFS= read -r hit; do
+            [ -n "$hit" ] || continue
+            hit_file="${hit%%:*}"
+            case "$hit_file" in
+                "$ROOT/WalkTracker/UI/Style/DesignTokens.swift" | "$ROOT/WalkTracker/UI/Diagnostics/"*) continue ;;
+            esac
+            rest="${hit#*:}"
+            hit_line="${rest%%:*}"
+            err "$hit_file:$hit_line" "AD-13/UX-DR3: $why Los tokens viven en \`WalkTracker/UI/Style/DesignTokens.swift\`."
+        done < <(grep -E "$code_at$pattern" <<< "$UI_CODE")
+    }
+
+    # Un lado de marco numérico, en cualquiera de sus formas: `minHeight: 44` es la del
+    # objetivo táctil, pero `.frame(height: 44)` y `.frame(width: 44, height: 44)` —la
+    # forma habitual de un target cuadrado— son la misma decisión escrita de otra manera.
+    # `.frame(maxWidth: .infinity)` no lleva número y sigue permitido.
+    ui_token_rule '(min|max|ideal)?([Hh]eight|[Ww]idth)[[:space:]]*:[[:space:]]*[0-9]' \
+        "el objetivo táctil mínimo de 44 pt es normativo (UX-DR3, AD-20) y no se reteclea: usa \`LayoutMetrics.touchTargetMin\`."
+    # `[:(]` para que el modificador antiguo, `.cornerRadius(16)`, no esquive la regla.
+    ui_token_rule 'cornerRadius[[:space:]]*[:(][[:space:]]*[0-9]' \
+        "el radio de una superficie propia no se elige por pantalla: usa \`Radius.card\`."
+    # `_` admitido: `0xCC_FF_00` es el mismo hexadecimal con separadores de Swift.
+    ui_token_rule '(0[xX]|#)[0-9A-Fa-f][0-9A-Fa-f_]{2,}' \
+        "AD-13: los colores se referencian, no se cablean en hexadecimal; los del producto son colorsets de \`Assets.xcassets\` con variante clara y oscura y contraste medido."
+    # `Color.init(red:…)` es el mismo constructor escrito entero.
+    ui_token_rule 'Color[[:space:]]*(\.[[:space:]]*init[[:space:]]*)?\([[:space:]]*((red|hue|white)[[:space:]]*:|\.(sRGB|sRGBLinear|displayP3))' \
+        "AD-13: un color por componentes numéricas es un color cableado, y no tiene variante oscura ni contraste medido; usa \`Colors\` o un color del sistema."
+    # El color que este vocabulario sustituye: `.orange` del sistema da 2,20:1 sobre blanco
+    # e incumple AA. Devolverlo a una vista reintroduce el defecto en silencio.
+    ui_token_rule '(Color[[:space:]]*)?\.[[:space:]]*orange\b' \
+        "(UX-DR6) \`.orange\` es el color que este vocabulario sustituye: da 2,20:1 sobre blanco e incumple WCAG AA. Lo estimado se pinta con \`Colors.estimated\`, que tiene variante clara y oscura y contraste medido."
+    # La escala de UX-DR3 reteclada. Solo sus cinco peldaños: `spacing: 0` y `spacing: 2`
+    # no son tokens por decisión de la spec y siguen pasando.
+    ui_token_rule '(spacing|minLength)[[:space:]]*:[[:space:]]*(4|8|12|16|24)\b' \
+        "el espaciado es la escala de UX-DR3 y no se reteclea: usa \`Spacing.xs/s/m/l/xl\`."
+    ui_token_rule '\.padding\(([^)]*[^A-Za-z0-9_.])?(4|8|12|16|24)\b' \
+        "el margen y el relleno no se reteclean: usa \`LayoutMetrics.margin\`, \`Spacing\` o \`Surface\`."
+fi
+
+# ── 12b. `UIDesignRequiresCompatibility` prohibida en el Info.plist (AD-13) ──
+# Liquid Glass se hereda del SDK de iOS 26 y no se desactiva. Se busca la KEY, no el
+# nombre: el `Info.plist` la cita en un comentario para decir precisamente que está
+# prohibida, y ese comentario no es una violación.
+#
+# La lista sale del manifiesto (`INFOPLIST_FILE`), no escrita a mano: un target nuevo con
+# plist propio se comprueba solo. Si el manifiesto no declara ninguno —el arnés del camino
+# rojo monta un árbol mínimo— se cae a los dos del producto, para no dejar de mirar.
+PLISTS="$(sed -nE 's/^[[:space:]]*INFOPLIST_FILE:[[:space:]]*"?([^"#]*[^"#[:space:]])"?[[:space:]]*$/\1/p' "$MANIFEST" | sort -u)"
+if [ -z "$PLISTS" ]; then
+    PLISTS="WalkTracker/App/Info.plist
+WalkTrackerActivity/Info.plist"
+fi
+while IFS= read -r plist_rel; do
+    [ -n "$plist_rel" ] || continue
+    plist="$ROOT/$plist_rel"
+    [ -f "$plist" ] || continue
+    while IFS= read -r hit; do
+        [ -n "$hit" ] || continue
+        err "$plist:${hit%%:*}" "AD-13: \`UIDesignRequiresCompatibility\` está PROHIBIDA. Liquid Glass se hereda al compilar contra el SDK de iOS 26; además el sistema ignora la key al compilar para iOS 27+, así que desactivarlo solo aplaza la adopción."
+    done < <(grep -nE '<key>[[:space:]]*UIDesignRequiresCompatibility[[:space:]]*</key>' "$plist")
+done <<< "$PLISTS"
+
+# ── 12c. El acento de la app es una decisión, no el azul por omisión (AD-13) ─
+# `AccentColor.colorset` existe, pero sin esta key el sistema no lo toma como acento de la
+# app: el chrome que tiñe solo —controles, barra de pestañas, `.tint` heredado— vuelve al
+# azul del sistema POR OMISIÓN, no por decisión, y no falla nada. Verificado borrándola.
+if ! grep -qE '^[[:space:]]*ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME:[[:space:]]*"?AccentColor"?[[:space:]]*$' "$MANIFEST"; then
+    err "$MANIFEST" "AD-13: falta \`ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor\`. Sin esa key el colorset \`AccentColor\` existe y nadie lo mira: el acento de la app vuelve al azul del sistema por omisión, no por decisión, y \`.tint\` deja de resolver al acento elegido."
+fi
 
 # ── Veredicto ────────────────────────────────────────────────────────────────
 if [ "$fail_count" -gt 0 ]; then

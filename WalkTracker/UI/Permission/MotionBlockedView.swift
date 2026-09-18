@@ -22,8 +22,8 @@ struct MotionBlockedView: View {
             ) {
                 Button(action: openSettings) {
                     Text("Abrir Ajustes")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .font(Typography.buttonLabel)
+                        .frame(maxWidth: .infinity, minHeight: LayoutMetrics.touchTargetMin)
                 }
                 .buttonStyle(.glassProminent)
                 .controlSize(.extraLarge)
@@ -44,7 +44,7 @@ struct MotionBlockedView: View {
     private var backButton: some View {
         Button(action: onBack) {
             Text("Volver al inicio")
-                .frame(maxWidth: .infinity, minHeight: 44)
+                .frame(maxWidth: .infinity, minHeight: LayoutMetrics.touchTargetMin)
         }
         .buttonStyle(.glass)
         .controlSize(.extraLarge)

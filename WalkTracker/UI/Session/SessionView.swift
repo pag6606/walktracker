@@ -32,6 +32,16 @@ import SwiftUI
 /// controles.
 ///
 /// Con tamaños de texto grandes la pantalla se desplaza en vertical en lugar de recortar.
+///
+/// **Criterio único de `minimumScaleFactor` en esta pantalla (2026-09-18).** Los tres sitios
+/// que encogen texto —la cifra del héroe, el valor de una celda y su etiqueta— usaban tres
+/// factores distintos (0,4 · 0,3 · 0,5) sin razón declarada, y los dos primeros permitían
+/// bajar hasta 8 pt en el tamaño por omisión: ilegible, y justo lo contrario de lo que
+/// Dynamic Type persigue. **Un texto puede encogerse hasta la mitad de su tamaño, nunca
+/// más**; si a la mitad aún no cabe, la pantalla se desplaza (ya lo hace) o el bloque se
+/// apila. Medio tamaño deja el peor caso —la cifra de una celda en la rejilla a tamaño de
+/// accesibilidad máximo— con holgura de sobra, así que en la práctica solo cambia el suelo,
+/// no lo que se ve.
 struct SessionView: View {
 
     let store: SessionStore
@@ -86,7 +96,7 @@ struct SessionView: View {
         let isPaused = session.status == .paused
         return GeometryReader { proxy in
             ScrollView {
-                VStack(spacing: 8) {
+                VStack(spacing: Spacing.s) {
                     Text(isPaused ? "En pausa" : "Caminata en curso")
                         .font(.headline)
                         .foregroundStyle(.secondary)
@@ -104,27 +114,27 @@ struct SessionView: View {
                             .multilineTextAlignment(.center)
                     }
 
-                    Spacer(minLength: 24)
+                    Spacer(minLength: Spacing.xl)
 
                     DistanceHero(meters: metrics.distanceM, isDimmed: isPaused)
 
-                    Spacer(minLength: 24)
+                    Spacer(minLength: Spacing.xl)
 
                     grid(session: session, metrics: metrics)
 
                     if session.stepsEstimated > 0 {
                         estimatedBanner(session.stepsEstimated)
-                            .padding(.top, 16)
+                            .padding(.top, Spacing.l)
                     }
 
                     WeatherCard(weather: session.weather, isCapturing: store.isCapturingWeather)
-                        .padding(.top, 16)
+                        .padding(.top, Spacing.l)
 
-                    Spacer(minLength: 24)
+                    Spacer(minLength: Spacing.xl)
 
                     controls(isPaused: isPaused)
                 }
-                .padding()
+                .padding(LayoutMetrics.margin)
                 .frame(maxWidth: .infinity, minHeight: proxy.size.height)
                 .animation(reduceMotion ? .easeInOut(duration: 0.2) : .default, value: store.showsRecoveredNotice)
                 .animation(reduceMotion ? .easeInOut(duration: 0.2) : .default, value: store.isCapturingWeather)
@@ -150,7 +160,7 @@ struct SessionView: View {
                     onAllow: { Task { await store.confirmLocationPermission() } },
                     onDecline: store.declineLocationPermission
                 )
-                .padding(.horizontal)
+                .padding(.horizontal, LayoutMetrics.margin)
                 .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
             }
         }
@@ -170,7 +180,7 @@ struct SessionView: View {
     // MARK: - Rejilla
 
     private func grid(session: Session, metrics: SessionMetrics) -> some View {
-        Grid(horizontalSpacing: 16, verticalSpacing: 24) {
+        Grid(horizontalSpacing: Spacing.l, verticalSpacing: Spacing.xl) {
             GridRow {
                 MetricCell.steps(session.stepsMeasured, estimated: session.stepsEstimated)
                 // Alineado con el inicio desplazado por las pausas cerradas: así el tick cae en
@@ -192,11 +202,11 @@ struct SessionView: View {
     /// "~N pasos estimados" y "Descartar", visible mientras haya estimados, también en
     /// pausa. Descartar pide confirmación y es irreversible (AD-20).
     private func estimatedBanner(_ estimated: Int) -> some View {
-        HStack(spacing: 12) {
+        HStack(spacing: Spacing.m) {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .firstTextBaseline, spacing: 0) {
                     Text(verbatim: "~")
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Colors.estimated)
                         .accessibilityHidden(true)
                     Text("\(estimated) pasos estimados")
                 }
@@ -212,7 +222,7 @@ struct SessionView: View {
                 // El marco va en la etiqueta: así el objetivo táctil es ≥ 44 pt (AD-20).
                 Text("Descartar")
                     .font(.subheadline.weight(.semibold))
-                    .frame(minWidth: 44, minHeight: 44)
+                    .frame(minWidth: LayoutMetrics.touchTargetMin, minHeight: LayoutMetrics.touchTargetMin)
                     .contentShape(.rect)
             }
             .disabled(store.isReconciling)
@@ -223,9 +233,9 @@ struct SessionView: View {
                 Text("La distancia y el ritmo se recalcularán sin ellos. No se puede deshacer.")
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .background(.orange.opacity(0.12), in: .rect(cornerRadius: 16))
+        .padding(.horizontal, Surface.cardPaddingHorizontal)
+        .padding(.vertical, Surface.cardPaddingVertical)
+        .background(Colors.estimated.opacity(Surface.noticeTintOpacity), in: .rect(cornerRadius: Radius.card))
     }
 
     /// La vista no escribe estado del store: cerrar el diálogo es la intención de cancelar.
@@ -248,22 +258,22 @@ struct SessionView: View {
     /// Deshabilitados mientras el store reconcilia (AD-8), que además los rechaza.
     private func controls(isPaused: Bool) -> some View {
         let layout = dynamicTypeSize.isAccessibilitySize
-            ? AnyLayout(VStackLayout(spacing: 12))
-            : AnyLayout(HStackLayout(spacing: 12))
+            ? AnyLayout(VStackLayout(spacing: Spacing.m))
+            : AnyLayout(HStackLayout(spacing: Spacing.m))
         return layout {
             Button {
                 if isPaused { store.resume() } else { store.pause() }
             } label: {
                 Label(isPaused ? "Reanudar" : "Pausar", systemImage: isPaused ? "play.fill" : "pause.fill")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .font(Typography.buttonLabel)
+                    .frame(maxWidth: .infinity, minHeight: LayoutMetrics.touchTargetMin)
             }
-            .buttonStyle(.glass(isPaused ? Glass.regular.tint(.accentColor) : .regular))
+            .buttonStyle(.glass(isPaused ? Glass.regular.tint(Colors.accent) : .regular))
 
             Button(role: .destructive, action: store.requestFinish) {
                 Label("Finalizar", systemImage: "stop.fill")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .font(Typography.buttonLabel)
+                    .frame(maxWidth: .infinity, minHeight: LayoutMetrics.touchTargetMin)
             }
             .buttonStyle(.glass)
             .confirmationDialog("¿Finalizar la caminata?", isPresented: confirmingFinish, titleVisibility: .visible) {
@@ -298,7 +308,7 @@ struct DistanceHero: View {
     var isDimmed = false
 
     /// La métrica principal domina, pero escala con Dynamic Type: no es un tamaño fijo.
-    @ScaledMetric(relativeTo: .largeTitle) private var size: CGFloat = 88
+    @ScaledMetric(relativeTo: .largeTitle) private var size: CGFloat = LayoutMetrics.heroSize
 
     var body: some View {
         VStack(spacing: 0) {
@@ -307,7 +317,8 @@ struct DistanceHero: View {
                 .monospacedDigit()
                 .foregroundStyle(isDimmed ? .secondary : .primary)
                 .lineLimit(1)
-                .minimumScaleFactor(0.4)
+                // Hasta la mitad, nunca más (criterio único de la pantalla).
+                .minimumScaleFactor(0.5)
             Text("km")
                 .font(.title3)
                 .foregroundStyle(.secondary)
@@ -380,16 +391,16 @@ struct MetricCell: View {
     }
 
     var body: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: Spacing.xs) {
             HStack(alignment: .firstTextBaseline, spacing: 2) {
                 Text(verbatim: value)
-                    .font(.system(.title, design: .rounded, weight: .bold))
+                    .font(Typography.metricValue)
                     .monospacedDigit()
                 if let estimate {
                     Text(verbatim: estimate)
                         .font(.system(.title3, design: .rounded, weight: .semibold))
                         .monospacedDigit()
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Colors.estimated)
                 }
                 if let unit {
                     Text(unit)
@@ -398,11 +409,13 @@ struct MetricCell: View {
                 }
             }
             .lineLimit(1)
-            .minimumScaleFactor(0.3)
+            // Hasta la mitad, nunca más (criterio único de la pantalla).
+            .minimumScaleFactor(0.5)
             Text(caption)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
+                // Hasta la mitad, nunca más (criterio único de la pantalla).
                 .minimumScaleFactor(0.5)
         }
         .frame(maxWidth: .infinity)

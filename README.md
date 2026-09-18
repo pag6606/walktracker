@@ -58,7 +58,8 @@ Domain/               # PURO — solo Foundation. Su propio módulo.
   Ports/  Engines/  DomainError.swift
 WalkTracker/          # la app
   App/                # entrada SwiftUI + composition root
-  Application/  Adapters/  UI/  Resources/
+  Application/  Adapters/  Resources/
+  UI/                 # Style/ es el vocabulario visual: espaciado, margen, 44 pt, radio y los dos colores propios
 Shared/               # ActivitySnapshot + su formateo — compartido con la extensión
 WalkTrackerActivity/  # Widget Extension — SOLO renderiza
 WalkTrackerTests/     # Swift Testing · Vectors/ (AD-6, 8.7) · Scenarios/ (Epic 1)
@@ -82,6 +83,18 @@ el grafo de módulos no ve:
 3. Que todo `.swift` del árbol esté en algún target.
 4. Que ningún fichero de `Domain/` importe un framework de plataforma (AD-3).
 5. Que `WalkTrackerActivity` no importe `Domain` (AD-15).
+6. (**sección 12 del script**) Que ninguna vista cablee el vocabulario visual (AD-13, UX-DR3,
+   AD-20). Dentro de `WalkTracker/UI/` —salvo `Style/DesignTokens.swift`, que es donde viven, y
+   `Diagnostics/`, marcada para borrado— fallan: un lado de marco numérico (el 44 pt del objetivo
+   táctil, en cualquiera de sus formas), un radio de esquina numérico, un color en hexadecimal o
+   por componentes, `.orange` (el color que los tokens sustituyen porque daba 2,20:1 sobre blanco)
+   y los peldaños de la escala de UX-DR3 —4, 8, 12, 16, 24— escritos a mano en `spacing:`,
+   `minLength:` o `.padding(…)`. Lo que la spec decide **no** tokenizar sigue pasando:
+   `spacing: 0`, `spacing: 2`, `.padding(.top, 48)`, `.frame(maxWidth: .infinity)`. La misma
+   sección comprueba que ningún `Info.plist` del manifiesto lleve `UIDesignRequiresCompatibility`
+   y que `project.yml` fije `ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor`, sin la
+   cual el acento de la app vuelve al azul del sistema por omisión. Sin target de UI tests, el
+   gate es lo único que impide que el vocabulario se erosione en la primera historia que lo use.
 
 Los puntos 4 y 5 son parseo de imports y son necesarios: `import SwiftUI` dentro de un framework
 compila perfectamente, y `import Domain` en la extensión **también** compila, porque la app embebe
