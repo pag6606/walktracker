@@ -60,6 +60,16 @@ struct MeasurementLogTests {
         #expect(MeasurementLog.QueryOutcome.allCases.map(\.rawValue) == ["data", "nil", "timeout", "belowSeen", "error"])
     }
 
+    @Test("Razones de estimación omitida: los mismos casos y los mismos nombres que GapEstimator.Skip")
+    func skipNamesMatchTheDomain() {
+        #expect(MeasurementLog.EstimateSkip.allCases.map(\.rawValue)
+            == GapEstimator.Skip.allCases.map(\.rawValue))
+        // El `init` traduce cada razón del dominio a la suya, sin perder ninguna por el camino.
+        for skip in GapEstimator.Skip.allCases {
+            #expect(MeasurementLog.EstimateSkip(skip).rawValue == skip.rawValue)
+        }
+    }
+
     @Test("Estimación: gap, pasos y skipped=nil")
     func estimateLine() {
         #expect(MeasurementLog.estimateLine(sessionStartedAt: Self.t0, gapStart: Self.at(600), gapEnd: Self.at(900), steps: 400)
@@ -196,7 +206,7 @@ struct MeasurementLogTests {
             self.sink = sink
             store = SessionStore(
                 clock: clock, motion: motion, storage: StorageStub(snapshot: snapshot), strideM: 0.655,
-                reconciliationTimeoutS: timeoutS, orphanSessionThresholdS: 21_600,
+                reconciliationTimeoutS: timeoutS, orphanSessionThresholdS: 21_600, maxEstimableGapS: 1200,
                 location: LocationStub(status: .denied), weather: WeatherStub(),
                 measure: { sink.append($0) }
             )
@@ -245,9 +255,25 @@ struct MeasurementLogTests {
         #expect(fixture.store.session?.stepsMeasured == 900, "medir no cambia la decisión")
     }
 
-    @Test("Store · consulta degradada: su desenlace y una línea estimate con los pasos", arguments: [
+    @Test("Store · consulta por debajo de lo visto: desenlace belowSeen, se aplica y no hay línea estimate (R1)")
+    func storeBelowSeenQuery() async throws {
+        let fixture = Fixture()
+        await fixture.walkThenBackground()
+        fixture.motion.setQueryResponse(.sample(steps: 814, distance: 536))
+
+        await fixture.store.appDidBecomeActive()
+
+        let query = try #require(fixture.lines("query").only)
+        #expect(query.contains(" result=814 "))
+        #expect(query.contains(" seen=820 "))
+        #expect(query.hasSuffix(" outcome=belowSeen"))
+        #expect(fixture.lines("estimate").isEmpty, "con respuesta del sistema no se estima")
+        #expect(fixture.store.session?.stepsMeasured == 820, "record nunca resta")
+        #expect(fixture.store.session?.stepsEstimated == 0)
+    }
+
+    @Test("Store · consulta sin respuesta: su desenlace y una línea estimate con los pasos", arguments: [
         (MotionStub.QueryResponse.none, "nil", "result=nil"),
-        (.sample(steps: 120, distance: 50), "belowSeen", "result=120"),
         (.failure(.failed(operation: "pedometer")), "error", "result=nil"),
     ])
     func storeDegradedQuery(response: MotionStub.QueryResponse, outcome: String, result: String) async throws {

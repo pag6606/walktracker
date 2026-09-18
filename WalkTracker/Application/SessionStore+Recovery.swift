@@ -8,7 +8,7 @@ import OSLog
 /// `persist()` y `clearSnapshot()` son las únicas llamadas de escritura a `StoragePort` de la
 /// app. `restoreOnLaunch()` escribe `didAttemptRestore` y, al restaurar, `session`, `metrics`,
 /// `hasSession`, `showsRecoveredNotice` y el tramo (`segmentStart`, `highestCumulativeSteps`,
-/// `distanceBaseM`, `lastSampleAt`, `backgroundedAt`).
+/// `distanceBaseM`, `lastSampleAt`, `backgroundedAt`, `stepsMeasuredAtGapStart`).
 extension SessionStore {
 
     /// Al arrancar la app: restaura en silencio la sesión del snapshot, si lo hay.
@@ -93,8 +93,10 @@ extension SessionStore {
             capLastSampleAt(at: snapshot.savedAt)
             countSteps(from: snapshot.segmentStart, restoring: (snapshot.segmentSteps, snapshot.distanceBaseM))
             backgroundedAt = snapshot.savedAt
+            stepsMeasuredAtGapStart = snapshot.stepsMeasured
             await reconcile(until: now)
             backgroundedAt = nil
+            stepsMeasuredAtGapStart = nil
         }
         guard let current = session, current.status != .finished else { return }
         metrics = current.metrics(at: clock.now)

@@ -39,7 +39,18 @@ const SCHEMA = {
     session: ['sid', 'transition', 'at', 'status', 'elapsedS', 'measured', 'estimated', 'systemDistance', 'distance'],
 };
 const OUTCOMES = ['data', 'nil', 'timeout', 'belowSeen', 'error'];
-const DEGRADED = new Set(['nil', 'timeout', 'belowSeen', 'error']);
+// Sin respuesta del sistema: las únicas que degradan al estimador. `belowSeen` ya no está
+// aquí (R1, 2026-09-17): cualquier respuesta no nula se aplica y no se estima.
+const DEGRADED = new Set(['nil', 'timeout', 'error']);
+// Qué defensa del `GapEstimator` suprimió la estimación (`GapEstimator.Skip`). Una razón que
+// este informe no conozca se imprime tal cual, sin frase.
+const SKIP_REASONS = {
+    notActive: 'la sesión dejó de estar activa durante la reconciliación',
+    streamAdvanced: 'los pasos medidos crecieron desde el inicio del gap',
+    noPriorSample: 'menos de 120 s de sesión al abrir el gap: la cadencia aún no es representativa',
+    gapAboveCap: 'el gap supera el tope estimable',
+    noCadence: 'no salió cadencia con la que estimar (sin pasos medidos o gap no positivo)',
+};
 
 class ReportError extends Error {}
 
@@ -159,10 +170,19 @@ function analyzeSession(sid, list) {
     }
     if (!finish) warnings.push('la sesión no está finalizada en el registro: los valores finales son los de la última transición');
 
-    // R1: consulta menor que lo visto.
+    // R1: consulta menor que lo visto. Desde la corrección del 2026-09-17 cuenta como dato y se
+    // aplica (no resta): el aviso mide cuánto va la consulta por detrás del stream, no un
+    // problema. Un registro de un build anterior (≤ 86) sí estimó tras un `belowSeen`, así que
+    // la coletilla lo dice cuando el propio registro lo demuestra.
     for (const q of queries.filter(q => q.outcome === 'belowSeen')) {
+        const nextQuery = queries.find(o => o.lineNo > q.lineNo);
+        const nextLine = nextQuery ? nextQuery.lineNo : Infinity;
+        const degraded = estimates.some(e => e.lineNo > q.lineNo && e.lineNo < nextLine && e.steps > 0);
         warnings.push(`R1 · consulta menor que lo visto (línea ${q.lineNo}): result=${q.result} < seen=${q.seen} ` +
-            `(−${q.seen - q.result} pasos); hoy cuenta como sin dato`);
+            `(−${q.seen - q.result} pasos); ` +
+            (degraded
+                ? 'degradó al estimador y estimó pasos: registro anterior a la corrección'
+                : 'se aplica como dato y no se estima'));
     }
     // Estimaciones.
     for (const e of estimates) {
@@ -170,7 +190,8 @@ function analyzeSession(sid, list) {
         warnings.push(`estimación (línea ${e.lineNo}): ${e.steps} pasos para un gap de ${minutes} min`);
     }
     for (const e of skippedEstimates) {
-        warnings.push(`estimación omitida (línea ${e.lineNo}): ${e.skipped}; el stream avanzó durante la consulta degradada`);
+        const why = SKIP_REASONS[e.skipped];
+        warnings.push(`estimación omitida (línea ${e.lineNo}): ${e.skipped}${why ? `; ${why}` : ''}`);
     }
     if (discarded) warnings.push('se descartaron pasos estimados durante la sesión');
     // R2: tras una consulta degradada, la primera muestra del stream del mismo tramo (inicio a

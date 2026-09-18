@@ -311,7 +311,11 @@ La app escribe una línea por evento en el log del sistema (`OSLog`, subsistema
 - `queryLate`: la respuesta de una consulta que llegó después del timeout y se descartó, con los
   mismos campos y su duración real;
 - `estimate`: cada estimación del `GapEstimator` (`gapStart`, `gapEnd`, `steps`, `skipped`). Con
-  `skipped=streamAdvanced` no se estimó porque el stream avanzó durante la consulta degradada;
+  `skipped` no se estimó, y su valor dice qué defensa actuó: `notActive` (la sesión dejó de estar
+  activa durante la reconciliación), `streamAdvanced` (los pasos medidos crecieron desde el inicio
+  del gap: el stream ya los trajo), `noPriorSample` (menos de 120 s de sesión al abrir el gap),
+  `gapAboveCap` (el gap supera `maxEstimableGapS`, 20 min) o `noCadence` (no salió cadencia con la
+  que estimar). Son los mismos casos y los mismos nombres que `GapEstimator.Skip`;
 - `session`: cada transición (`start`, `pause`, `resume`, `finish`, `background`, `active`,
   `restore`, `orphan`, `discardEstimated`, `streamEnded`) con el estado de la sesión. `start` y
   `restore` llevan además `version` y `build` de la app.
@@ -374,8 +378,12 @@ prueba: la de la caminata es la que coincide con su hora de inicio):
 - **Muestras del stream:** con distancia, sin distancia y alternancias entre las dos (la duda de la
   1.3).
 - **Avisos:**
-  - `R1`: una consulta dio menos pasos que los ya vistos, lo que hoy estima pasos fantasma;
-  - estimaciones con sus pasos, estimaciones omitidas (`streamAdvanced`) y estimados descartados;
+  - `R1`: una consulta dio menos pasos que los ya vistos. Se aplica como dato y no se estima
+    (`record` nunca resta), así que el aviso mide cuánto va la consulta por detrás del stream; si el
+    registro es de un build anterior a la corrección (≤ 86) y sí estimó tras esa consulta, el aviso
+    lo dice;
+  - estimaciones con sus pasos, estimaciones omitidas con la explicación de su `skipped` y estimados
+    descartados;
   - `R2`: tras una consulta degradada, la primera muestra del mismo tramo (inicio a menos de 1 s)
     que sube por encima de lo visto antes de la consulta siguiente. Se marca «posible doble cuenta»
     solo si hubo estimación y el salto es al menos la mitad de lo estimado;

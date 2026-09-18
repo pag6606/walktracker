@@ -65,6 +65,7 @@ struct CompositionRoot {
             strideM: formulas.defaultStrideM,
             reconciliationTimeoutS: formulas.reconciliationTimeoutS,
             orphanSessionThresholdS: formulas.orphanSessionThresholdS,
+            maxEstimableGapS: formulas.maxEstimableGapS,
             location: location,
             weather: weather
         )

@@ -145,6 +145,26 @@ struct GapReconstructionScenarios {
 
     // MARK: - GapEstimator sobre la sesión
 
+    /// Tope de gap estimable de `formulas.json` (R1): 20 min.
+    private static let maxGapS: TimeInterval = 1200
+
+    /// Desenlace del gap con el tope del proyecto, y la cadencia tomada en `gapStart`.
+    private static func gapOutcome(
+        _ session: Session,
+        measuredAtGapStart: Int,
+        gapStart: Date,
+        gapS: TimeInterval,
+        maxGapS: TimeInterval = GapReconstructionScenarios.maxGapS
+    ) -> GapEstimator.Outcome {
+        GapEstimator.outcome(
+            for: session,
+            measuredAtGapStart: measuredAtGapStart,
+            gapStart: gapStart,
+            gapEnd: gapStart.addingTimeInterval(gapS),
+            maxEstimableGapS: maxGapS
+        )
+    }
+
     @Test("Nativo · GapEstimator: activa 10 min a 80 spm y gap de 300 s → 400 estimados")
     func estimatorAt80Spm() throws {
         var session = try Self.started()
@@ -152,7 +172,7 @@ struct GapReconstructionScenarios {
         let gapStart = Self.now.addingTimeInterval(600)
 
         #expect(session.metrics(at: gapStart).cadenceSpm == 80)
-        #expect(GapEstimator.steps(for: session, gapStart: gapStart, gapEnd: gapStart.addingTimeInterval(300)) == 400)
+        #expect(Self.gapOutcome(session, measuredAtGapStart: 800, gapStart: gapStart, gapS: 300) == .estimated(400))
     }
 
     @Test("Nativo · GapEstimator: con menos de 120 s de muestra previa el gap es 0")
@@ -161,11 +181,11 @@ struct GapReconstructionScenarios {
         try session.addMeasuredSteps(120)
         let gapStart = Self.now.addingTimeInterval(90)
 
-        #expect(GapEstimator.steps(for: session, gapStart: gapStart, gapEnd: gapStart.addingTimeInterval(300)) == 0)
+        #expect(Self.gapOutcome(session, measuredAtGapStart: 120, gapStart: gapStart, gapS: 300) == .skipped(.noPriorSample))
         // Justo en el umbral ya estima: 240 pasos en 120 s son 120 spm × 5 min.
         try session.addMeasuredSteps(120)
         let atThreshold = Self.now.addingTimeInterval(GapEstimator.minPriorSampleS)
-        #expect(GapEstimator.steps(for: session, gapStart: atThreshold, gapEnd: atThreshold.addingTimeInterval(300)) == 600)
+        #expect(Self.gapOutcome(session, measuredAtGapStart: 240, gapStart: atThreshold, gapS: 300) == .estimated(600))
     }
 
     @Test("Nativo · GapEstimator: en pausa o finalizada el gap es 0")
@@ -174,12 +194,12 @@ struct GapReconstructionScenarios {
         try paused.addMeasuredSteps(800)
         try paused.pause(at: Self.now.addingTimeInterval(600))
         let gapStart = Self.now.addingTimeInterval(600)
-        #expect(GapEstimator.steps(for: paused, gapStart: gapStart, gapEnd: gapStart.addingTimeInterval(300)) == 0)
+        #expect(Self.gapOutcome(paused, measuredAtGapStart: 800, gapStart: gapStart, gapS: 300) == .skipped(.notActive))
 
         var finished = try Self.started()
         try finished.addMeasuredSteps(800)
         try finished.finish(at: gapStart)
-        #expect(GapEstimator.steps(for: finished, gapStart: gapStart, gapEnd: gapStart.addingTimeInterval(300)) == 0)
+        #expect(Self.gapOutcome(finished, measuredAtGapStart: 800, gapStart: gapStart, gapS: 300) == .skipped(.notActive))
     }
 
     @Test("Nativo · GapEstimator: la cadencia es solo de pasos medidos, nunca de los estimados")
@@ -189,7 +209,52 @@ struct GapReconstructionScenarios {
         try session.addEstimatedSteps(4000)
         let gapStart = Self.now.addingTimeInterval(600)
 
-        #expect(GapEstimator.steps(for: session, gapStart: gapStart, gapEnd: gapStart.addingTimeInterval(300)) == 400)
+        #expect(Self.gapOutcome(session, measuredAtGapStart: 800, gapStart: gapStart, gapS: 300) == .estimated(400))
+    }
+
+    @Test("Nativo · GapEstimator: la cadencia sale de los pasos del inicio del gap, no de los de ahora (R1)")
+    func estimatorUsesCadenceAtGapStart() throws {
+        // Caso real del registro WTM1 del 2026-09-17 (sesión 1789649385424): al empezar el gap
+        // había 1156 pasos y 631 s de sesión; al volver, 2149. El gap duró 528 s (8,8 min).
+        let gapStart = Self.now.addingTimeInterval(631)
+
+        // Con la cadencia del inicio del gap: 1156 pasos en 631 s son 109,9 spm × 8,8 min.
+        var atGapStart = try Self.started()
+        try atGapStart.addMeasuredSteps(1156)
+        #expect(Self.gapOutcome(atGapStart, measuredAtGapStart: 1156, gapStart: gapStart, gapS: 528) == .estimated(967))
+
+        // Con los pasos de ahora —lo que hacía la regla vieja— la cadencia se dobla (204,3 spm)
+        // y salen 1798: los 1796 pasos fantasma que esa caminata sumó.
+        var afterGap = try Self.started()
+        try afterGap.addMeasuredSteps(2149)
+        #expect(Self.gapOutcome(afterGap, measuredAtGapStart: 2149, gapStart: gapStart, gapS: 528) == .estimated(1798))
+    }
+
+    @Test("Nativo · GapEstimator: si los medidos crecieron desde el inicio del gap no se estima (R1)")
+    func estimatorSkipsWhenStreamAdvanced() throws {
+        // El caso real completo: al abrir el gap había 1156 pasos y el stream entregó hasta 2149
+        // antes de volver. Estimar los contaría dos veces, así que la defensa corta.
+        var session = try Self.started()
+        try session.addMeasuredSteps(2149)
+        let gapStart = Self.now.addingTimeInterval(631)
+
+        #expect(Self.gapOutcome(session, measuredAtGapStart: 1156, gapStart: gapStart, gapS: 528) == .skipped(.streamAdvanced))
+        // Sin crecer (iguales) sí se estima.
+        #expect(Self.gapOutcome(session, measuredAtGapStart: 2149, gapStart: gapStart, gapS: 528) == .estimated(1798))
+    }
+
+    @Test("Nativo · GapEstimator: por encima del tope de gap no se estima nada; justo en el tope sí (R1)")
+    func estimatorCapsTheGap() throws {
+        var session = try Self.started()
+        try session.addMeasuredSteps(800)
+        let gapStart = Self.now.addingTimeInterval(600)
+
+        // 25 min de gap con un tope de 20 min.
+        #expect(Self.gapOutcome(session, measuredAtGapStart: 800, gapStart: gapStart, gapS: 1500) == .skipped(.gapAboveCap))
+        // Justo en el tope: 80 spm × 20 min.
+        #expect(Self.gapOutcome(session, measuredAtGapStart: 800, gapStart: gapStart, gapS: 1200) == .estimated(1600))
+        // Un segundo por encima ya no estima.
+        #expect(Self.gapOutcome(session, measuredAtGapStart: 800, gapStart: gapStart, gapS: 1201) == .skipped(.gapAboveCap))
     }
 
     @Test("Nativo · GapEstimator: un gap negativo (reloj hacia atrás) es 0")
@@ -198,7 +263,7 @@ struct GapReconstructionScenarios {
         try session.addMeasuredSteps(800)
         let gapStart = Self.now.addingTimeInterval(600)
 
-        #expect(GapEstimator.steps(for: session, gapStart: gapStart, gapEnd: gapStart.addingTimeInterval(-30)) == 0)
+        #expect(Self.gapOutcome(session, measuredAtGapStart: 800, gapStart: gapStart, gapS: -30) == .skipped(.noCadence))
     }
 
     @Test("Nativo · estimateSteps: una entrada infinita > 0 lanza con su campo; ≤ 0 da 0")

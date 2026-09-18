@@ -128,6 +128,7 @@ struct SessionStoreScenePhaseTests: SessionStoreSuite {
         let backgroundedAt = Self.t0.addingTimeInterval(600)
         #expect(fixture.session?.status == .active, "nunca pausa")
         #expect(fixture.store.backgroundedAt == backgroundedAt)
+        #expect(fixture.store.stepsMeasuredAtGapStart == 300, "los pasos medidos al abrir el gap (R1)")
         #expect(fixture.store.lastSampleAtCap == backgroundedAt)
         #expect(fixture.storage.saved.count == saves + 1)
         let saved = try #require(fixture.storage.snapshot)
@@ -136,6 +137,7 @@ struct SessionStoreScenePhaseTests: SessionStoreSuite {
         #expect(fixture.measurementLines("session").last?.contains(" transition=background ") == true)
 
         #expect(twin.store.backgroundedAt == fixture.store.backgroundedAt)
+        #expect(twin.store.stepsMeasuredAtGapStart == fixture.store.stepsMeasuredAtGapStart)
         #expect(twin.store.lastSampleAtCap == fixture.store.lastSampleAtCap)
         #expect(twin.storage.saved == fixture.storage.saved)
         #expect(twin.measurements.lines == fixture.measurements.lines)

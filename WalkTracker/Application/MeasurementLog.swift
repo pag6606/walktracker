@@ -35,16 +35,45 @@ enum MeasurementLog {
         case noResult = "nil"
         /// Ganó el temporizador de `reconciliationTimeoutS`.
         case timeout
-        /// El sistema dio un acumulado menor que lo ya visto: se trata como sin dato (R1).
+        /// El sistema dio un acumulado menor que lo ya visto (R1). Desde la corrección del
+        /// 2026-09-17 **también se aplica**: es dato, y `record` no resta. El desenlace se
+        /// mantiene aparte de `data` para seguir midiendo cuánto va la consulta por detrás.
         case belowSeen
         /// La consulta lanzó un error.
         case error
     }
 
-    /// Por qué una estimación no llegó a sumar pasos aunque la consulta degradó.
+    /// Por qué una estimación no llegó a sumar pasos aunque la consulta degradó. Los mismos
+    /// casos y los mismos `rawValue` que `GapEstimator.Skip`, que es quien los decide: leer el
+    /// registro debe decir qué defensa actuó, no solo que el resultado fue 0.
     enum EstimateSkip: String, Sendable, CaseIterable {
-        /// El stream avanzó durante la consulta: su acumulado ya cubre el gap (evidencia de R2).
+        /// La sesión dejó de estar `active` durante la reconciliación (pausa o fin): no se
+        /// estima sobre una sesión que ya no corre.
+        case notActive
+        /// Los pasos medidos crecieron desde el inicio del gap: el stream ya trajo sus pasos
+        /// (evidencia de R2), y estimarlos los contaría dos veces.
         case streamAdvanced
+        /// Había menos de `GapEstimator.minPriorSampleS` de sesión al abrir el gap: la cadencia
+        /// medida todavía no es representativa.
+        case noPriorSample
+        /// El gap supera `maxEstimableGapS` (R1): la cadencia de hace tanto ya no dice gran
+        /// cosa del rato sin datos, así que no se estima nada.
+        case gapAboveCap
+        /// La estimación no dio ni un paso: sin pasos medidos al abrir el gap (cadencia 0), con
+        /// un gap no positivo (el reloj fue hacia atrás) o con un valor no representable.
+        case noCadence
+
+        /// La razón que decidió el dominio, tal cual: los `rawValue` son los mismos y el
+        /// `switch` exhaustivo obliga a añadir aquí cualquier defensa nueva del estimador.
+        init(_ skip: GapEstimator.Skip) {
+            switch skip {
+            case .notActive: self = .notActive
+            case .streamAdvanced: self = .streamAdvanced
+            case .noPriorSample: self = .noPriorSample
+            case .gapAboveCap: self = .gapAboveCap
+            case .noCadence: self = .noCadence
+            }
+        }
     }
 
     /// Versión y build de la app que escribe el registro: comprueba que la caminata usó el

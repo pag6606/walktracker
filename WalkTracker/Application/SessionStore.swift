@@ -157,6 +157,8 @@ final class SessionStore {
     @ObservationIgnored let storage: any StoragePort
     /// Umbral de la sesión huérfana (AD-18), de `formulas.json`. Valor decidido, fijado en la 8.4.
     @ObservationIgnored let orphanSessionThresholdS: TimeInterval
+    /// Gap máximo estimable (R1), de `formulas.json`. Por encima no se estima nada.
+    @ObservationIgnored let maxEstimableGapS: TimeInterval
     /// Ubicación aproximada para el clima (2.1). El adapter posee el permiso (AD-11).
     @ObservationIgnored let location: any LocationPort
     /// Clima actual de Open-Meteo (2.1): la única llamada de red.
@@ -182,6 +184,12 @@ final class SessionStore {
     /// pendiente de reconciliar. Se fija en `appDidEnterBackground()` (y con `savedAt` al
     /// restaurar) y se limpia al terminar la reconciliación, al finalizar y en el reset.
     @ObservationIgnored var backgroundedAt: Date?
+    /// `session.stepsMeasured` en el instante en que se abrió el gap pendiente
+    /// (`backgroundedAt`). Es la base de las dos primeras defensas de la estimación (R1): si
+    /// los medidos crecieron desde entonces, el stream ya trajo los pasos del gap y no se
+    /// estima; y la cadencia del `GapEstimator` sale de estos pasos, no de los de ahora.
+    /// Se fija y se limpia siempre junto a `backgroundedAt`.
+    @ObservationIgnored var stepsMeasuredAtGapStart: Int?
     /// Mayor acumulado del podómetro visto en el tramo en curso, que suben la consulta y el
     /// stream (`record`). Los incrementos se miden contra él, no contra la última muestra:
     /// 350 → 340 → 360 suma 10, no 20. Vuelve a 0 (o al del snapshot) al abrir un tramo.
@@ -239,6 +247,7 @@ final class SessionStore {
         strideM: Double,
         reconciliationTimeoutS: TimeInterval,
         orphanSessionThresholdS: TimeInterval,
+        maxEstimableGapS: TimeInterval,
         location: any LocationPort,
         weather: any WeatherPort,
         weatherStepTimeoutS: TimeInterval = SessionStore.weatherStepTimeoutS,
@@ -250,6 +259,7 @@ final class SessionStore {
         self.strideM = strideM
         self.reconciliationTimeoutS = reconciliationTimeoutS
         self.orphanSessionThresholdS = orphanSessionThresholdS
+        self.maxEstimableGapS = maxEstimableGapS
         self.location = location
         self.weather = weather
         self.weatherStepTimeoutS = weatherStepTimeoutS
@@ -348,6 +358,7 @@ final class SessionStore {
         cancelWeatherCapture()
         isConfirmingDiscard = false
         backgroundedAt = nil
+        stepsMeasuredAtGapStart = nil
         self.session = session
         metrics = session.metrics(at: now)
         measureTransition(.finish, session, at: now)
@@ -418,6 +429,7 @@ final class SessionStore {
         stepCounting = nil
         segmentStart = nil
         backgroundedAt = nil
+        stepsMeasuredAtGapStart = nil
         highestCumulativeSteps = 0
         distanceBaseM = 0
         lastSampleAt = nil
@@ -473,6 +485,9 @@ final class SessionStore {
         if status == .active {
             let gapStart = backgroundedAt ?? clock.now
             backgroundedAt = gapStart
+            // Los pasos del inicio del gap se conservan con él: si ya había uno pendiente,
+            // siguen siendo los de entonces (R1).
+            stepsMeasuredAtGapStart = stepsMeasuredAtGapStart ?? session?.stepsMeasured
             // Ya aquí, no al volver: la muestra de puesta al día puede llegar antes que la
             // vuelta a primer plano.
             capLastSampleAt(at: gapStart)
@@ -492,6 +507,7 @@ final class SessionStore {
             await reconcile(until: clock.now)
         }
         backgroundedAt = nil
+        stepsMeasuredAtGapStart = nil
         if let session { measureTransition(.active, session, at: clock.now) }
         persist()
     }

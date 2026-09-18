@@ -15,6 +15,7 @@ struct FormulasTests {
             "defaultStrideM": "0.655",
             "reconciliationTimeoutS": "3",
             "orphanSessionThresholdS": "21600",
+            "maxEstimableGapS": "1200",
             "provisional": #"["reconciliationTimeoutS", "orphanSessionThresholdS"]"#,
         ]
         fields.merge(overrides) { $1 }
@@ -26,6 +27,7 @@ struct FormulasTests {
         defaultStrideM: Double = 0.655,
         reconciliationTimeoutS: Double = 3,
         orphanSessionThresholdS: Double = 21_600,
+        maxEstimableGapS: Double = 1200,
         provisional: [String] = ["reconciliationTimeoutS", "orphanSessionThresholdS"]
     ) -> Formulas {
         Formulas(
@@ -33,6 +35,7 @@ struct FormulasTests {
             defaultStrideM: defaultStrideM,
             reconciliationTimeoutS: reconciliationTimeoutS,
             orphanSessionThresholdS: orphanSessionThresholdS,
+            maxEstimableGapS: maxEstimableGapS,
             provisional: provisional
         )
     }
@@ -115,8 +118,29 @@ struct FormulasTests {
         }
     }
 
+    @Test("El fichero real trae el tope de gap estimable de R1: 20 min, decidido por Paul y no provisional")
+    func bundledMaxEstimableGapIsFixed() throws {
+        let formulas = try CompositionRoot.loadFormulas(from: .main)
+        #expect(formulas.maxEstimableGapS == 1200)
+        #expect(!formulas.provisional.contains("maxEstimableGapS"))
+    }
+
+    @Test("Tope de gap estimable ≤ 0: invalidValue(maxEstimableGapS)", arguments: ["0", "-1200"])
+    func nonPositiveMaxEstimableGapThrows(value: String) {
+        #expect(throws: FormulasError.invalidValue(field: "maxEstimableGapS")) {
+            try Formulas.decode(from: Self.json(["maxEstimableGapS": value]))
+        }
+    }
+
+    @Test("Tope de gap estimable no finito: invalidValue(maxEstimableGapS)", arguments: [Double.nan, .infinity])
+    func nonFiniteMaxEstimableGapThrows(value: Double) {
+        #expect(throws: FormulasError.invalidValue(field: "maxEstimableGapS")) {
+            try Self.formulas(maxEstimableGapS: value).validate()
+        }
+    }
+
     @Test("provisional con un nombre que no es una constante: invalidValue(provisional)", arguments: [
-        ["reconciliationTimeout"], ["reconciliationTimeoutS", "orphanSessionThreshold"], ["schemaVersion"],
+        ["reconciliationTimeout"], ["reconciliationTimeoutS", "orphanSessionThreshold"], ["schemaVersion"], ["maxEstimableGap"],
     ])
     func unknownProvisionalThrows(names: [String]) {
         #expect(throws: FormulasError.invalidValue(field: "provisional")) {
@@ -133,11 +157,12 @@ struct FormulasTests {
 
     @Test("Sin una constante o sin JSON: malformed, nunca un valor de reserva", arguments: [
         #"{ "schemaVersion": 1 }"#,
-        #"{ "schemaVersion": 1, "defaultStrideM": "0.655", "reconciliationTimeoutS": 3, "orphanSessionThresholdS": 21600, "provisional": [] }"#,
-        #"{ "schemaVersion": 1, "defaultStrideM": 0.655, "orphanSessionThresholdS": 21600, "provisional": [] }"#,
-        #"{ "schemaVersion": 1, "defaultStrideM": 0.655, "reconciliationTimeoutS": 3, "provisional": [] }"#,
-        #"{ "schemaVersion": 1, "defaultStrideM": 0.655, "reconciliationTimeoutS": 3, "orphanSessionThresholdS": 21600 }"#,
-        #"{ "schemaVersion": 1, "defaultStrideM": 0.655, "reconciliationTimeoutS": 3, "orphanSessionThresholdS": 21600, "provisional": "reconciliationTimeoutS" }"#,
+        #"{ "schemaVersion": 1, "defaultStrideM": "0.655", "reconciliationTimeoutS": 3, "orphanSessionThresholdS": 21600, "maxEstimableGapS": 1200, "provisional": [] }"#,
+        #"{ "schemaVersion": 1, "defaultStrideM": 0.655, "orphanSessionThresholdS": 21600, "maxEstimableGapS": 1200, "provisional": [] }"#,
+        #"{ "schemaVersion": 1, "defaultStrideM": 0.655, "reconciliationTimeoutS": 3, "maxEstimableGapS": 1200, "provisional": [] }"#,
+        #"{ "schemaVersion": 1, "defaultStrideM": 0.655, "reconciliationTimeoutS": 3, "orphanSessionThresholdS": 21600, "provisional": [] }"#,
+        #"{ "schemaVersion": 1, "defaultStrideM": 0.655, "reconciliationTimeoutS": 3, "orphanSessionThresholdS": 21600, "maxEstimableGapS": 1200 }"#,
+        #"{ "schemaVersion": 1, "defaultStrideM": 0.655, "reconciliationTimeoutS": 3, "orphanSessionThresholdS": 21600, "maxEstimableGapS": 1200, "provisional": "reconciliationTimeoutS" }"#,
         "no es json",
     ])
     func malformedThrows(json: String) {

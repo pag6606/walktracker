@@ -8,8 +8,10 @@
 # `MeasurementLogTests` afirma que `MeasurementLog` escribe exactamente esas líneas, así que
 # si el formato de la app y el del informe se separan, uno de los dos lados se pone rojo.
 # El resto se escriben aquí: degradada (nil, timeout y estimación), consulta menor que lo
-# visto (R1), muestra que sube tras degradar (R2, con tramo desplazado, salto pequeño y dos
-# degradadas seguidas), respuesta tardía tras timeout, criterio de `stepsEstimated`, huérfana,
+# visto (R1, con el registro corregido y el de un build anterior que sí estimó), muestra que
+# sube tras degradar (R2, con tramo desplazado, salto pequeño y dos degradadas seguidas),
+# estimación omitida por cada defensa del estimador y por una razón que el informe no conoce,
+# respuesta tardía tras timeout, criterio de `stepsEstimated`, huérfana,
 # stream terminado (R5), varias sesiones, y registros vacío, ajeno, json, `<private>`, de otra
 # versión o mal formados.
 #
@@ -154,7 +156,27 @@ expect "sin transiciones el criterio queda sin datos" 0 "stepsEstimated: — · 
 
 # ── R1: consulta menor que lo visto ──────────────────────────────────────────
 echo "Consulta menor que lo visto"
+# El registro del build corregido: la consulta se aplica como dato, no hay estimación, y la
+# muestra siguiente del mismo tramo sube por encima de lo visto sin que eso sea un aviso R2
+# (`belowSeen` está fuera de DEGRADED justo por esto).
 cat > "$WORK/below-seen.txt" <<EOF
+$P WTM1 event=session sid=$SID transition=start at=$SID status=active elapsedS=0 measured=0 estimated=0 systemDistance=nil distance=0.00 version=4.0.0 build=39
+$P WTM1 event=sample sid=$SID start=$SID end=1800000600000 steps=300 distance=200.00
+$P WTM1 event=session sid=$SID transition=background at=1800000600000 status=active elapsedS=600 measured=300 estimated=0 systemDistance=200.00 distance=200.00
+$P WTM1 event=query sid=$SID start=$SID end=1800000900000 result=120 distance=50.00 seen=300 ms=55 outcome=belowSeen
+$P WTM1 event=sample sid=$SID start=$SID end=1800000905000 steps=500 distance=330.00
+$P WTM1 event=session sid=$SID transition=active at=1800000900000 status=active elapsedS=900 measured=500 estimated=0 systemDistance=330.00 distance=330.00
+$P WTM1 event=session sid=$SID transition=finish at=1800000900000 status=finished elapsedS=900 measured=500 estimated=0 systemDistance=330.00 distance=330.00
+EOF
+run_report "$WORK/below-seen.txt"
+expect "belowSeen: aviso R1 con la diferencia, se aplica como dato y sin aviso R2" 0 \
+    "R1 · consulta menor que lo visto (línea 4): result=120 < seen=300 (−180 pasos); se aplica como dato y no se estima" \
+    "Desenlaces: data=0 nil=0 timeout=0 belowSeen=1 error=0" \
+    "!R2 ·" \
+    "!registro anterior a la corrección"
+
+# Registro de un build anterior a la corrección (≤ 86): tras el `belowSeen` sí estimó.
+cat > "$WORK/below-seen-antiguo.txt" <<EOF
 $P WTM1 event=session sid=$SID transition=start at=$SID status=active elapsedS=0 measured=0 estimated=0 systemDistance=nil distance=0.00 version=4.0.0 build=39
 $P WTM1 event=sample sid=$SID start=$SID end=1800000600000 steps=300 distance=200.00
 $P WTM1 event=session sid=$SID transition=background at=1800000600000 status=active elapsedS=600 measured=300 estimated=0 systemDistance=200.00 distance=200.00
@@ -163,11 +185,18 @@ $P WTM1 event=estimate sid=$SID gapStart=1800000600000 gapEnd=1800000900000 step
 $P WTM1 event=session sid=$SID transition=active at=1800000900000 status=active elapsedS=900 measured=300 estimated=150 systemDistance=200.00 distance=298.25
 $P WTM1 event=session sid=$SID transition=finish at=1800000900000 status=finished elapsedS=900 measured=300 estimated=150 systemDistance=200.00 distance=298.25
 EOF
-run_report "$WORK/below-seen.txt"
-expect "belowSeen: aviso R1 con la diferencia" 0 \
-    "R1 · consulta menor que lo visto (línea 4): result=120 < seen=300 (−180 pasos)" \
-    "Desenlaces: data=0 nil=0 timeout=0 belowSeen=1 error=0" \
-    "estimación (línea 5): 150 pasos"
+run_report "$WORK/below-seen-antiguo.txt"
+expect "belowSeen que estimó: el aviso R1 dice que el registro es anterior a la corrección" 0 \
+    "R1 · consulta menor que lo visto (línea 4): result=120 < seen=300 (−180 pasos); degradó al estimador y estimó pasos: registro anterior a la corrección" \
+    "estimación (línea 5): 150 pasos" \
+    "!se aplica como dato y no se estima"
+
+# Una estimación de 0 pasos tras el `belowSeen` no es el registro antiguo: no degradó.
+sed "s/steps=150 skipped=nil/steps=0 skipped=nil/" "$WORK/below-seen-antiguo.txt" > "$WORK/below-seen-cero.txt"
+run_report "$WORK/below-seen-cero.txt"
+expect "belowSeen con una estimación de 0 pasos sigue siendo el registro corregido" 0 \
+    "se aplica como dato y no se estima" \
+    "!registro anterior a la corrección"
 
 # ── R2: el stream sube tras una consulta degradada ───────────────────────────
 echo "Doble cuenta tras degradar (R2)"
@@ -226,7 +255,28 @@ EOF
 run_report "$WORK/omitida.txt"
 expect "estimación omitida por streamAdvanced se muestra y no cuenta como estimación" 0 \
     "Estimaciones: 0 (0 pasos) · omitidas: 1" \
-    "estimación omitida (línea 4): streamAdvanced"
+    "estimación omitida (línea 4): streamAdvanced; los pasos medidos crecieron desde el inicio del gap"
+
+# Cada defensa del estimador imprime su propia explicación: un 0 en el registro tiene que
+# decir qué lo cortó, no solo que salió 0.
+skip_case() {
+    sed "s/skipped=streamAdvanced/skipped=$1/" "$WORK/omitida.txt" > "$WORK/omitida-$1.txt"
+    run_report "$WORK/omitida-$1.txt"
+    expect "estimación omitida por $1 imprime su explicación" 0 \
+        "estimación omitida (línea 4): $1; $2" \
+        "!los pasos medidos crecieron desde el inicio del gap"
+}
+skip_case gapAboveCap "el gap supera el tope estimable"
+skip_case noPriorSample "menos de 120 s de sesión al abrir el gap: la cadencia aún no es representativa"
+skip_case notActive "la sesión dejó de estar activa durante la reconciliación"
+skip_case noCadence "no salió cadencia con la que estimar (sin pasos medidos o gap no positivo)"
+
+# Una razón que este informe no conozca se imprime tal cual, sin frase inventada.
+sed "s/skipped=streamAdvanced/skipped=razonFutura/" "$WORK/omitida.txt" > "$WORK/omitida-desconocida.txt"
+run_report "$WORK/omitida-desconocida.txt"
+expect "una razón desconocida se imprime tal cual y sin frase" 0 \
+    "estimación omitida (línea 4): razonFutura" \
+    "!razonFutura;"
 
 # ── Huérfana y stream terminado ──────────────────────────────────────────────
 echo "Huérfana y stream terminado"

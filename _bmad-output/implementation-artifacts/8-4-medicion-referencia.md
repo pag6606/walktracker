@@ -189,3 +189,51 @@ Línea a línea (`log show … category == "Medicion"`, sesión `1789477060734`)
 - **Constantes:** `reconciliationTimeoutS` = 1 s, con la regla de Paul aplicada a las 2 consultas medidas (máx. 2 ms), aunque la muestra es pequeña. `orphanSessionThresholdS` = 21600, valor decidido. `provisional` queda vacío.
 - **Siguiente paso:** 8.4 `done` y Epic 8 `done`; los epics 2–7 quedan desbloqueados.
 - **Pendiente:** la duración de 30 min que fija el SPEC (Constraints · Batería) no se ha medido. Si se quiere dejar constancia del cambio de criterio en el contrato del proyecto, corresponde un `bmad-correct-course`.
+
+## Caminata del 2026-09-17 · R1 confirmado (build 86)
+
+> No es una repetición del gate: es la caminata que zanja **R1** y **Q-5**, la duda que la caminata del
+> 2026-09-15 dejó abierta con solo 2 consultas. Los datos salen del registro `WTM1`, sesión
+> `1789649385424`.
+
+### Lo que apareció
+
+Las **4** consultas de reconciliación de la sesión dieron `outcome=belowSeen`: el sistema devolvió
+siempre **6 pasos menos** que el acumulado que su propio stream ya había entregado.
+
+| Hora | Duración (`ms`) | Ya visto (`seen`) | Resultado | Pasos de menos (`seen − result`) | Desenlace | Estimación que provocó |
+|---|---|---|---|---|---|---|
+| 07:50 | 2 | 59 | 53 | 6 | `belowSeen` | 0 (gap de 0,5 min) |
+| 08:00 | 6 | 1147 | 1141 | 6 | `belowSeen` | 0 (sin muestra previa de 120 s) |
+| 08:09 | 2 | 2149 | 2143 | 6 | `belowSeen` | **1796** (gap de 8,8 min) |
+| 08:12 | 5 | 2581 | 2575 | 6 | `belowSeen` | **433** (gap de 3,3 min) |
+
+Con la regla de la 1.5 ("un resultado menor que lo visto es incoherente y cuenta como sin dato"), las dos
+últimas consultas degradaron al `GapEstimator` y sumaron **2.229 pasos estimados** que nadie dio. Paul los
+**descartó a mano** en la app, con el banner de estimados.
+
+Además, la cadencia con que se estimaron iba al **doble** de la real: se calculaba con los pasos de *ahora*
+sobre el tiempo de sesión hasta el *inicio* del gap (2149 pasos / 631 s ≈ 204 spm, cuando al empezar el gap
+eran 1156 pasos / 631 s ≈ 110 spm), y los pasos del gap ya venían contados por el stream.
+
+### Qué responde
+
+| Duda | Qué dice el registro | Conclusión |
+|---|---|---|
+| **R1** · ¿la consulta puede dar menos que lo ya visto? | 4 de 4 consultas con `result = seen − 6`; `belowSeen=4` | **sí, y es sistemático en el iPhone 14.** El maybe-false de la retro queda confirmado como real |
+| **Q-5** · ¿cualquier respuesta no nil cuenta como dato? | las 4 respuestas eran coherentes salvo por el retraso de consolidación del sistema | **sí.** Decisión de Paul (2026-09-17), implementada en `spec-r1-reconstruccion-background.md` |
+| **C5** · `stepsEstimated = 0` | 2.229 pasos estimados en una caminata normal, descartados a mano | **el criterio falla en condiciones reales con la regla vieja.** El gate del 2026-09-15 lo dio por `sin datos` con 2 consultas; con 4 consultas y gaps de verdad, no se cumple |
+
+### Qué cambia
+
+La corrección de `spec-r1-reconstruccion-background.md`: **la respuesta del sistema manda**. Cualquier
+muestra no nula se aplica por `record(_:fromQuery:)` —que nunca resta, así que un acumulado menor no baja
+nada— y no se estima. La estimación queda solo para cuando no hay respuesta (`nil`, error, timeout o un
+tramo de más de 7 días), con tres defensas: no estimar si los pasos medidos crecieron desde el inicio del
+gap, cadencia tomada en el inicio del gap y tope de gap estimable (`maxEstimableGapS`, 20 min).
+
+El desenlace `belowSeen` **se mantiene** en el registro: ya no significa "sin dato", sino "dato que va por
+detrás del stream", y sigue midiendo cuánto va por detrás.
+
+**Pendiente:** repetir el criterio C5 en el iPhone 14 con el build nuevo, en una caminata de 20 min o más
+con varios ratos con la pantalla bloqueada.

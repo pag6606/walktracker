@@ -31,24 +31,32 @@ public struct Formulas: Equatable, Sendable, Codable {
     /// > 0 y finito. 6 h: valor decidido por Paul (1.6), no medible en una caminata; la 8.4 lo
     /// deja fijado sin medición.
     public let orphanSessionThresholdS: Double
+    /// Gap máximo estimable en segundos (R1): por encima, el `GapEstimator` no estima nada,
+    /// porque la cadencia de hace tanto ya no dice gran cosa. > 0 y finito. 20 min: valor
+    /// decidido por Paul (2026-09-17), no provisional.
+    public let maxEstimableGapS: Double
     /// Nombres de las constantes cuyo valor aún es provisional (epic-1-context, Constantes
     /// provisionales). Cada nombre debe ser una constante de este fichero.
     public let provisional: [String]
 
     /// Las constantes que `provisional` puede nombrar.
-    public static let constantNames: Set<String> = ["defaultStrideM", "reconciliationTimeoutS", "orphanSessionThresholdS"]
+    public static let constantNames: Set<String> = [
+        "defaultStrideM", "reconciliationTimeoutS", "orphanSessionThresholdS", "maxEstimableGapS",
+    ]
 
     public init(
         schemaVersion: Int,
         defaultStrideM: Double,
         reconciliationTimeoutS: Double,
         orphanSessionThresholdS: Double,
+        maxEstimableGapS: Double,
         provisional: [String]
     ) {
         self.schemaVersion = schemaVersion
         self.defaultStrideM = defaultStrideM
         self.reconciliationTimeoutS = reconciliationTimeoutS
         self.orphanSessionThresholdS = orphanSessionThresholdS
+        self.maxEstimableGapS = maxEstimableGapS
         self.provisional = provisional
     }
 
@@ -79,6 +87,9 @@ public struct Formulas: Equatable, Sendable, Codable {
         }
         guard orphanSessionThresholdS.isFinite, orphanSessionThresholdS > 0 else {
             throw .invalidValue(field: "orphanSessionThresholdS")
+        }
+        guard maxEstimableGapS.isFinite, maxEstimableGapS > 0 else {
+            throw .invalidValue(field: "maxEstimableGapS")
         }
         guard provisional.allSatisfy(Self.constantNames.contains) else {
             throw .invalidValue(field: "provisional")

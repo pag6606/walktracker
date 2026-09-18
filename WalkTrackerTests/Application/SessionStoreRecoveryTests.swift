@@ -119,6 +119,28 @@ struct SessionStoreRecoveryTests {
         #expect(fixture.storage.snapshot?.stepsEstimated == 400, "lo estimado queda guardado")
     }
 
+    @Test("Relanzar sin dato: la base del gap son los pasos del snapshot, así que el stream que llega al restaurar corta la estimación (R1)")
+    func relaunchUsesSnapshotStepsAsGapBase() async throws {
+        // Mismo montaje que `relaunchWithoutData` (1120 pasos guardados hace 300 s, 80 spm),
+        // pero el tramo reabierto entrega su puesta al día antes de que la consulta resuelva:
+        // esos pasos son los del gap, y estimarlos los contaría dos veces.
+        let fixture = Fixture(snapshot: Self.snapshot(stepsMeasured: 1120, savedAgoS: 300))
+        fixture.motion.setQueryResponse(.hang)
+        let store = fixture.store
+        let restoration = Task { await store.restoreOnLaunch() }
+        await waitUntil { store.isReconciling && fixture.motion.hasPendingQuery }
+
+        fixture.motion.emit(steps: 1500)
+        await waitUntil { fixture.session?.stepsMeasured == 1500 }
+        fixture.motion.resolvePendingQueries(with: .none)
+        await restoration.value
+
+        let session = try #require(fixture.session)
+        #expect(session.stepsMeasured == 1500)
+        #expect(session.stepsEstimated == 0, "los 400 de la cadencia serían los pasos que el stream ya trajo")
+        #expect(fixture.measurementLines("estimate").first?.contains("skipped=streamAdvanced") == true)
+    }
+
     @Test("Restaurar v3: {2450, 320, 60000 ms, activa, 0,655} → pasos, zancada y estado; distancia (2450 + 320) × 0,655")
     func restoreV3Snapshot() async throws {
         let fixture = Fixture(snapshot: Self.snapshot(stepsMeasured: 2450, stepsEstimated: 320))
@@ -849,6 +871,7 @@ struct SessionStoreRecoveryTests {
         store.isConfirmingFinish = true
         store.isConfirmingDiscard = true
         store.backgroundedAt = Self.now
+        store.stepsMeasuredAtGapStart = 1120
         store.highestCumulativeSteps = 1120
         store.distanceBaseM = 100
         store.lastSampleAt = Self.at(-400)
@@ -865,6 +888,7 @@ struct SessionStoreRecoveryTests {
         #expect(store.stepCounting != nil)
         #expect(store.segmentStart != nil)
         #expect(store.backgroundedAt != nil)
+        #expect(store.stepsMeasuredAtGapStart != nil)
         #expect(store.highestCumulativeSteps != 0)
         #expect(store.distanceBaseM != 0)
         #expect(store.lastSampleAt != nil)
@@ -885,6 +909,7 @@ struct SessionStoreRecoveryTests {
         #expect(store.stepCounting == nil)
         #expect(store.segmentStart == nil)
         #expect(store.backgroundedAt == nil)
+        #expect(store.stepsMeasuredAtGapStart == nil)
         #expect(store.highestCumulativeSteps == 0)
         #expect(store.distanceBaseM == 0)
         #expect(store.lastSampleAt == nil)
