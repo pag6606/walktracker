@@ -1,6 +1,6 @@
 /* Service Worker — WalkTracker PWA v3.1
    Network-first para código (siempre busca updates), cache-first para assets estáticos. */
-const CACHE = 'walktracker-v3.2';
+const CACHE = 'walktracker-v3.3';
 const SHELL = [
   './',
   './index.html',
@@ -10,7 +10,7 @@ const SHELL = [
   './climate.js',
   './motivation.js',
   './runtime.js',
-  './quotes.json',
+  './WalkTracker/Resources/quotes.json',
   './manifest.webmanifest',
   './icons/icon-192.png',
   './icons/icon-512.png',

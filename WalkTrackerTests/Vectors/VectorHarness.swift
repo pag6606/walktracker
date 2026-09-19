@@ -185,12 +185,15 @@ struct VectorHarness: Sendable {
     /// - `elapsedS` (1.1; la pausa abierta, 1.4): `Chronometer.elapsedS`.
     /// - `v3distance`, `pace` y `calculateCadence` (1.3): `MetricsCalculator`.
     /// - `estimateSteps` (1.5): `GapEstimator.estimateSteps`.
+    /// - `selectQuote` y `updateRecentIds` (2.2): `MotivationEngine`.
     static let swiftDomain = VectorHarness(implementations: [
         "elapsedS": SwiftDomainPorts.elapsedS,
         "v3distance": SwiftDomainPorts.v3distance,
         "pace": SwiftDomainPorts.pace,
         "calculateCadence": SwiftDomainPorts.calculateCadence,
         "estimateSteps": SwiftDomainPorts.estimateSteps,
+        "selectQuote": SwiftDomainPorts.selectQuote,
+        "updateRecentIds": SwiftDomainPorts.updateRecentIds,
     ])
 
     let implementations: [String: VectorImplementation]
@@ -316,6 +319,73 @@ enum SwiftDomainPorts {
             throw VectorInputError(description: "estimateSteps: faltan cadenceSpm o gapS")
         }
         return .number(Double(try GapEstimator.estimateSteps(cadenceSpm: cadenceSpm, gapS: gapS)))
+    }
+
+    /// `MotivationEngine.selectQuote`. El azar sale de un `RandomPort` fijo en el índice 0:
+    /// las conductas aleatorias están **excluidas** de los vectores (`inventory.json`,
+    /// `math-random`), así que el único vector que llega aquí —banco vacío → `nil`— no depende
+    /// de qué índice devuelva. La salida es la frase como `{ id, text }`, que es lo que
+    /// devuelve `motivation.js`; `ignoredRecentWindow` es señal Swift y no viaja al vector.
+    static let selectQuote: VectorImplementation = { vector in
+        let input = vector.input
+        guard case .array(let rawQuotes)? = input["quotes"] else {
+            throw VectorInputError(description: "selectQuote: falta quotes o no es un array")
+        }
+        let quotes = try rawQuotes.map { raw throws(VectorInputError) -> Quote in
+            guard let id = raw["id"]?.double, let identifier = Int(exactly: id), let text = raw["text"]?.string else {
+                throw VectorInputError(description: "selectQuote: una frase sin id entero o sin text")
+            }
+            return Quote(id: identifier, text: text)
+        }
+        // El banco del vector valida como cualquier otro: un vector con ids repetidos sería un
+        // vector mal escrito, y se ve aquí en vez de dar una selección tramposa.
+        let bank: QuoteBank
+        do {
+            bank = try QuoteBank(quotes: quotes)
+        } catch {
+            throw VectorInputError(description: "selectQuote: el banco del vector no valida (\(error))")
+        }
+        let selection = MotivationEngine.selectQuote(
+            from: bank,
+            recentQuoteIds: try identifiers(input, "recentIds", in: "selectQuote"),
+            random: FirstIndexRandom()
+        )
+        guard let selection else { return .null }
+        return .object(["id": .number(Double(selection.quote.id)), "text": .string(selection.quote.text)])
+    }
+
+    /// `MotivationEngine.updateRecentIds`.
+    static let updateRecentIds: VectorImplementation = { vector in
+        let input = vector.input
+        let updated = MotivationEngine.updateRecentIds(
+            try identifiers(input, "recentIds", in: "updateRecentIds"),
+            selectedId: try integer(input, "selectedId", in: "updateRecentIds")
+        )
+        return .array(updated.map { .number(Double($0)) })
+    }
+
+    /// `RandomPort` fijo en la primera posición: determinista, para que el vector no dependa
+    /// del azar. Las conductas que sí dependen de él se prueban aparte, con `RandomStub`.
+    private struct FirstIndexRandom: RandomPort {
+        func index(below count: Int) -> Int? { count > 0 ? 0 : nil }
+    }
+
+    /// Una lista de ids enteros de la entrada. Ausente o `null` es la lista vacía, como el
+    /// `recentQuoteIds = []` por omisión de `motivation.js`.
+    private static func identifiers(_ input: JSONValue, _ key: String, in function: String) throws -> [Int] {
+        switch input[key] {
+        case nil, .null?:
+            return []
+        case .array(let items)?:
+            return try items.map { item throws(VectorInputError) -> Int in
+                guard let value = item.double, let identifier = Int(exactly: value) else {
+                    throw VectorInputError(description: "\(function): \(key) tiene un valor que no es un entero")
+                }
+                return identifier
+            }
+        default:
+            throw VectorInputError(description: "\(function): \(key) no es un array")
+        }
     }
 
     private static func integer(_ input: JSONValue, _ key: String, in function: String) throws -> Int {

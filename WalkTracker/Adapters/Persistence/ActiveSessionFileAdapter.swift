@@ -1,8 +1,9 @@
 import Domain
 import Foundation
+import OSLog
 
-/// `StoragePort` sobre `activeSession.json` en Application Support (CAP-1, CAP-9) — AD-9,
-/// AD-10, AD-16.
+/// El snapshot de la sesión viva en `activeSession.json`, en Application Support (CAP-1,
+/// CAP-9) — AD-9, AD-10, AD-16.
 ///
 /// **Formato.** JSON `Codable` con `schemaVersion`. Los instantes y las pausas van en
 /// **milisegundos** enteros (domain-model.md §8: `startedAtMs`, `totalPausesMs`,
@@ -13,121 +14,73 @@ import Foundation
 /// `restoreV3Session`): versión, campos obligatorios y tipos. Los rangos (zancada ≤ 0,
 /// pasos < 0, pausada sin `pausedAt`) son del dominio, en `Session.restore`.
 ///
-/// **Escritura atómica.** Se escribe un temporal en el mismo directorio y se renombra sobre
-/// el destino con `rename(2)`, que lo sustituye de una vez: un corte a mitad deja el
-/// snapshot anterior entero, nunca uno a medias.
+/// **Esquemas.** Escribe la versión 3, que añade `quoteId` (2.2), y sigue leyendo la 1 y la
+/// 2: un snapshot de la 1 se lee sin clima y uno de la 2 sin frase, sin apartar ninguno.
 ///
-/// **Esquemas.** Escribe la versión 2, que añade `weather` (2.1), y sigue leyendo la 1: un
-/// snapshot de la 1 se lee sin clima, sin apartarlo.
-///
-/// **Ilegible.** Nunca se borra: se renombra a `activeSession.corrupt.<marca>.json`, con una
-/// marca única, y la lectura lanza. Un apartado nunca sustituye a otro anterior.
-struct ActiveSessionFileAdapter: StoragePort {
+/// **Disco.** La escritura atómica y el apartado del ilegible son de `JSONFileStore`, que
+/// comparte con `SettingsFileAdapter`. Quien lo entrega por el puerto es `FileStorageAdapter`:
+/// este tipo no conforma `StoragePort` porque solo cubre uno de sus dos ficheros.
+struct ActiveSessionFileAdapter {
 
     /// La versión que se escribe.
-    static let supportedSchemaVersion = 2
-    /// Las versiones que se leen: la 1 no tenía `weather`.
-    static let readableSchemaVersions: ClosedRange<Int> = 1...2
-    static let fileName = "activeSession.json"
+    static let supportedSchemaVersion = 3
+    /// Las versiones que se leen: la 1 no tenía `weather` y la 2 no tenía `quoteId`.
+    static let readableSchemaVersions: ClosedRange<Int> = 1...3
+    /// El nombre base, del que `JSONFileStore` deriva **todos** los nombres: cambiarlo aquí
+    /// cambia a la vez lo que el adapter escribe y lo que los estáticos anuncian.
+    private static let base = "activeSession"
+    static var fileName: String { JSONFileStore.fileName(base: base) }
     /// Prefijo y extensión de un snapshot apartado: `activeSession.corrupt.<marca>.json`.
-    static let setAsideFilePrefix = "activeSession.corrupt."
-    static let setAsideFileExtension = ".json"
+    static var setAsideFilePrefix: String { JSONFileStore.setAsideFilePrefix(base: base) }
+    static var setAsideFileExtension: String { JSONFileStore.setAsideFileExtension }
 
-    /// Directorio del snapshot: Application Support en la app, uno temporal en los tests.
-    let directory: URL
+    private static let log = Logger(subsystem: "com.walktracker.app", category: "ActiveSessionFileAdapter")
+
+    private let file: JSONFileStore
 
     init(directory: URL = .applicationSupportDirectory) {
-        self.directory = directory
+        file = JSONFileStore(directory: directory, base: Self.base)
     }
 
-    var fileURL: URL { directory.appending(path: Self.fileName, directoryHint: .notDirectory) }
+    /// Directorio del snapshot: Application Support en la app, uno temporal en los tests.
+    var directory: URL { file.directory }
+    var fileURL: URL { file.fileURL }
 
-    /// Un nombre de apartado nuevo. La marca es el instante en ms, con 13 cifras para que el
-    /// orden alfabético sea el cronológico, y un sufijo aleatorio que la hace única dentro del
-    /// mismo milisegundo: `activeSession.corrupt.1800000000000-1a2b3c4d.json`.
-    private func newSetAsideURL() -> URL {
-        let ms = Int64((Date().timeIntervalSince1970 * 1000).rounded(.down))
-        let suffix = UUID().uuidString.prefix(8).lowercased()
-        let marker = String(repeating: "0", count: max(0, 13 - String(ms).count)) + "\(ms)-\(suffix)"
-        let name = "\(Self.setAsideFilePrefix)\(marker)\(Self.setAsideFileExtension)"
-        return directory.appending(path: name, directoryHint: .notDirectory)
-    }
-
-    // MARK: - StoragePort
+    // MARK: - Snapshot de la sesión viva
 
     func loadActiveSession() throws(StorageError) -> ActiveSessionSnapshot? {
-        let data: Data
-        do {
-            data = try Data(contentsOf: fileURL)
-        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
-            return nil
-        } catch {
-            throw .failed(operation: "read")
-        }
+        guard let data = try file.read() else { return nil }
         do {
             return try Self.decode(data)
         } catch {
-            try setAside()
+            // El apartado es lo secundario: si falla, lo que hay que contar sigue siendo por
+            // qué no se pudo leer. Se registra el fallo y se propaga el error original.
+            do {
+                try file.setAside()
+            } catch {
+                Self.log.error("No se pudo apartar un snapshot ilegible: \(String(describing: error), privacy: .public)")
+            }
             throw error
         }
     }
 
     func saveActiveSession(_ snapshot: ActiveSessionSnapshot) throws(StorageError) {
-        let data = try Self.encode(snapshot)
-        let fileManager = FileManager.default
-        do {
-            try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
-        } catch {
-            throw .failed(operation: "createDirectory")
-        }
-        let temporary = directory.appending(path: ".\(Self.fileName).\(UUID().uuidString).tmp", directoryHint: .notDirectory)
-        do {
-            try data.write(to: temporary, options: .withoutOverwriting)
-        } catch {
-            try? fileManager.removeItem(at: temporary)
-            throw .failed(operation: "write")
-        }
-        guard rename(temporary.path(percentEncoded: false), fileURL.path(percentEncoded: false)) == 0 else {
-            try? fileManager.removeItem(at: temporary)
-            throw .failed(operation: "rename")
-        }
+        try file.write(try Self.encode(snapshot))
     }
 
     func clearActiveSession() throws(StorageError) {
-        do {
-            try FileManager.default.removeItem(at: fileURL)
-        } catch let error as CocoaError where error.code == .fileNoSuchFile {
-            return
-        } catch {
-            throw .failed(operation: "remove")
-        }
+        try file.remove()
     }
 
     func setAsideActiveSession() throws(StorageError) {
-        try setAside()
-    }
-
-    /// Renombra el snapshot a `activeSession.corrupt.<marca>.json`. Sin snapshot no hace nada.
-    ///
-    /// `RENAME_EXCL` falla si el destino ya existe en vez de sustituirlo: aunque la marca
-    /// repitiera, un apartado anterior nunca se destruye.
-    private func setAside() throws(StorageError) {
-        guard FileManager.default.fileExists(atPath: fileURL.path(percentEncoded: false)) else { return }
-        let destination = newSetAsideURL()
-        guard renamex_np(
-            fileURL.path(percentEncoded: false),
-            destination.path(percentEncoded: false),
-            UInt32(RENAME_EXCL)
-        ) == 0 else {
-            throw .failed(operation: "setAside")
-        }
+        try file.setAside()
     }
 
     // MARK: - Formato (puro)
 
-    /// El JSON de `schemaVersion` 1 y 2. Los opcionales que la v3 daba por 0 (`stepsMeasured`,
-    /// `stepsEstimated`, `totalPausesMs`, `paused`) se aceptan ausentes. `weather` es de la 2:
-    /// ausente o `null`, sin clima.
+    /// El JSON de `schemaVersion` 1, 2 y 3. Los opcionales que la v3 daba por 0
+    /// (`stepsMeasured`, `stepsEstimated`, `totalPausesMs`, `paused`) se aceptan ausentes.
+    /// `weather` es de la 2 y `quoteId` de la 3: ausentes o `null`, sin clima y sin frase.
     private struct File: Codable {
         var schemaVersion: Int
         var startedAtMs: Int64
@@ -144,6 +97,7 @@ struct ActiveSessionFileAdapter: StoragePort {
         var segmentSteps: Int
         var distanceBaseM: Double
         var weather: WeatherFile?
+        var quoteId: Int?
     }
 
     /// El clima en el fichero. `condition` no se guarda: sale de `wmoCode` en el dominio.
@@ -168,7 +122,7 @@ struct ActiveSessionFileAdapter: StoragePort {
     /// forma bien y los rangos mal (solo un fichero manipulado) se lee como sin clima. Nunca
     /// aparta la caminata: la falta de clima no bloquea nada (AD-11).
     ///
-    /// - Throws: `unsupportedSchemaVersion` con una versión fuera de 1–2; `malformed` si no es
+    /// - Throws: `unsupportedSchemaVersion` con una versión fuera de 1–3; `malformed` si no es
     ///   JSON, falta un campo obligatorio o un campo tiene otro tipo.
     static func decode(_ data: Data) throws(StorageError) -> ActiveSessionSnapshot {
         let decoder = JSONDecoder()
@@ -200,7 +154,8 @@ struct ActiveSessionFileAdapter: StoragePort {
             segmentStart: date(ms: file.segmentStartMs),
             segmentSteps: file.segmentSteps,
             distanceBaseM: file.distanceBaseM,
-            weather: version >= 2 ? file.weather.flatMap(weather(from:)) : nil
+            weather: version >= 2 ? file.weather.flatMap(weather(from:)) : nil,
+            quoteId: version >= 3 ? file.quoteId : nil
         )
     }
 
@@ -246,7 +201,8 @@ struct ActiveSessionFileAdapter: StoragePort {
                     windKmh: weather.windKmh,
                     capturedAtMs: try ms(weather.capturedAt.timeIntervalSince1970)
                 )
-            }
+            },
+            quoteId: snapshot.quoteId
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]

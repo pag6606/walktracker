@@ -190,6 +190,54 @@ struct VectorHarnessTests {
         try Self.expectPorted("estimateSteps")
     }
 
+    @Test("selectQuote está portado: sus vectores reales pasan y no quedan pendientes")
+    func selectQuoteIsPorted() throws {
+        try Self.expectPorted("selectQuote")
+    }
+
+    @Test("updateRecentIds está portado: sus vectores reales pasan y no quedan pendientes")
+    func updateRecentIdsIsPorted() throws {
+        try Self.expectPorted("updateRecentIds")
+    }
+
+    @Test("updateRecentIds: el tope de 20 se recorta por el final, no por el principio")
+    func updateRecentIdsKeepsTheNewest() throws {
+        // Sin el `suffix(20)` de la v3 —quedándose con los 20 primeros— la ventana dejaría de
+        // moverse y la exclusión se quedaría anclada en las frases más viejas.
+        let dropsTheOldest = try Self.vector("""
+            { "id": "t", "sources": [],
+              "input": { "recentIds": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20], "selectedId": 21 },
+              "expected": [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21] }
+            """)
+        #expect(VectorHarness.swiftDomain.verdict(for: dropsTheOldest, of: "updateRecentIds") == .passed)
+
+        let keepingTheOldest = try Self.vector("""
+            { "id": "t", "sources": [],
+              "input": { "recentIds": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20], "selectedId": 21 },
+              "expected": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20] }
+            """)
+        #expect(VectorHarness.swiftDomain.verdict(for: keepingTheOldest, of: "updateRecentIds") != .passed)
+    }
+
+    @Test("selectQuote: el vector devuelve la frase entera, como motivation.js")
+    func selectQuoteReturnsTheQuote() throws {
+        let oneQuote = try Self.vector("""
+            { "id": "u", "sources": [],
+              "input": { "quotes": [{ "id": 7, "text": "Cada paso cuenta" }], "recentIds": [] },
+              "expected": { "id": 7, "text": "Cada paso cuenta" } }
+            """)
+        #expect(VectorHarness.swiftDomain.verdict(for: oneQuote, of: "selectQuote") == .passed)
+
+        // Y el filtro se aplica de verdad: con la única frase en la ventana, la regla heredada
+        // la devuelve igual, no `null`.
+        let allExcluded = try Self.vector("""
+            { "id": "v", "sources": [],
+              "input": { "quotes": [{ "id": 7, "text": "Cada paso cuenta" }], "recentIds": [7] },
+              "expected": { "id": 7, "text": "Cada paso cuenta" } }
+            """)
+        #expect(VectorHarness.swiftDomain.verdict(for: allExcluded, of: "selectQuote") == .passed)
+    }
+
     @Test("pace: el tiempo en movimiento es durationS − pausesS, no durationS")
     func paceSubtractsPauses() throws {
         let paused = try Self.vector("""

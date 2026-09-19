@@ -20,9 +20,11 @@ struct CompositionRoot {
     let health: any HealthPort
     /// Live Activity de la sesión (CAP-18).
     let liveActivity: any LiveActivityPort
-    /// Snapshot de la sesión viva en Application Support (AD-9). Solo lo escribe
-    /// `SessionStore` (AD-16).
+    /// Ficheros JSON en Application Support (AD-9): el snapshot de la sesión viva, que solo
+    /// escribe `SessionStore`, y los ajustes, que solo escribe `SettingsStore` (AD-16).
     let storage: any StoragePort
+    /// Azar del sistema para elegir la frase del arranque (CAP-6, AD-10).
+    let random: any RandomPort
     /// Ubicación aproximada para el clima (CAP-5), redondeada en el adapter.
     let location: any LocationPort
     /// Clima actual de Open-Meteo (CAP-5): la única llamada de red.
@@ -31,6 +33,11 @@ struct CompositionRoot {
     let achievementCatalog: AchievementCatalog
     /// Constantes de fórmula de `formulas.json`, ya validadas.
     let formulas: Formulas
+    /// Banco de las 100 frases, ya validado (CAP-6). **Vacío si el fichero falta o no
+    /// valida**: aquí se degrada, no se termina.
+    let quotes: QuoteBank
+    /// Único dueño de `settings.json` (AD-16, 2.2).
+    let settingsStore: SettingsStore
     /// Único escritor de la sesión (AD-7). Las vistas solo llaman a sus intenciones.
     let sessionStore: SessionStore
 
@@ -40,11 +47,13 @@ struct CompositionRoot {
         feedback: any FeedbackPort = FeedbackAdapter(),
         health: any HealthPort = HealthAdapter(),
         liveActivity: any LiveActivityPort = LiveActivityAdapter(),
-        storage: any StoragePort = ActiveSessionFileAdapter(),
+        storage: any StoragePort = FileStorageAdapter(),
         location: (any LocationPort)? = nil,
         weather: any WeatherPort = OpenMeteoAdapter(),
+        random: any RandomPort = SystemRandom(),
         achievementCatalog: AchievementCatalog? = nil,
-        formulas: Formulas? = nil
+        formulas: Formulas? = nil,
+        quotes: QuoteBank? = nil
     ) {
         self.clock = clock
         self.motion = motion
@@ -52,12 +61,18 @@ struct CompositionRoot {
         self.health = health
         self.liveActivity = liveActivity
         self.storage = storage
+        self.random = random
         let location = location ?? LocationAdapter()
         self.location = location
         self.weather = weather
         self.achievementCatalog = achievementCatalog ?? Self.bundledAchievementCatalogOrTerminate()
         let formulas = formulas ?? Self.bundledFormulasOrTerminate()
         self.formulas = formulas
+        let quotes = quotes ?? Self.bundledQuoteBankOrEmpty()
+        self.quotes = quotes
+        // Antes del store de sesión: la primera caminata ya necesita la ventana de recientes.
+        let settingsStore = SettingsStore(storage: storage)
+        self.settingsStore = settingsStore
         self.sessionStore = SessionStore(
             clock: clock,
             motion: motion,
@@ -67,7 +82,10 @@ struct CompositionRoot {
             orphanSessionThresholdS: formulas.orphanSessionThresholdS,
             maxEstimableGapS: formulas.maxEstimableGapS,
             location: location,
-            weather: weather
+            weather: weather,
+            settings: settingsStore,
+            quotes: quotes,
+            random: random
         )
     }
 
@@ -99,6 +117,43 @@ struct CompositionRoot {
         } catch {
             log.fault("Catálogo de logros inválido: \(String(describing: error), privacy: .public)")
             fatalError("AD-5: el catálogo de logros no valida y la app no arranca — \(error)")
+        }
+    }
+
+    // MARK: - Banco de frases (CAP-6)
+
+    nonisolated private static let quotesLog = Logger(subsystem: "com.walktracker.app", category: "QuoteBank")
+
+    /// Lee y valida `quotes.json` de un bundle. Separado del arranque, como el catálogo y las
+    /// constantes, para que cada causa de rechazo sea comprobable.
+    nonisolated static func loadQuoteBank(from bundle: Bundle) throws(QuoteBankError) -> QuoteBank {
+        guard let url = bundle.url(forResource: "quotes", withExtension: "json") else {
+            throw .malformed("quotes.json no está en el bundle \(bundle.bundleIdentifier ?? bundle.bundlePath)")
+        }
+        let data: Data
+        do {
+            data = try Data(contentsOf: url)
+        } catch {
+            throw .malformed("no se puede leer quotes.json: \(error.localizedDescription)")
+        }
+        return try QuoteBank.decode(from: data)
+    }
+
+    /// El banco de la app, o uno vacío. **Aquí se degrada** (decisión de Paul, 2026-09-19), a
+    /// diferencia del catálogo de logros (AD-5): una frase que falta no cambia ninguna métrica
+    /// ni ningún logro, y matar el arranque por ella sería desproporcionado. Sin banco no hay
+    /// overlay y la caminata sigue, con el motivo en el log.
+    ///
+    /// El `bundle` es un parámetro por la misma razón que en `loadQuoteBank(from:)`: para que
+    /// **la degradación**, y no solo el fallo de lectura, sea comprobable sin matar el proceso
+    /// de test. Sin esa costura, sustituir este `catch` por el `fatalError` de AD-5 no rompería
+    /// nada.
+    nonisolated static func bundledQuoteBankOrEmpty(from bundle: Bundle = .main) -> QuoteBank {
+        do {
+            return try loadQuoteBank(from: bundle)
+        } catch {
+            quotesLog.error("Banco de frases inválido; las caminatas empiezan sin frase: \(String(describing: error), privacy: .public)")
+            return .empty
         }
     }
 

@@ -351,6 +351,8 @@ for call in 'store.persist()' 'store.record(sample)' 'await store.reconcile(unti
             'store.stopCountingSteps()' 'store.clearSnapshot()' 'store.capLastSampleAt(at: now)' \
             'try store.storage.clearActiveSession()' 'store.motion.status' 'store.clock.now' \
             'store.beginWeatherForNewSession()' 'store.cancelWeatherCapture()' 'store.location.status' \
+            'store.attachQuoteForNewSession()' 'store.settings.recordShownQuote(id: 1)' \
+            'store.random.index(below: 3)' 'store.quotes.quotes.count' 'store.quote = nil' \
             'try await store.weather.currentWeather(at: c)' 'store.locationPrompt = nil' \
             'store.weatherCapture?.cancel()' 'await store.stepCounting?.value'; do
     ROOT="$(make_fixture)"
@@ -446,17 +448,17 @@ assert_gate "un fichero ilegible en Domain/ falla" "$ROOT" 1 "no se pudo escanea
 chmod 644 "$ROOT/Domain/Session/Session.swift"
 rm -rf "$ROOT"
 
-# ── 4f. Rojo: `StoragePort` fuera del store (AD-16) ─────────────────────────
+# ── 4f. Rojo: el snapshot de `StoragePort` fuera de su dueño (AD-16) ────────
 ROOT="$(make_fixture)"
 echo '        try? storage.saveActiveSession(snapshot)' >> "$ROOT/WalkTracker/UI/SessionView.swift"
 assert_gate "\`storage.saveActiveSession\` en UI/ falla" "$ROOT" 1 \
-    "UI/SessionView.swift:[0-9]*: error: AD-16: solo .SessionStore. usa .StoragePort."
+    "UI/SessionView.swift:[0-9]*: error: AD-16: solo .SessionStore. usa el snapshot"
 rm -rf "$ROOT"
 
 ROOT="$(make_fixture)"
 echo '        _ = try? root.storage.loadActiveSession()' >> "$ROOT/WalkTracker/App/WalkTrackerApp.swift"
 assert_gate "\`storage.loadActiveSession\` en App/ falla" "$ROOT" 1 \
-    "App/WalkTrackerApp.swift:2: error: AD-16: solo .SessionStore. usa .StoragePort."
+    "App/WalkTrackerApp.swift:2: error: AD-16: solo .SessionStore. usa el snapshot"
 rm -rf "$ROOT"
 
 # Un fichero de `Application/` que no es del store tampoco.
@@ -497,6 +499,67 @@ for dir in Domain/Ports WalkTracker/UI; do
     assert_gate "declarar y llamar en la misma línea en $dir/ falla" "$ROOT" 1 "$dir/Ext.swift:2: error: AD-16: solo"
     rm -rf "$ROOT"
 done
+
+# ── 4f'. Rojo: los ajustes de `StoragePort` fuera de su dueño (AD-16, 2.2) ──
+# `settings.json` es de `SettingsStore`, no del store de sesión: son dos ficheros del mismo
+# puerto, y el compilador no los separa porque el protocolo es uno.
+for target in UI/SessionView.swift App/WalkTrackerApp.swift Application/SessionStore+Motivation.swift; do
+    ROOT="$(make_fixture)"
+    printf 'import Domain\nfunc f(_ s: StoragePort) {\n    _ = try? s.loadSettings()\n}\n' \
+        > "$ROOT/WalkTracker/$target"
+    assert_gate "\`loadSettings\` en WalkTracker/$target falla" "$ROOT" 1 \
+        "$target:3: error: AD-16: solo .SettingsStore. usa los ajustes"
+    rm -rf "$ROOT"
+done
+
+ROOT="$(make_fixture)"
+printf 'import Domain\nfunc f(_ s: StoragePort, _ a: AppSettings) {\n    try? s.saveSettings(a)\n}\n' \
+    > "$ROOT/Domain/Ports/Ajustes.swift"
+assert_gate "\`saveSettings\` en Domain/ falla" "$ROOT" 1 "Ports/Ajustes.swift:3: error: AD-16: solo .SettingsStore. usa los ajustes"
+rm -rf "$ROOT"
+
+# Y un subdirectorio que empiece igual que el dueño no queda exento.
+ROOT="$(make_fixture)"
+mkdir -p "$ROOT/WalkTracker/Application/SettingsStoreKit"
+printf 'import Domain\nfunc f(_ s: StoragePort) {\n    _ = try? s.loadSettings()\n}\n' \
+    > "$ROOT/WalkTracker/Application/SettingsStoreKit/Ajustes.swift"
+assert_gate "\`loadSettings\` en Application/SettingsStoreKit/ falla" "$ROOT" 1 \
+    "SettingsStoreKit/Ajustes.swift:3: error: AD-16: solo .SettingsStore. usa los ajustes"
+rm -rf "$ROOT"
+
+# Y un fichero que solo COMPARTE el prefijo del dueño tampoco: la exención es el fichero del
+# dueño y sus extensiones, no cualquier nombre que empiece igual.
+ROOT="$(make_fixture)"
+printf 'import Domain\nfunc f(_ s: StoragePort) {\n    _ = try? s.loadSettings()\n}\n' \
+    > "$ROOT/WalkTracker/Application/SettingsStoreKit.swift"
+assert_gate "\`loadSettings\` en Application/SettingsStoreKit.swift falla" "$ROOT" 1 \
+    "Application/SettingsStoreKit.swift:3: error: AD-16: solo .SettingsStore. usa los ajustes"
+rm -rf "$ROOT"
+
+# Verde: cada dueño con SU fichero, y el adapter que los implementa.
+ROOT="$(make_fixture)"
+printf 'import Domain\n\nfinal class SettingsStore {\n    let storage: StoragePort\n    init(storage: StoragePort) { self.storage = storage }\n    func load() { _ = try? storage.loadSettings() }\n    func save(_ a: AppSettings) { try? storage.saveSettings(a) }\n}\n' \
+    > "$ROOT/WalkTracker/Application/SettingsStore.swift"
+printf 'import Domain\n\nstruct SettingsFileAdapter {\n    func loadSettings() throws -> AppSettings? { nil }\n    func saveSettings(_ a: AppSettings) throws {}\n}\n' \
+    > "$ROOT/WalkTracker/Adapters/Persistence/SettingsFileAdapter.swift"
+assert_gate "SettingsStore con sus ajustes y su adapter pasan" "$ROOT" 0 "forma del proyecto correcta"
+rm -rf "$ROOT"
+
+# Verde: y una EXTENSIÓN del dueño también, que es como el repo reparte un store en varios
+# ficheros (`SessionStore+Weather.swift`, cinco veces) y lo que hará la 2.3 con la zancada.
+ROOT="$(make_fixture)"
+printf 'import Domain\n\nextension SettingsStore {\n    func saveStride(_ a: AppSettings) { try? storage.saveSettings(a) }\n    func reloadStride() { _ = try? storage.loadSettings() }\n}\n' \
+    > "$ROOT/WalkTracker/Application/SettingsStore+Stride.swift"
+assert_gate "\`(load|save)Settings\` en Application/SettingsStore+Stride.swift pasa" "$ROOT" 0 "forma del proyecto correcta"
+rm -rf "$ROOT"
+
+# Y el dueño de los ajustes no puede tocar el snapshot: la separación va en los dos sentidos.
+ROOT="$(make_fixture)"
+printf 'import Domain\nfunc f(_ s: StoragePort) {\n    _ = try? s.loadActiveSession()\n}\n' \
+    > "$ROOT/WalkTracker/Application/SettingsStore.swift"
+assert_gate "\`loadActiveSession\` en SettingsStore.swift falla" "$ROOT" 1 \
+    "Application/SettingsStore.swift:3: error: AD-16: solo .SessionStore. usa el snapshot"
+rm -rf "$ROOT"
 
 # ── 4g. Rojo: una vista importa un framework de sistema (AD-10) ─────────────
 for module in CoreMotion CoreLocation HealthKit ActivityKit WidgetKit CoreHaptics AVFoundation AudioToolbox \

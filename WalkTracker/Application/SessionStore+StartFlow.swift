@@ -87,6 +87,10 @@ extension SessionStore {
     /// conteo y guarda el primer snapshot. Si el dominio la rechaza, no hay sesión ni conteo.
     ///
     /// El clima (2.1) va después y en paralelo: la apertura nunca lo espera.
+    ///
+    /// La frase (2.2) entra **después de `hasSession = true`**, con la sesión ya contando y
+    /// presentada, y **antes de `persist()`**, para que su `quoteId` viaje en el primer
+    /// snapshot: es síncrona y local, así que no hay nada que esperar.
     private func openSession() {
         do {
             let session = try Session.start(at: clock.now, strideM: strideM)
@@ -95,6 +99,7 @@ extension SessionStore {
             hasSession = true
             countSteps(from: session.startedAt)
             measureTransition(.start, session, at: session.startedAt)
+            attachQuoteForNewSession()
             persist()
             beginWeatherForNewSession()
         } catch {

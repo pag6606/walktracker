@@ -47,6 +47,14 @@ public struct Session: Equatable, Sendable {
     /// ubicación, con timeout o si aún no ha llegado. Se adjunta una sola vez y se congela
     /// (SPEC FR-5): nunca se refresca.
     public private(set) var weather: WeatherSnapshot?
+    /// `id` de la frase de `quotes.json` mostrada al iniciar (CAP-6, domain-model.md §2), o
+    /// `nil` sin frase: banco vacío, ausente o inválido. Como el clima, se adjunta una sola
+    /// vez y se congela.
+    ///
+    /// **No es "el overlay está en pantalla".** Una sesión recuperada tras un force-quit
+    /// vuelve con su `quoteId` y la frase **no** se vuelve a mostrar: eso lo decide
+    /// `SessionStore`, no el agregado.
+    public private(set) var quoteId: Int?
 
     private init(startedAt: Date, strideM: Double) {
         self.startedAt = startedAt
@@ -63,6 +71,7 @@ public struct Session: Equatable, Sendable {
         self.source = .ios
         self.recovered = false
         self.weather = nil
+        self.quoteId = nil
     }
 
     /// Crea una sesión `active` que empieza en `now`.
@@ -86,6 +95,8 @@ public struct Session: Equatable, Sendable {
     ///   - paused: la sesión estaba en pausa. `pausedAt` existe si y solo si lo está.
     ///   - systemDistanceM: última distancia acumulada del sistema, o `nil` si no la dio.
     ///   - weather: el clima ya capturado (2.1), que ya validó `WeatherSnapshot`; `nil` sin clima.
+    ///   - quoteId: la frase del inicio (2.2), o `nil` sin frase. No se comprueba contra el
+    ///     banco: un `id` que el banco ya no tiene simplemente no se encuentra al pintarlo.
     /// - Throws: `DomainError.invalidValue` con `strideM` (≤ 0 o no finita), `stepsMeasured`
     ///   o `stepsEstimated` (< 0), `totalPausesS` (< 0 o no finito), `distanceM` (< 0 o no
     ///   finita) o `pausedAt` (pausada sin `pausedAt`, o activa con él).
@@ -98,7 +109,8 @@ public struct Session: Equatable, Sendable {
         pausedAt: Date?,
         strideM: Double,
         systemDistanceM: Double?,
-        weather: WeatherSnapshot? = nil
+        weather: WeatherSnapshot? = nil,
+        quoteId: Int? = nil
     ) throws(DomainError) -> Session {
         try validateStride(strideM)
         guard stepsMeasured >= 0 else { throw .invalidValue(field: "stepsMeasured") }
@@ -115,6 +127,7 @@ public struct Session: Equatable, Sendable {
         session.totalPausesS = totalPausesS
         session.systemDistanceM = systemDistanceM
         session.weather = weather
+        session.quoteId = quoteId
         if paused {
             session.status = .paused
             session.pausedAt = pausedAt
@@ -217,6 +230,25 @@ public struct Session: Equatable, Sendable {
             throw .invalidTransition(from: status.rawValue, to: "replaceWeather")
         }
         weather = snapshot
+    }
+
+    /// Adjunta la frase del arranque (2.2, CAP-6). Se elige justo después de abrir la sesión,
+    /// porque la sesión arranca primero y la frase va encima, y lo escribe `SessionStore`
+    /// (AD-7).
+    ///
+    /// Mismo molde que `attachWeather(_:)`: se congela al primer valor.
+    ///
+    /// - Throws: `DomainError.invalidTransition` si la sesión está `finished`, con
+    ///   `to: "attachQuote"`; o si ya tiene frase, con `to: "replaceQuote"`. En ambos casos no
+    ///   muta.
+    public mutating func attachQuote(_ id: Int) throws(DomainError) {
+        guard status != .finished else {
+            throw .invalidTransition(from: status.rawValue, to: "attachQuote")
+        }
+        guard quoteId == nil else {
+            throw .invalidTransition(from: status.rawValue, to: "replaceQuote")
+        }
+        quoteId = id
     }
 
     /// Pausa la sesión en `now` (`domain.js:176` `pause`): el cronómetro se congela.

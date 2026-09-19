@@ -261,7 +261,7 @@ body {
 <script src="./climate.js"></script>
 <script src="./motivation.js"></script>
 <script src="./runtime.js"></script>
-<script src="./quotes.json" id="quotes-json"></script>
+<script src="./WalkTracker/Resources/quotes.json" id="quotes-json"></script>
 <script>
 // ═══════════════════════════════════════════════════════
 //  WalkTracker v3.0 — Composition Root
@@ -1036,7 +1036,7 @@ body {
   }
 
   // Load quotes
-  fetch('./quotes.json').then(r => r.json()).then(q => { window.QUOTES = q; });
+  fetch('./WalkTracker/Resources/quotes.json').then(r => r.json()).then(q => { window.QUOTES = q; });
 
   init();
 })();

@@ -4,7 +4,7 @@
  */
 'use strict';
 
-const quotes = require('../quotes.json');
+const quotes = require('../WalkTracker/Resources/quotes.json');
 const { selectQuote, updateRecentIds, getAchievementsCatalog, evaluateAchievements, getWeeklyProgress, checkStreak, checkTimeOfDay } = require('../motivation.js');
 
 let passed = 0, failed = 0;

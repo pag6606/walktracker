@@ -18,7 +18,8 @@ struct ActiveSessionFileAdapterTests {
         pausedAt: Date? = nil,
         systemDistanceM: Double? = 980.25,
         lastSampleAt: Date? = t0.addingTimeInterval(1_190.5),
-        weather: WeatherSnapshot? = nil
+        weather: WeatherSnapshot? = nil,
+        quoteId: Int? = nil
     ) -> ActiveSessionSnapshot {
         ActiveSessionSnapshot(
             startedAt: t0,
@@ -34,7 +35,8 @@ struct ActiveSessionFileAdapterTests {
             segmentStart: t0.addingTimeInterval(300),
             segmentSteps: 900,
             distanceBaseM: 400.5,
-            weather: weather
+            weather: weather,
+            quoteId: quoteId
         )
     }
 
@@ -102,17 +104,19 @@ struct ActiveSessionFileAdapterTests {
             Self.snapshot(),
             Self.snapshot(paused: true, pausedAt: Self.t0.addingTimeInterval(1_195), systemDistanceM: nil, lastSampleAt: nil),
             Self.snapshot(weather: Self.weather),
+            Self.snapshot(quoteId: 42),
+            Self.snapshot(weather: Self.weather, quoteId: 42),
         ] {
             let decoded = try ActiveSessionFileAdapter.decode(ActiveSessionFileAdapter.encode(snapshot))
             #expect(decoded == snapshot)
         }
     }
 
-    @Test("El fichero va en milisegundos enteros, con schemaVersion 2 y los campos de §8")
+    @Test("El fichero va en milisegundos enteros, con schemaVersion 3 y los campos de §8")
     func encodesMilliseconds() throws {
         let object = try Self.json(ActiveSessionFileAdapter.encode(Self.snapshot()))
 
-        #expect(object["schemaVersion"] as? Int == 2)
+        #expect(object["schemaVersion"] as? Int == 3)
         #expect(object["startedAtMs"] as? Int64 == 1_800_000_000_000)
         #expect(object["totalPausesMs"] as? Int64 == 60_250)
         #expect(object["savedAtMs"] as? Int64 == 1_800_001_200_000)
@@ -126,6 +130,7 @@ struct ActiveSessionFileAdapterTests {
         #expect(object["distanceBaseM"] as? Double == 400.5)
         #expect(object["startedAt"] == nil && object["totalPausesS"] == nil, "el fichero nunca lleva segundos")
         #expect(object["weather"] == nil, "sin clima, no hay clave")
+        #expect(object["quoteId"] == nil, "sin frase, no hay clave")
     }
 
     @Test("El clima va en el fichero con capturedAtMs y sin condition, que sale del código WMO")
@@ -181,6 +186,32 @@ struct ActiveSessionFileAdapterTests {
         #expect(snapshot.strideM == 0.655)
     }
 
+    @Test("El quoteId va en el fichero, y un esquema 2 se lee sin frase, sin apartarlo")
+    func quoteIdIsSchema3() throws {
+        let object = try Self.json(ActiveSessionFileAdapter.encode(Self.snapshot(quoteId: 42)))
+        #expect(object["quoteId"] as? Int == 42)
+
+        // Esquema 2: el campo no existía. Un snapshot de la 2.1 se lee sin frase.
+        let schema2 = #"{ "schemaVersion": 2, "startedAtMs": 0, "strideM": 0.655, "savedAtMs": 0, "segmentStartMs": 0, "segmentSteps": 0, "distanceBaseM": 0, "quoteId": 42 }"#
+        #expect(try ActiveSessionFileAdapter.decode(Data(schema2.utf8)).quoteId == nil, "el campo de la 3 no se lee de un fichero de la 2")
+    }
+
+    @Test("Esquema 3: quoteId ausente o null se lee sin frase")
+    func schema3WithoutQuote() throws {
+        for quote in ["", #", "quoteId": null"#] {
+            let json = #"{ "schemaVersion": 3, "startedAtMs": 0, "strideM": 0.655, "savedAtMs": 0, "segmentStartMs": 0, "segmentSteps": 0, "distanceBaseM": 0"# + quote + " }"
+            #expect(try ActiveSessionFileAdapter.decode(Data(json.utf8)).quoteId == nil)
+        }
+    }
+
+    @Test("Esquema 3: un quoteId de otro tipo es malformed")
+    func schema3InvalidQuote() {
+        let json = #"{ "schemaVersion": 3, "startedAtMs": 0, "strideM": 0.655, "savedAtMs": 0, "segmentStartMs": 0, "segmentSteps": 0, "distanceBaseM": 0, "quoteId": "42" }"#
+        #expect(throws: StorageError.self) {
+            try ActiveSessionFileAdapter.decode(Data(json.utf8))
+        }
+    }
+
     @Test("Los milisegundos se convierten a segundos al leer")
     func decodesMillisecondsToSeconds() throws {
         let json = #"""
@@ -219,7 +250,7 @@ struct ActiveSessionFileAdapterTests {
         #expect(snapshot.stepsMeasured == -5)
     }
 
-    @Test("schemaVersion desconocido: unsupportedSchemaVersion", arguments: [0, 3])
+    @Test("schemaVersion desconocido: unsupportedSchemaVersion", arguments: [0, 4])
     func unknownSchemaVersion(version: Int) {
         let json = #"{ "schemaVersion": \#(version), "startedAtMs": 0, "strideM": 0.655, "savedAtMs": 0, "segmentStartMs": 0, "segmentSteps": 0, "distanceBaseM": 0 }"#
         #expect(throws: StorageError.unsupportedSchemaVersion(version)) {

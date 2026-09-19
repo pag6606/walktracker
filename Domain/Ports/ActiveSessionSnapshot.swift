@@ -4,7 +4,8 @@ import Foundation
 /// (CAP-1, AD-9, domain-model.md §8 `activeSession`).
 ///
 /// Va en **segundos y `Date`**, como el dominio: los milisegundos del fichero son del
-/// adapter de persistencia. El clima (2.1) viaja con la sesión; la frase (§8) llega con la 2.2.
+/// adapter de persistencia. El clima (2.1) y la frase del arranque (§8, 2.2) viajan con la
+/// sesión, para que la recuperación tras un force-quit los conserve.
 ///
 /// Además de los campos de la sesión lleva el tramo del podómetro en curso
 /// (`segmentStart`, `segmentSteps`, `distanceBaseM`): al restaurar, el stream se reabre
@@ -35,6 +36,10 @@ public struct ActiveSessionSnapshot: Equatable, Sendable {
     public let distanceBaseM: Double
     /// Clima capturado al inicio, o `nil` sin clima. Se conserva al restaurar (2.1).
     public let weather: WeatherSnapshot?
+    /// `id` de la frase mostrada al iniciar, o `nil` sin frase. Se conserva al restaurar (2.2).
+    /// **No** lleva "ya mostrada": el overlay es estado de la presentación, no del snapshot, y
+    /// una sesión recuperada nunca lo vuelve a sacar.
+    public let quoteId: Int?
 
     public init(
         startedAt: Date,
@@ -50,7 +55,8 @@ public struct ActiveSessionSnapshot: Equatable, Sendable {
         segmentStart: Date,
         segmentSteps: Int,
         distanceBaseM: Double,
-        weather: WeatherSnapshot? = nil
+        weather: WeatherSnapshot? = nil,
+        quoteId: Int? = nil
     ) {
         self.startedAt = startedAt
         self.stepsMeasured = stepsMeasured
@@ -66,5 +72,6 @@ public struct ActiveSessionSnapshot: Equatable, Sendable {
         self.segmentSteps = segmentSteps
         self.distanceBaseM = distanceBaseM
         self.weather = weather
+        self.quoteId = quoteId
     }
 }
