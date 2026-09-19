@@ -33,10 +33,13 @@
 #   8. Que el dominio no lea el reloj ni el calendario del sistema (AD-3, AD-19): en
 #      `Domain/` no hay `Date()`, `Date.now` ni `Calendar.current` en código. El tiempo
 #      entra por `ClockPort`. Los comentarios que los nombran no cuentan.
-#   9. Que solo `SessionStore` use `StoragePort` (AD-16): las llamadas a
+#   9. Que cada fichero de `StoragePort` tenga UN dueño (AD-16). El puerto es uno y los
+#      ficheros dos, así que el compilador no separa nada: las llamadas a
 #      `load`/`save`/`clear`/`setAsideActiveSession` solo en
-#      `WalkTracker/Application/SessionStore*.swift` y en su implementación de
-#      `WalkTracker/Adapters/Persistence/`.
+#      `WalkTracker/Application/SessionStore*.swift`, y las de `load`/`saveSettings` (2.2)
+#      solo en `WalkTracker/Application/SettingsStore.swift` — cada una con su implementación
+#      en `WalkTracker/Adapters/Persistence/`. El store de sesión no toca los ajustes y el de
+#      ajustes no toca el snapshot.
 #  10. Que ninguna vista importe un framework de sistema (AD-10): `WalkTracker/UI/` no
 #      importa CoreMotion, CoreLocation, HealthKit, ActivityKit, WidgetKit, CoreHaptics,
 #      AVFoundation, AudioToolbox, UserNotifications ni UIKit. Esas capacidades entran
@@ -216,7 +219,7 @@ fi
 # permite asignar una propiedad del store, llamar a sus pasos internos ni tocar sus puertos.
 # "Del store" es cualquier receptor que acabe en `store`/`Store` (`store`, `sessionStore`).
 store_write='[sS]tore\.[A-Za-z_][A-Za-z0-9_]*[[:space:]]*=[^=]'
-store_internal='[sS]tore\.(persist|record|reconcile|countSteps|stopCountingSteps|clearSnapshot|capLastSampleAt|beginWeatherForNewSession|cancelWeatherCapture|weatherCapture|stepCounting|storage|motion|clock|location|weather)\b'
+store_internal='[sS]tore\.(persist|record|reconcile|countSteps|stopCountingSteps|clearSnapshot|capLastSampleAt|beginWeatherForNewSession|cancelWeatherCapture|attachQuoteForNewSession|recordShownQuote|weatherCapture|stepCounting|storage|motion|clock|location|weather|random|quotes|settings)\b'
 for dir in "$ROOT/WalkTracker/UI" "$ROOT/WalkTracker/App"; do
     [ -d "$dir" ] || continue
     while IFS= read -r hit; do
@@ -224,7 +227,7 @@ for dir in "$ROOT/WalkTracker/UI" "$ROOT/WalkTracker/App"; do
         hit_file="${hit%%:*}"
         rest="${hit#*:}"
         hit_line="${rest%%:*}"
-        err "$hit_file:$hit_line" "AD-7/AD-16: la UI y la app no escriben el estado de \`SessionStore\`: solo leen y llaman a sus intenciones. Asignar una propiedad del store, llamar a \`persist\`, \`record\`, \`reconcile\`, \`countSteps\`, \`stopCountingSteps\`, \`clearSnapshot\`, \`capLastSampleAt\`, \`beginWeatherForNewSession\` o \`cancelWeatherCapture\`, tocar sus tareas \`stepCounting\`/\`weatherCapture\`, o usar \`storage\`/\`motion\`/\`clock\`/\`location\`/\`weather\` del store es cosa de \`SessionStore*.swift\`."
+        err "$hit_file:$hit_line" "AD-7/AD-16: la UI y la app no escriben el estado de \`SessionStore\`: solo leen y llaman a sus intenciones. Asignar una propiedad del store, llamar a \`persist\`, \`record\`, \`reconcile\`, \`countSteps\`, \`stopCountingSteps\`, \`clearSnapshot\`, \`capLastSampleAt\`, \`beginWeatherForNewSession\`, \`cancelWeatherCapture\`, \`attachQuoteForNewSession\` o \`recordShownQuote\`, tocar sus tareas \`stepCounting\`/\`weatherCapture\`, o usar \`storage\`/\`motion\`/\`clock\`/\`location\`/\`weather\`/\`random\`/\`quotes\`/\`settings\` del store es cosa de \`SessionStore*.swift\`."
     done < <(grep -rnE "$store_write|$store_internal" "$dir" --include='*.swift' 2>/dev/null)
 done
 
@@ -351,33 +354,56 @@ if [ -d "$ROOT/Domain" ]; then
     done < <(grep -E "$code_at$time_call" <<< "$SCANNED")
 fi
 
-# ── 9. Solo `SessionStore` usa `StoragePort` (AD-16) ────────────────────────
-# El store es el único escritor y lector del snapshot. Se admiten las llamadas en
-# `WalkTracker/Application/SessionStore*.swift` y en el adapter de persistencia, que las
+# ── 9. Cada fichero de `StoragePort` tiene un dueño (AD-16) ─────────────────
+# `StoragePort` es UN puerto con DOS ficheros, y desde la 2.2 con dos dueños distintos:
+# `SessionStore` posee `activeSession.json` y `SettingsStore` posee `settings.json`. El
+# compilador no los separa —los dos ven el mismo protocolo—, así que se comprueba aquí.
+#
+# Se admiten las llamadas en el fichero dueño y en el adapter de persistencia, que las
 # implementa. Las declaraciones (`func loadActiveSession`) no son llamadas, y los
 # comentarios que las nombran tampoco; una línea que declara Y llama sí cuenta.
-storage_names='(load|save|clear|setAside)ActiveSession'
-# Sin `\b`: se evalúa con `[[ =~ ]]`, y el ERE del sistema no lo garantiza.
-storage_call_bash="(^|[^A-Za-z0-9_])$storage_names([^A-Za-z0-9_]|\$)"
+#
+# Uso: `storage_owner_rule NOMBRES DUEÑO EXPLICACIÓN`.
+# - NOMBRES: ERE de los métodos del puerto, sin `\b`.
+# - DUEÑO: el nombre del tipo dueño. Quedan exentos **exactamente** dos formas de fichero
+#   dentro de `WalkTracker/Application/`: `DUEÑO.swift` y sus extensiones `DUEÑO+Algo.swift`
+#   (`SessionStore+Weather.swift`, y el `SettingsStore+Stride.swift` que traerá la 2.3). No es
+#   un prefijo suelto: `SettingsStoreKit.swift`, `SessionStore.swift.bak` o un subdirectorio
+#   que empiece igual (`SessionStoreKit/…`) NO quedan exentos.
+storage_owner_rule() {
+    local names="$1" owner="$2" why="$3"
+    # Sin `\b`: se evalúa con `[[ =~ ]]`, y el ERE del sistema no lo garantiza.
+    local call_bash="(^|[^A-Za-z0-9_])$names([^A-Za-z0-9_]|\$)"
+    local hit hit_file rest hit_line code calls rel
+    while IFS= read -r hit; do
+        [ -n "$hit" ] || continue
+        hit_file="${hit%%:*}"
+        case "$hit_file" in
+            "$ROOT/WalkTracker/Adapters/Persistence/"*) continue ;;
+            "$ROOT/WalkTracker/Application/"*)
+                rel="${hit_file#"$ROOT/WalkTracker/Application/"}"
+                # Un `/` en `$rel` no casa con ninguno de los dos patrones: los
+                # subdirectorios quedan fuera sin comprobarlo aparte.
+                case "$rel" in
+                    "$owner.swift" | "$owner+"*".swift") continue ;;
+                esac
+                ;;
+        esac
+        rest="${hit#*:}"
+        hit_line="${rest%%:*}"
+        code="${rest#*:}"
+        # Se quitan las declaraciones y se vuelve a buscar: lo que queda es una llamada.
+        calls="$(sed -E "s/(^|[^A-Za-z0-9_])func[[:space:]]+$names/\1/g" <<< "$code")"
+        [[ "$calls" =~ $call_bash ]] || continue
+        err "$hit_file:$hit_line" "AD-16: $why"
+    done < <(grep -E "$code_at$names\b" <<< "$SCANNED")
+}
+
 scan_code "$ROOT/WalkTracker" "$ROOT/Domain"
-while IFS= read -r hit; do
-    [ -n "$hit" ] || continue
-    hit_file="${hit%%:*}"
-    case "$hit_file" in
-        "$ROOT/WalkTracker/Application/SessionStore"*.swift)
-            # Solo los ficheros de `Application/`, no un subdirectorio que empiece igual.
-            [[ "${hit_file#"$ROOT/WalkTracker/Application/"}" == */* ]] || continue
-            ;;
-        "$ROOT/WalkTracker/Adapters/Persistence/"*) continue ;;
-    esac
-    rest="${hit#*:}"
-    hit_line="${rest%%:*}"
-    code="${rest#*:}"
-    # Se quitan las declaraciones y se vuelve a buscar: lo que queda es una llamada.
-    calls="$(sed -E "s/(^|[^A-Za-z0-9_])func[[:space:]]+$storage_names/\\1/g" <<< "$code")"
-    [[ "$calls" =~ $storage_call_bash ]] || continue
-    err "$hit_file:$hit_line" "AD-16: solo \`SessionStore\` usa \`StoragePort\`. \`loadActiveSession\`, \`saveActiveSession\`, \`clearActiveSession\` y \`setAsideActiveSession\` se llaman desde \`WalkTracker/Application/SessionStore*.swift\`; fuera de ahí se pide al store una intención."
-done < <(grep -E "$code_at$storage_names\b" <<< "$SCANNED")
+storage_owner_rule '(load|save|clear|setAside)ActiveSession' 'SessionStore' \
+    "solo \`SessionStore\` usa el snapshot de \`StoragePort\`. \`loadActiveSession\`, \`saveActiveSession\`, \`clearActiveSession\` y \`setAsideActiveSession\` se llaman desde \`WalkTracker/Application/SessionStore*.swift\`; fuera de ahí se pide al store una intención."
+storage_owner_rule '(load|save)Settings' 'SettingsStore' \
+    "solo \`SettingsStore\` usa los ajustes de \`StoragePort\` (2.2). \`loadSettings\` y \`saveSettings\` se llaman desde \`WalkTracker/Application/SettingsStore.swift\`; fuera de ahí —incluido \`SessionStore\`, que le pide la ventana de frases recientes— se pide al store de ajustes una intención."
 
 # ── 10. Ninguna vista importa un framework de sistema (AD-10) ───────────────
 # La UI solo pinta el estado del store y llama a sus intenciones. Sensores, salud,

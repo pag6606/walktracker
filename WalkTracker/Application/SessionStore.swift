@@ -11,7 +11,7 @@ import OSLog
 /// conteo de pasos del coprocesador; la 1.3, las métricas derivadas; la 1.4, pausar,
 /// reanudar, finalizar y el resumen; la 1.5, la reconstrucción del background por consulta
 /// al sistema y el descarte de pasos estimados; la 1.6, la recuperación tras un force-quit; la
-/// 2.1, el clima del inicio.
+/// 2.1, el clima del inicio; la 2.2, la frase motivacional del arranque.
 /// La finalizada se descarta al salir del resumen: el historial es de la 5.1.
 ///
 /// La pausa es solo explícita (CAP-1): pasar a segundo plano o bloquear la pantalla llega
@@ -39,7 +39,8 @@ import OSLog
 /// - `SessionStore+StepCounting.swift`: el stream del podómetro, `record` y el tope de R4;
 /// - `SessionStore+Reconciliation.swift`: la reconciliación atómica y su carrera con el timeout;
 /// - `SessionStore+Recovery.swift`: restaurar al arrancar, la huérfana y el snapshot;
-/// - `SessionStore+Weather.swift`: la pre-pantalla de ubicación y la captura del clima del inicio.
+/// - `SessionStore+Weather.swift`: la pre-pantalla de ubicación y la captura del clima del inicio;
+/// - `SessionStore+Motivation.swift`: la elección de la frase del arranque y su overlay.
 ///
 /// Las propiedades que escriben varias extensiones tienen acceso de módulo (Swift no deja a
 /// una extensión de otro fichero ver lo `private`). **Invariante:** solo los ficheros
@@ -143,6 +144,15 @@ final class SessionStore {
     var isCapturingWeather = false
     /// Pre-pantalla de ubicación en pantalla, o `nil`. No bloquea el conteo ni los controles.
     var locationPrompt: LocationPrompt?
+    /// La frase del arranque **mientras su overlay está en pantalla**, o `nil` (2.2).
+    ///
+    /// **No es `session.quoteId`, y la diferencia importa.** `quoteId` es del agregado y viaja
+    /// en el snapshot, así que una sesión recuperada tras un force-quit vuelve con él; esto
+    /// solo lo enciende `openSession()`, así que esa sesión recuperada **no** vuelve a ver el
+    /// overlay. "Ya mostrada" y "hay quoteId" no son lo mismo.
+    ///
+    /// Lo apaga `dismissQuote()`: el tap y los 3 s son la misma intención.
+    var quote: Quote?
 
     // MARK: - Dependencias
 
@@ -166,6 +176,14 @@ final class SessionStore {
     /// Tope de cada paso de la captura del clima: la lectura de ubicación y la petición a
     /// Open-Meteo tienen 3 s cada una (AR-12).
     @ObservationIgnored let weatherStepTimeoutS: TimeInterval
+    /// El banco de frases del bundle (2.2). Vacío si `quotes.json` falta o no valida: sin
+    /// frase, la caminata sigue igual (decisión de Paul, a diferencia de AD-5).
+    @ObservationIgnored let quotes: QuoteBank
+    /// Azar inyectado para elegir la frase (AD-3, AD-10): el dominio no lo genera.
+    @ObservationIgnored let random: any RandomPort
+    /// Dueño de `settings.json` (AD-16). Este store le pide la ventana de frases recientes y
+    /// le comunica la mostrada; nunca toca el fichero.
+    @ObservationIgnored let settings: SettingsStore
     @ObservationIgnored let log = Logger(subsystem: "com.walktracker.app", category: "SessionStore")
     /// Destino de las líneas de medición de la 8.4 (`MeasurementLog`). Solo observa: nada
     /// del comportamiento depende de él. Los tests lo sustituyen para leer las líneas.
@@ -224,7 +242,9 @@ final class SessionStore {
     @ObservationIgnored var weatherCapture: Task<Void, Never>?
     /// Paul dijo "Ahora no" en la pre-pantalla de ubicación: no vuelve a salir al iniciar
     /// mientras la app siga abierta. Es de la ejecución, no de una sesión: el reset no lo toca.
-    /// Recordarlo entre lanzamientos llega con `settings.json` (diferido a la 2.2 o la 2.3).
+    /// Recordarlo entre lanzamientos es de la 2.3, junto con ofrecer el permiso desde Ajustes:
+    /// la 2.2 dejó `settings.json` y `SettingsStore`, que era la pieza que faltaba, pero la
+    /// otra mitad del diferido necesita la pantalla de Ajustes (ver `deferred-work.md`).
     @ObservationIgnored var declinedLocationPromptThisLaunch = false
 
     // MARK: - Estado de la escena (privado de este fichero)
@@ -250,6 +270,9 @@ final class SessionStore {
         maxEstimableGapS: TimeInterval,
         location: any LocationPort,
         weather: any WeatherPort,
+        settings: SettingsStore,
+        quotes: QuoteBank = .empty,
+        random: any RandomPort = SystemRandom(),
         weatherStepTimeoutS: TimeInterval = SessionStore.weatherStepTimeoutS,
         measure: @escaping @Sendable (String) -> Void = MeasurementLog.record
     ) {
@@ -262,6 +285,9 @@ final class SessionStore {
         self.maxEstimableGapS = maxEstimableGapS
         self.location = location
         self.weather = weather
+        self.settings = settings
+        self.quotes = quotes
+        self.random = random
         self.weatherStepTimeoutS = weatherStepTimeoutS
         self.measure = measure
     }
@@ -356,6 +382,9 @@ final class SessionStore {
         }
         stopCountingSteps()
         cancelWeatherCapture()
+        // El overlay de la frase tampoco sobrevive al final de la caminata: lo que viene es el
+        // resumen. El `quoteId` sigue en el agregado; esto solo apaga la presentación.
+        quote = nil
         isConfirmingDiscard = false
         backgroundedAt = nil
         stepsMeasuredAtGapStart = nil
@@ -435,6 +464,7 @@ final class SessionStore {
         lastSampleAt = nil
         lastSampleAtCap = nil
         lastSavedAt = nil
+        quote = nil
         // La captura del clima y la pre-pantalla: un clima tardío no llega a la sesión siguiente.
         cancelWeatherCapture()
     }

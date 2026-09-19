@@ -30,6 +30,10 @@ extension SessionStore {
     /// El clima guardado vuelve con la sesión. Una restaurada sin clima no lo captura ni pide
     /// permiso: el snapshot sería de otro instante que el inicio (2.1).
     ///
+    /// La frase guardada también vuelve con la sesión, pero **su overlay no** (2.2): `quote`
+    /// se queda en `nil`, porque solo lo enciende `openSession()`. Volver del force-quit no es
+    /// empezar a caminar.
+    ///
     /// Solo corre una vez, y no hace nada si ya hay una sesión.
     func restoreOnLaunch() async {
         guard !didAttemptRestore else { return }
@@ -63,7 +67,8 @@ extension SessionStore {
                 pausedAt: snapshot.pausedAt,
                 strideM: snapshot.strideM,
                 systemDistanceM: snapshot.systemDistanceM,
-                weather: snapshot.weather
+                weather: snapshot.weather,
+                quoteId: snapshot.quoteId
             )
         } catch {
             log.fault("Snapshot de la sesión rechazado en la frontera: \(String(describing: error), privacy: .public)")
@@ -146,7 +151,8 @@ extension SessionStore {
             segmentStart: segmentStart ?? session.startedAt,
             segmentSteps: highestCumulativeSteps,
             distanceBaseM: distanceBaseM,
-            weather: session.weather
+            weather: session.weather,
+            quoteId: session.quoteId
         )
         do {
             try storage.saveActiveSession(snapshot)

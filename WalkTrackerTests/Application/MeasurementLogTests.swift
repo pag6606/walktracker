@@ -204,10 +204,12 @@ struct MeasurementLogTests {
             self.clock = clock
             self.motion = motion
             self.sink = sink
+            let storage = StorageStub(snapshot: snapshot)
             store = SessionStore(
-                clock: clock, motion: motion, storage: StorageStub(snapshot: snapshot), strideM: 0.655,
+                clock: clock, motion: motion, storage: storage, strideM: 0.655,
                 reconciliationTimeoutS: timeoutS, orphanSessionThresholdS: 21_600, maxEstimableGapS: 1200,
                 location: LocationStub(status: .denied), weather: WeatherStub(),
+                settings: SettingsStore(storage: storage),
                 measure: { sink.append($0) }
             )
         }

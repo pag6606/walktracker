@@ -31,6 +31,11 @@ import SwiftUI
 /// pre-pantalla de ubicación aparece arriba, sobre la sesión que ya cuenta, sin tapar los
 /// controles.
 ///
+/// Frase (2.2): al iniciar, `QuoteOverlay` se pone **encima de esta pantalla ya corriendo**
+/// 3 s, o hasta que Paul la toca. Solo sale cuando el store enciende `store.quote`, que es del
+/// arranque: una sesión recuperada tras un force-quit conserva su `quoteId` y **no** vuelve a
+/// verla.
+///
 /// Con tamaños de texto grandes la pantalla se desplaza en vertical en lugar de recortar.
 ///
 /// **Criterio único de `minimumScaleFactor` en esta pantalla (2026-09-18).** Los tres sitios
@@ -58,6 +63,9 @@ struct SessionView: View {
     private static let reconcilingNoticeDelay: Duration = .milliseconds(500)
     /// Cuánto dura "Sesión recuperada" (CAP-1, EXPERIENCE.md#95: 3 s).
     private static let recoveredNoticeDuration: Duration = .seconds(3)
+    /// Cuánto dura la frase del arranque: 3 s, como la v3, con holgura frente al criterio
+    /// "antes de los 4 s" del épico (decisión de Paul, 2026-09-19).
+    private static let quoteDuration: Duration = .seconds(3)
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -165,6 +173,26 @@ struct SessionView: View {
             }
         }
         .animation(reduceMotion ? .easeInOut(duration: 0.2) : .default, value: store.locationPrompt)
+        .overlay {
+            if let quote = store.quote {
+                QuoteOverlay(text: quote.text, onDismiss: store.dismissQuote)
+                    // Reduce Motion: aparece sin fundido, no con uno más corto.
+                    .transition(reduceMotion ? .identity : .opacity)
+                    // El `id` es la frase, NO `store.quote`: solo existe mientras el overlay
+                    // está montado, así que una sesión recuperada (que nunca lo monta) no
+                    // puede redisparar el temporizador.
+                    .task(id: quote.id) {
+                        // Una señal corta, no la frase: el modal ya lleva el texto como su
+                        // etiqueta y el foco lo lee al aparecer. Anunciar además la frase
+                        // entera la diría dos veces seguidas. El precedente de "Sesión
+                        // recuperada" anuncia dos palabras porque ahí no hay modal que leer.
+                        AccessibilityNotification.Announcement(String(localized: "Frase motivacional", comment: "Anuncio corto de VoiceOver al aparecer el overlay de la frase motivacional, al iniciar una caminata. La frase en sí la lee el foco del modal.")).post()
+                        try? await Task.sleep(for: Self.quoteDuration)
+                        if !Task.isCancelled { store.dismissQuote() }
+                    }
+            }
+        }
+        .animation(reduceMotion ? nil : .default, value: store.quote)
     }
 
     // MARK: - Sesión recuperada

@@ -20,8 +20,8 @@ extension SessionStoreSuite {
     static var t0: Date { SessionStoreFixture.t0 }
 }
 
-/// `SessionStore` sobre un `ClockStub`, un `MotionStub`, un `StorageStub`, un `LocationStub` y un
-/// `WeatherStub`, con las líneas de medición en un `LineSink`.
+/// `SessionStore` sobre un `ClockStub`, un `MotionStub`, un `StorageStub`, un `LocationStub`, un
+/// `WeatherStub` y un `RandomStub`, con las líneas de medición en un `LineSink`.
 @MainActor
 struct SessionStoreFixture {
 
@@ -36,6 +36,9 @@ struct SessionStoreFixture {
     let storage: StorageStub
     let location: LocationStub
     let weather: WeatherStub
+    let random: RandomStub
+    /// Dueño de los ajustes, montado sobre el mismo `StorageStub` que el snapshot.
+    let settings: SettingsStore
     /// Las líneas `WTM1` que escribe el store. Solo observan: sirven de condición de espera.
     let measurements: LineSink
     let store: SessionStore
@@ -52,6 +55,9 @@ struct SessionStoreFixture {
     ///     las suites anteriores a la 2.1 no ven la captura.
     ///   - weather: responde WMO 61 y 18 °C por defecto.
     ///   - weatherStepTimeoutS: tope de cada paso de la captura del clima (ubicación y clima).
+    ///   - quotes: banco de frases. **Vacío por defecto**: sin frase ni overlay, así las
+    ///     suites anteriores a la 2.2 no ven la selección.
+    ///   - random: azar determinista para elegir la frase.
     init(
         motion: MotionStub = MotionStub(status: .granted),
         storage: StorageStub = StorageStub(),
@@ -62,7 +68,9 @@ struct SessionStoreFixture {
         maxEstimableGapS: TimeInterval = SessionStoreFixture.maxEstimableGapS,
         location: LocationStub = LocationStub(status: .denied),
         weather: WeatherStub = WeatherStub(),
-        weatherStepTimeoutS: TimeInterval = 5
+        weatherStepTimeoutS: TimeInterval = 5,
+        quotes: QuoteBank = .empty,
+        random: RandomStub = RandomStub()
     ) {
         let measurements = LineSink()
         clock = ClockStub(now: instant)
@@ -70,7 +78,10 @@ struct SessionStoreFixture {
         self.storage = storage
         self.location = location
         self.weather = weather
+        self.random = random
         self.measurements = measurements
+        let settings = SettingsStore(storage: storage)
+        self.settings = settings
         store = SessionStore(
             clock: clock,
             motion: motion,
@@ -81,9 +92,19 @@ struct SessionStoreFixture {
             maxEstimableGapS: maxEstimableGapS,
             location: location,
             weather: weather,
+            settings: settings,
+            quotes: quotes,
+            random: random,
             weatherStepTimeoutS: weatherStepTimeoutS,
             measure: { measurements.append($0) }
         )
+    }
+
+    /// Un banco de `count` frases con ids 1…`count`, para los tests de la 2.2. `bank(0)` es el
+    /// banco **vacío**, no uno de una frase: un `max(1, count)` convertiría un caso límite en
+    /// otro sin avisar. Ids únicos y textos no vacíos: la validación del `init` no puede fallar.
+    static func bank(_ count: Int) -> QuoteBank {
+        try! QuoteBank(quotes: (0..<count).map { Quote(id: $0 + 1, text: "Frase \($0 + 1)") })
     }
 
     var session: Session? { store.session }

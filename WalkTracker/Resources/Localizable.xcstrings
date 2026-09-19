@@ -189,6 +189,9 @@
     "Finalizar caminata": {
       "comment": "Acción destructiva del diálogo de confirmación: termina la caminata y muestra el resumen."
     },
+    "Frase motivacional": {
+      "comment": "Anuncio corto de VoiceOver al aparecer el overlay de la frase motivacional, al iniciar una caminata. La frase en sí la lee el foco del modal."
+    },
     "Granos de nieve": {
       "comment": "Condición del clima, código WMO 77 (granos de nieve, no granizo), en la tarjeta de clima de la sesión."
     },
@@ -320,6 +323,12 @@
     },
     "Tiempo": {
       "comment": "Etiqueta del tiempo transcurrido en la pantalla de sesión."
+    },
+    "Toca para continuar": {
+      "comment": "Pie del overlay de la frase motivacional, al iniciar una caminata: dice cómo se quita antes de que se vaya sola a los 3 s."
+    },
+    "Toca para continuar con la caminata, que ya está en curso.": {
+      "comment": "Pista de VoiceOver del overlay de la frase motivacional: cómo se descarta y que la caminata no está esperando."
     },
     "Todavía no hay nada que ajustar.": {
       "comment": "Descripción de la pestaña de ajustes vacía."
