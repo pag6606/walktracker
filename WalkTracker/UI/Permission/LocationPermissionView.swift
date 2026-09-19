@@ -17,8 +17,8 @@ struct LocationPermissionView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
+        VStack(alignment: .leading, spacing: Spacing.m) {
+            HStack(alignment: .firstTextBaseline, spacing: Spacing.s) {
                 Image(systemName: "cloud.sun")
                     .foregroundStyle(.tint)
                     .accessibilityHidden(true)
@@ -32,12 +32,12 @@ struct LocationPermissionView: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             let layout = dynamicTypeSize.isAccessibilitySize
-                ? AnyLayout(VStackLayout(spacing: 8))
-                : AnyLayout(HStackLayout(spacing: 12))
+                ? AnyLayout(VStackLayout(spacing: Spacing.s))
+                : AnyLayout(HStackLayout(spacing: Spacing.m))
             layout {
                 Button(action: onDecline) {
                     Text("Ahora no")
-                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .frame(maxWidth: .infinity, minHeight: LayoutMetrics.touchTargetMin)
                 }
                 .buttonStyle(.glass)
 
@@ -49,15 +49,16 @@ struct LocationPermissionView: View {
                             Text("Permitir")
                         }
                     }
-                    .font(.headline)
-                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .font(Typography.buttonLabel)
+                    .frame(maxWidth: .infinity, minHeight: LayoutMetrics.touchTargetMin)
                 }
                 .buttonStyle(.glassProminent)
                 .disabled(isRequesting)
             }
         }
-        .padding(16)
-        .glassEffect(.regular, in: .rect(cornerRadius: 20))
+        .padding(.horizontal, Surface.cardPaddingHorizontal)
+        .padding(.vertical, Surface.cardPaddingVertical)
+        .glassEffect(.regular, in: .rect(cornerRadius: Radius.card))
         .accessibilityElement(children: .contain)
     }
 }

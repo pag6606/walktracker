@@ -33,7 +33,7 @@ struct SessionSummaryView: View {
     var body: some View {
         GeometryReader { proxy in
             ScrollView {
-                VStack(spacing: 8) {
+                VStack(spacing: Spacing.s) {
                     Text(walk.recovered ? "Caminata recuperada" : "Caminata completada")
                         .font(.title2.bold())
                         .multilineTextAlignment(.center)
@@ -47,13 +47,13 @@ struct SessionSummaryView: View {
                             .multilineTextAlignment(.center)
                     }
 
-                    Spacer(minLength: 24)
+                    Spacer(minLength: Spacing.xl)
 
                     DistanceHero(meters: walk.distanceM)
 
-                    Spacer(minLength: 24)
+                    Spacer(minLength: Spacing.xl)
 
-                    Grid(horizontalSpacing: 16, verticalSpacing: 24) {
+                    Grid(horizontalSpacing: Spacing.l, verticalSpacing: Spacing.xl) {
                         GridRow {
                             MetricCell.steps(walk.steps, estimated: walk.estimatedSteps)
                             MetricCell.time(TimeInterval(walk.durationS))
@@ -65,17 +65,17 @@ struct SessionSummaryView: View {
                     }
                     .frame(maxWidth: .infinity)
 
-                    Spacer(minLength: 24)
+                    Spacer(minLength: Spacing.xl)
 
                     Button(action: onLeave) {
                         Label("Volver al inicio", systemImage: "house")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity, minHeight: 44)
+                            .font(Typography.buttonLabel)
+                            .frame(maxWidth: .infinity, minHeight: LayoutMetrics.touchTargetMin)
                     }
                     .buttonStyle(.glassProminent)
                     .controlSize(.extraLarge)
                 }
-                .padding()
+                .padding(LayoutMetrics.margin)
                 .frame(maxWidth: .infinity, minHeight: proxy.size.height)
             }
             .scrollBounceBehavior(.basedOnSize)

@@ -45,7 +45,8 @@ make_fixture() {
     root="$(mktemp -d)"
 
     mkdir -p "$root/Domain/Ports" "$root/Domain/Session" "$root/Shared" \
-             "$root/WalkTracker/App" "$root/WalkTracker/UI" "$root/WalkTracker/Application" \
+             "$root/WalkTracker/App" "$root/WalkTracker/UI" "$root/WalkTracker/UI/Style" \
+             "$root/WalkTracker/UI/Diagnostics" "$root/WalkTracker/Application" \
              "$root/WalkTracker/Adapters/Motion" "$root/WalkTracker/Adapters/Persistence" \
              "$root/WalkTracker/Adapters/Clock" "$root/WalkTracker/Adapters/Location" \
              "$root/WalkTracker/Adapters/Weather" \
@@ -169,6 +170,68 @@ struct SessionView: View {
 }
 SWIFT
 
+    # 12 · Los tokens SÍ llevan los valores crudos: `Style/` es donde viven. Y
+    # `Diagnostics/` queda fuera por ser `#if DEBUG` y estar marcada para borrado.
+    cat > "$root/WalkTracker/UI/Style/DesignTokens.swift" <<'SWIFT'
+import SwiftUI
+
+/// Aquí sí viven los valores crudos: es la única definición del vocabulario visual.
+enum LayoutMetrics {
+    static let touchTargetMin: CGFloat = 44
+    static let margin: CGFloat = 16
+}
+enum Radius {
+    static let card: CGFloat = 20
+}
+enum Colors {
+    static let accent = Color.accentColor
+    static let estimated = Color("EstimatedSteps")
+    static let fallback = Color(red: 0.64, green: 0.31, blue: 0.0)
+}
+SWIFT
+    cat > "$root/WalkTracker/UI/Diagnostics/NativeLayerDiagnosticsView.swift" <<'SWIFT'
+import SwiftUI
+
+#if DEBUG
+struct DiagnosticsScreen: View {
+    var body: some View {
+        Text(verbatim: "#CCFF00")
+            .frame(minHeight: 44)
+            .background(Color(red: 0.8, green: 1.0, blue: 0.0), in: .rect(cornerRadius: 16))
+    }
+}
+#endif
+SWIFT
+    # 12 · Lo que una vista SÍ hace: tomar el vocabulario del sitio donde vive, y nombrar
+    # el 44 pt o un hexadecimal en un comentario para explicarse.
+    cat > "$root/WalkTracker/UI/Vocabulario.swift" <<'SWIFT'
+import SwiftUI
+
+/// El objetivo táctil de 44 pt (AD-20) y el acento `#CCFF00` se citan aquí en un
+/// comentario para explicar la vista; citarlos no es cablearlos.
+struct Vocabulario: View {
+    var body: some View {
+        Text("Iniciar caminata")
+            .frame(maxWidth: .infinity, minHeight: LayoutMetrics.touchTargetMin)
+            .padding(LayoutMetrics.margin)
+            .background(Colors.estimated.opacity(0.12), in: .rect(cornerRadius: Radius.card))
+            .foregroundStyle(Colors.accent)
+    }
+}
+SWIFT
+
+    # 12b · El `Info.plist` NOMBRA la key prohibida en un comentario, para decir que lo está.
+    cat > "$root/WalkTracker/App/Info.plist" <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+	<!-- AD-13: `UIDesignRequiresCompatibility` está PROHIBIDA. Liquid Glass se hereda. -->
+	<key>CFBundleName</key>
+	<string>WalkTracker</string>
+</dict>
+</plist>
+PLIST
+
     cat > "$root/project.yml" <<'YAML'
 name: WalkTracker
 targets:
@@ -189,6 +252,9 @@ targets:
       - path: WalkTracker
     dependencies:
       - target: Domain
+    settings:
+      base:
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
   WalkTrackerActivity:
     type: app-extension
     sources:
@@ -450,6 +516,194 @@ done
 ROOT="$(make_fixture)"
 printf 'import SwiftUI\nfunc f() {\n    UIApplication.shared.open(url)\n}\n' > "$ROOT/WalkTracker/UI/Vista.swift"
 assert_gate "\`UIApplication.shared\` en UI/ sin import falla" "$ROOT" 1 "UI/Vista.swift:3: error: AD-10: la UI no usa UIKit"
+rm -rf "$ROOT"
+
+# ── 4h. Rojo: una vista cablea el vocabulario visual (AD-13, UX-DR3, AD-20) ─
+# Sin target de UI tests, esto es lo único que impide que la 3.1, la 3.3, la 5.2 y la 2.3
+# vuelvan a inventarse cada una su 44, su radio y su color.
+for line in '            .frame(maxWidth: .infinity, minHeight: 44)' \
+            '            .frame(minWidth: 44, minHeight: 44)' \
+            '        .frame(minHeight:44)' \
+            '            .background(.orange, in: .rect(cornerRadius: 16))' \
+            '            .clipShape(.rect(cornerRadius: 20))' \
+            '            .foregroundStyle(Color(red: 0.64, green: 0.31, blue: 0.0))' \
+            '            .foregroundStyle(Color(.sRGB, red: 0.8, green: 1, blue: 0))' \
+            '            .background(Color(white: 0.5))' \
+            '            .tint(Color(hue: 0.2, saturation: 1, brightness: 1))' \
+            '        let lima = "#CCFF00"' \
+            '        let lima = 0xCCFF00'; do
+    ROOT="$(make_fixture)"
+    printf 'import SwiftUI\nstruct Vista: View {\n    var body: some View {\n%s\n    }\n}\n' "$line" \
+        > "$ROOT/WalkTracker/UI/Vista.swift"
+    assert_gate "\`$(echo "$line" | sed 's/^ *//')\` en UI/ falla" "$ROOT" 1 \
+        "UI/Vista.swift:4: error: AD-13/UX-DR3"
+    rm -rf "$ROOT"
+done
+
+# En la columna 0, sin carácter delante.
+ROOT="$(make_fixture)"
+printf 'import SwiftUI\ncornerRadius: 20\n' > "$ROOT/WalkTracker/UI/Vista.swift"
+assert_gate "\`cornerRadius: 20\` en la columna 0 en UI/ falla" "$ROOT" 1 "UI/Vista.swift:2: error: AD-13/UX-DR3"
+rm -rf "$ROOT"
+
+# Un subdirectorio de `UI/` que no es `Style/` ni `Diagnostics/` tampoco se libra.
+ROOT="$(make_fixture)"
+mkdir -p "$ROOT/WalkTracker/UI/Achievements"
+printf 'import SwiftUI\nlet lado: CGFloat = 44\nlet marco = "minHeight: 44"\n' \
+    > "$ROOT/WalkTracker/UI/Achievements/Badge.swift"
+assert_gate "\`minHeight: 44\` en una cadena de UI/Achievements/ falla" "$ROOT" 1 \
+    "Achievements/Badge.swift:3: error: AD-13/UX-DR3"
+rm -rf "$ROOT"
+
+# Y `Style/` sigue siendo el único sitio donde el valor crudo es legítimo: moverlo fuera falla.
+ROOT="$(make_fixture)"
+mv "$ROOT/WalkTracker/UI/Style/DesignTokens.swift" "$ROOT/WalkTracker/UI/DesignTokens.swift"
+assert_gate "los tokens fuera de Style/ fallan" "$ROOT" 1 "UI/DesignTokens.swift:[0-9]*: error: AD-13/UX-DR3"
+rm -rf "$ROOT"
+
+# La exención es de UN fichero, no de la carpeta: `Style/` no es una puerta trasera.
+ROOT="$(make_fixture)"
+cat > "$ROOT/WalkTracker/UI/Style/AchievementBadge.swift" <<'SWIFT'
+import SwiftUI
+
+struct AchievementBadge: View {
+    var body: some View {
+        Text(verbatim: "#CCFF00")
+            .frame(minHeight: 44)
+    }
+}
+SWIFT
+assert_gate "un fichero de Style/ que no es DesignTokens.swift NO está exento" "$ROOT" 1 \
+    "Style/AchievementBadge.swift:[0-9]*: error: AD-13/UX-DR3"
+rm -rf "$ROOT"
+
+# Y `DesignTokens.swift` sigue siendo el sitio donde el valor crudo —y el color del
+# sistema que los tokens sustituyen— es legítimo.
+ROOT="$(make_fixture)"
+echo 'let sistema = Color.orange' >> "$ROOT/WalkTracker/UI/Style/DesignTokens.swift"
+assert_gate "\`Color.orange\` en Style/DesignTokens.swift pasa" "$ROOT" 0 "forma del proyecto correcta"
+rm -rf "$ROOT"
+
+# ── 4h2. Rojo: las formas que esquivaban la regla, y las dos reglas nuevas ───
+# Cada línea de aquí pasaba el gate antes de esta vuelta: `.frame(height: 44)` (la regla
+# solo miraba `min…`), `.cornerRadius(16)` (solo miraba `cornerRadius:`), `0xCC_FF_00` y
+# `Color.init(red:)` (los dos patrones no los contemplaban), `.orange` (el color que este
+# vocabulario sustituye porque incumple AA) y la escala de UX-DR3 reteclada.
+for line in '            .frame(height: 44)' \
+            '            .frame(width: 44, height: 44)' \
+            '            .frame(idealHeight: 88)' \
+            '            .frame(maxHeight: 120)' \
+            '            .cornerRadius(16)' \
+            '            .cornerRadius( 20 )' \
+            '        let lima = 0xCC_FF_00' \
+            '            .foregroundStyle(Color.init(red: 0.64, green: 0.31, blue: 0.0))' \
+            '            .foregroundStyle(Color .init(.displayP3, red: 1, green: 1, blue: 0))' \
+            '            .foregroundStyle(.orange)' \
+            '            .background(Color.orange)' \
+            '            .tint(Color . orange)' \
+            '        VStack(spacing: 4) { Text("a") }' \
+            '        VStack(spacing: 8) { Text("a") }' \
+            '        HStack(spacing: 12) { Text("a") }' \
+            '        VStack(spacing: 16) { Text("a") }' \
+            '        VStack(alignment: .leading, spacing: 24) { Text("a") }' \
+            '        Spacer(minLength: 24)' \
+            '            .padding(16)' \
+            '            .padding(.horizontal, 16)' \
+            '            .padding(.vertical, 12)' \
+            '            .padding(.top, 24)' \
+            '            .padding(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))'; do
+    ROOT="$(make_fixture)"
+    printf 'import SwiftUI\nstruct Vista: View {\n    var body: some View {\n%s\n    }\n}\n' "$line" \
+        > "$ROOT/WalkTracker/UI/Vista.swift"
+    assert_gate "\`$(echo "$line" | sed 's/^ *//')\` en UI/ falla" "$ROOT" 1 \
+        "UI/Vista.swift:4: error: AD-13/UX-DR3"
+    rm -rf "$ROOT"
+done
+
+# ── 4h3. Verde: lo que la spec decide NO tokenizar sigue pasando ────────────
+# La regla del espaciado prohíbe los cinco peldaños de UX-DR3, no todo número: `spacing: 0`,
+# `spacing: 2` y `.padding(.top, 48)` son decisiones declaradas de la spec, y
+# `.frame(maxWidth: .infinity)` no lleva número. Si alguna de estas fallara, la regla
+# estaría mal calibrada y criminalizaría lo que a propósito no es token.
+for line in '            .frame(maxWidth: .infinity)' \
+            '            .frame(minHeight: LayoutMetrics.touchTargetMin)' \
+            '        VStack(spacing: 0) { Text("a") }' \
+            '        VStack(spacing: 2) { Text("a") }' \
+            '        HStack(alignment: .firstTextBaseline, spacing: 2) { Text("a") }' \
+            '            .padding(.top, 48)' \
+            '            .padding()' \
+            '            .padding(.horizontal)' \
+            '            .padding(LayoutMetrics.margin)' \
+            '            .padding(.vertical, Surface.cardPaddingVertical)' \
+            '        Spacer(minLength: Spacing.xl)' \
+            '        // el .orange del sistema daba 2,20:1 sobre blanco: por eso hay token' \
+            '        // el acento es #CCFF00, y el objetivo táctil .frame(minHeight: 44)'; do
+    ROOT="$(make_fixture)"
+    printf 'import SwiftUI\nstruct Verde: View {\n    var body: some View {\n%s\n    }\n}\n' "$line" \
+        > "$ROOT/WalkTracker/UI/Verde.swift"
+    assert_gate "\`$(echo "$line" | sed 's/^ *//')\` en UI/ pasa" "$ROOT" 0 "forma del proyecto correcta"
+    rm -rf "$ROOT"
+done
+
+# ── 4h4. Rojo: sin `WalkTracker/UI/` el gate no se declara en verde ─────────
+# Saltarse la sección en silencio por no encontrar la carpeta es dar el verde por no mirar.
+ROOT="$(make_fixture)"
+rm -rf "$ROOT/WalkTracker/UI"
+assert_gate "sin WalkTracker/UI/ el gate no da el verde" "$ROOT" 1 "WalkTracker/UI: error: no existe"
+rm -rf "$ROOT"
+
+# ── 4i. Rojo: `UIDesignRequiresCompatibility` en el Info.plist (AD-13) ──────
+for target in WalkTracker/App WalkTrackerActivity; do
+    ROOT="$(make_fixture)"
+    mkdir -p "$ROOT/$target"
+    cat > "$ROOT/$target/Info.plist" <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+	<key>UIDesignRequiresCompatibility</key>
+	<true/>
+</dict>
+</plist>
+PLIST
+    assert_gate "\`UIDesignRequiresCompatibility\` en $target/Info.plist falla" "$ROOT" 1 \
+        "$target/Info.plist:4: error: AD-13"
+    rm -rf "$ROOT"
+done
+
+# Y la lista de plists sale del MANIFIESTO, no de una lista fija: un target nuevo con plist
+# propio se comprueba sin tocar el gate. (Los dos casos de arriba prueban el respaldo: el
+# manifiesto del fixture no declara ninguno.)
+ROOT="$(make_fixture)"
+mkdir -p "$ROOT/WalkTracker/Otro"
+cat > "$ROOT/WalkTracker/Otro/Info.plist" <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+	<key>UIDesignRequiresCompatibility</key>
+	<true/>
+</dict>
+</plist>
+PLIST
+perl -0pi -e 's/(        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor\n)/$1        INFOPLIST_FILE: WalkTracker\/Otro\/Info.plist\n/' "$ROOT/project.yml"
+grep -q 'INFOPLIST_FILE' "$ROOT/project.yml" || { echo "  ⚠️  fixture no mutado"; exit 1; }
+assert_gate "un Info.plist declarado en el manifiesto también se comprueba" "$ROOT" 1 \
+    "Otro/Info.plist:4: error: AD-13"
+rm -rf "$ROOT"
+
+# ── 4j. Rojo: el acento de la app deja de ser una decisión (AD-13) ──────────
+# Verificado: sin esta key el chrome vuelve al azul del sistema y NADA falla — justo el
+# defecto que el chore denuncia ("azul por omisión, no por decisión").
+ROOT="$(make_fixture)"
+perl -0pi -e 's/^        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor\n//m' "$ROOT/project.yml"
+grep -q 'ACCENT_COLOR_NAME' "$ROOT/project.yml" && { echo "  ⚠️  fixture no mutado"; exit 1; }
+assert_gate "borrar la key del acento global falla" "$ROOT" 1 \
+    "ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME"
+rm -rf "$ROOT"
+
+ROOT="$(make_fixture)"
+perl -0pi -e 's/ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor/ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AppIcon/' "$ROOT/project.yml"
+assert_gate "la key del acento apuntando a otro colorset falla" "$ROOT" 1 \
+    "ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME"
 rm -rf "$ROOT"
 
 # ── 5. Rojo: manifiesto ausente ──────────────────────────────────────────────
