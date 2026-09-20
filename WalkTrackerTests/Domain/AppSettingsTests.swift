@@ -127,6 +127,71 @@ struct AppSettingsTests {
         #expect(!AppSettings.isHumanStride(.nan), "un no-número nunca es humano")
     }
 
+    // MARK: - El límite representable (B-3)
+
+    @Test("El borde es EXACTO: la mayor zancada que cabe se guarda, y el Double siguiente ya no")
+    func representableLimitIsExactOnBothSides() throws {
+        let limit = MetricsCalculator.maxRepresentableStrideM
+
+        #expect(AppSettings.isRepresentableStride(limit), "el límite cabe: es el mayor que cabe")
+        #expect(!AppSettings.isRepresentableStride(limit.nextUp), "y su vecino ya no")
+
+        var settings = AppSettings()
+        try settings.setStrideM(limit)
+        #expect(settings.strideM == limit, "se guarda, aunque sea absurda: no cabe es lo único que bloquea")
+
+        #expect(throws: DomainError.invalidValue(field: "strideM")) { try settings.setStrideM(limit.nextUp) }
+        #expect(settings.strideM == limit, "rechazar no borra lo anterior")
+    }
+
+    @Test("El caso del crash: 1e307 es finito, tiene 308 dígitos y NO cabe")
+    func theCrashValueIsRejected() throws {
+        // D3 de la retro del Epic 2: `isRepresentableStride` solo miraba `isFinite`, así que
+        // esto se guardaba con el aviso de rango humano y estrellaba la app en CADA caminata
+        // posterior. Se teclea como 308 dígitos, que el parser lee sin problema.
+        let meters = try #require(AppSettings.strideMeters(fromText: "1" + String(repeating: "0", count: 307)))
+
+        #expect(meters == 1e307)
+        #expect(meters.isFinite, "es finito: por eso `isFinite` a secas no lo veía")
+        #expect(!AppSettings.isRepresentableStride(meters), "pero no cabe en la fórmula")
+
+        var settings = AppSettings()
+        #expect(throws: DomainError.invalidValue(field: "strideM")) { try settings.setStrideM(meters) }
+        #expect(settings.strideM == nil)
+    }
+
+    @Test("Una zancada absurda pero representable se sigue guardando con su aviso (decisión de la 2.3)")
+    func absurdButRepresentableStillSaves() throws {
+        // El techo nuevo es el de la aritmética, no un máximo "razonable": poner uno aquí
+        // renegociaría por la puerta de atrás la decisión de Paul de avisar y no bloquear.
+        var settings = AppSettings()
+        try settings.setStrideM(50)
+
+        #expect(settings.strideM == 50)
+        #expect(!AppSettings.isHumanStride(50), "se avisa")
+        #expect(AppSettings.isRepresentableStride(50), "pero cabe de sobra, así que no se bloquea")
+    }
+
+    @Test("Cero y los negativos SIGUEN cabiendo: su motivo es otro y su mensaje también")
+    func nonPositiveValuesStillFitTheFormula() {
+        #expect(AppSettings.isRepresentableStride(0))
+        #expect(AppSettings.isRepresentableStride(-0.5))
+        #expect(AppSettings.isRepresentableStride(-1e307), "enorme y negativo: lo suyo es no ser > 0")
+        #expect(!AppSettings.isRepresentableStride(.infinity))
+        #expect(!AppSettings.isRepresentableStride(.nan), "un no-número no cabe en ninguna fórmula")
+    }
+
+    @Test("Una zancada guardada ANTES de B-3 se lee como sin configurar, sin costar la ventana")
+    func previouslyStoredOversizedStrideReadsAsUnset() {
+        // Un `settings.json` escrito por un build anterior con 1e307 dentro. La puerta
+        // tolerante se come ESE campo y nada más: el fichero no se aparta.
+        let settings = AppSettings(recentQuoteIds: [7, 8, 9], strideM: 1e307)
+
+        #expect(settings.strideM == nil)
+        #expect(settings.resolvedStrideM(default: 0.655) == 0.655, "la caminata usa el default")
+        #expect(settings.recentQuoteIds == [7, 8, 9], "y la ventana de frases sobrevive")
+    }
+
     // MARK: - Texto tecleado → metros (2.3)
 
     @Test("Coma decimal: el teclado en español da coma y se acepta")

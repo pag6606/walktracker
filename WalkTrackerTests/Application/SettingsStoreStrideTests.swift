@@ -129,6 +129,41 @@ struct SettingsStoreStrideTests {
         #expect(storage.settingsSaved.isEmpty)
     }
 
+    @Test("El caso del crash: 1e307 se rechaza en la frontera y ninguna caminata lo ve")
+    func rejectsTheStrideThatUsedToCrashTheApp() throws {
+        // D3 de la retro del Epic 2: 308 dígitos. Finito, así que pasaba la frontera, se
+        // guardaba con el aviso de rango humano, y `metrics(at:)` estrellaba la app en CADA
+        // caminata hasta reinstalar. El motivo es "no cabe", no "no es mayor que cero".
+        let (storage, settings) = Self.store(StorageStub(settings: AppSettings(strideM: 0.670)))
+
+        settings.saveStride(fromText: "1" + String(repeating: "0", count: 307))
+
+        #expect(settings.strideOutcome == .rejected(.tooLarge))
+        #expect(settings.strideOutcome != .rejected(.notPositive), "no es cero ni negativo")
+        #expect(storage.settingsSaved.isEmpty, "el fichero no cambia")
+        #expect(settings.strideM == 0.670, "y la zancada buena sigue en su sitio")
+
+        // Lo que importa del rechazo: la caminata siguiente nace con un valor con el que la
+        // distancia se puede calcular.
+        var session = try Session.start(at: Date(timeIntervalSince1970: 0), strideM: settings.resolvedStrideM(default: 0.655))
+        try session.addMeasuredSteps(4980)
+        let metrics = session.metrics(at: Date(timeIntervalSince1970: 3720))
+        #expect(metrics.distanceM.isFinite)
+        #expect(!metrics.degraded)
+    }
+
+    @Test("Una zancada absurda pero representable se sigue guardando con su aviso (2.3)")
+    func absurdButRepresentableStrideStillSaves() {
+        // El techo nuevo es el de la aritmética y nada más: 50 m sigue siendo cosa de Paul.
+        let (storage, settings) = Self.store()
+
+        settings.saveStride(fromText: "50")
+
+        #expect(settings.strideOutcome == .savedOutsideHumanRange(50))
+        #expect(settings.strideM == 50)
+        #expect(storage.settingsSaved.map(\.strideM) == [50])
+    }
+
     @Test("Un rechazo no borra la zancada que ya estaba guardada")
     func rejectionKeepsThePreviousValue() {
         let (storage, settings) = Self.store(StorageStub(settings: AppSettings(strideM: 0.670)))
