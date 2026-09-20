@@ -18,12 +18,25 @@ import SwiftUI
 struct RootView<Diagnostics: View>: View {
 
     let store: SessionStore
+    /// Dueño de `settings.json` (AD-16). Llega cableado desde `WalkTrackerApp`, no a través del
+    /// store de sesión: la sección 6 del gate prohíbe a `UI/` alcanzar los ajustes por dentro
+    /// del store de sesión, y con razón — son dos dueños distintos del mismo puerto.
+    let settingsStore: SettingsStore
+    /// La zancada por omisión de `formulas.json`, para el marcador de posición de Ajustes.
+    let defaultStrideM: Double
     private let diagnostics: Diagnostics?
 
     @Environment(\.scenePhase) private var scenePhase
 
-    init(store: SessionStore, @ViewBuilder diagnostics: () -> Diagnostics) {
+    init(
+        store: SessionStore,
+        settingsStore: SettingsStore,
+        defaultStrideM: Double,
+        @ViewBuilder diagnostics: () -> Diagnostics
+    ) {
         self.store = store
+        self.settingsStore = settingsStore
+        self.defaultStrideM = defaultStrideM
         self.diagnostics = diagnostics()
     }
 
@@ -49,12 +62,7 @@ struct RootView<Diagnostics: View>: View {
                 )
             }
             Tab("Ajustes", systemImage: "gearshape") {
-                EmptyTabView(
-                    title: "Ajustes",
-                    unavailableTitle: "Sin ajustes",
-                    systemImage: "gearshape",
-                    description: "Todavía no hay nada que ajustar."
-                )
+                SettingsView(settingsStore: settingsStore, defaultStrideM: defaultStrideM)
             }
         }
         .fullScreenCover(isPresented: sessionPresented) {
@@ -75,8 +83,10 @@ struct RootView<Diagnostics: View>: View {
 
 extension RootView where Diagnostics == Never {
 
-    init(store: SessionStore) {
+    init(store: SessionStore, settingsStore: SettingsStore, defaultStrideM: Double) {
         self.store = store
+        self.settingsStore = settingsStore
+        self.defaultStrideM = defaultStrideM
         self.diagnostics = nil
     }
 }
@@ -98,7 +108,8 @@ extension SessionStore.ScenePhase {
     }
 }
 
-/// Pestaña sin datos de dominio todavía. No se inventa contenido (AD-22).
+/// Pestaña sin datos de dominio todavía. No se inventa contenido (AD-22). Historial (5.2) y
+/// Logros (3.3) siguen aquí; Ajustes salió de este molde con la 2.3.
 private struct EmptyTabView: View {
 
     let title: LocalizedStringKey

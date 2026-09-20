@@ -35,7 +35,7 @@ struct SessionStoreTests: SessionStoreSuite {
 
     @Test("Zancada inválida: invalidValue(strideM), ninguna sesión y ningún conteo", arguments: [0, -1, Double.nan, .infinity])
     func invalidStrideCreatesNothing(stride: Double) async {
-        let fixture = SessionStoreFixture(strideM: stride)
+        let fixture = SessionStoreFixture(defaultStrideM: stride)
         let (motion, store) = (fixture.motion, fixture.store)
 
         await store.start()
@@ -110,5 +110,66 @@ struct SessionStoreTests: SessionStoreSuite {
         #expect(store.session?.startedAt == Self.t0)
         #expect(store.elapsedS == 30)
         #expect(motion.updateStarts.count == 1)
+    }
+
+    // MARK: - La zancada se resuelve AL ABRIR, no al construir el store (2.3)
+
+    @Test("Recalibrar y caminar: la siguiente sesión nace con el valor nuevo SIN relanzar la app")
+    func recalibratedStrideAppliesToTheNextSession() async throws {
+        // **Criterio central de la 2.3, y el que ninguna mutación puede dejar pasar.** El store
+        // ya está construido con el default de `formulas.json`: si `openSession()` leyera su
+        // `defaultStrideM` en vez de preguntar a los ajustes, esto saldría 0,655 y recalibrar
+        // solo habría surtido efecto tras relanzar.
+        let fixture = SessionStoreFixture(defaultStrideM: 0.655)
+        let (settings, store) = (fixture.settings, fixture.store)
+
+        settings.saveStride(fromText: "0,670")
+        await store.start()
+
+        #expect(try #require(store.session).strideM == 0.670)
+    }
+
+    @Test("Sin recalibrar nunca, la sesión nace con el default de formulas.json")
+    func unconfiguredStrideFallsBackToTheDefault() async throws {
+        let fixture = SessionStoreFixture(defaultStrideM: 0.655)
+
+        await fixture.store.start()
+
+        #expect(try #require(fixture.store.session).strideM == 0.655)
+        #expect(fixture.settings.strideM == nil, "y el ajuste sigue sin configurar: no se materializa solo")
+    }
+
+    @Test("Con la zancada ya en el fichero al arrancar, la primera sesión ya la usa")
+    func storedStrideIsUsedFromTheFirstSession() async throws {
+        let fixture = SessionStoreFixture(storage: StorageStub(settings: AppSettings(strideM: 0.720)))
+
+        await fixture.store.start()
+
+        #expect(try #require(fixture.store.session).strideM == 0.720)
+    }
+
+    @Test("La sesión viva NO se recalibra: ni el agregado ni su snapshot")
+    func liveSessionKeepsItsFrozenStride() async throws {
+        let fixture = SessionStoreFixture(defaultStrideM: 0.655)
+        let (settings, storage, store) = (fixture.settings, fixture.storage, fixture.store)
+        await store.start()
+        let snapshotsBefore = storage.saved.count
+
+        settings.saveStride(fromText: "0,670")
+
+        #expect(try #require(store.session).strideM == 0.655, "`Session.strideM` es un `let` del agregado")
+        #expect(storage.saved.count == snapshotsBefore, "recalibrar no reescribe el snapshot de la sesión viva")
+        #expect(storage.saved.allSatisfy { $0.strideM == 0.655 })
+        #expect(settings.strideM == 0.670, "y aun así el ajuste queda guardado para la siguiente")
+    }
+
+    @Test("Una zancada rechazada no cambia con qué nace la siguiente sesión")
+    func rejectedStrideDoesNotReachTheSession() async throws {
+        let fixture = SessionStoreFixture(defaultStrideM: 0.655)
+
+        fixture.settings.saveStride(fromText: "0")
+        await fixture.store.start()
+
+        #expect(try #require(fixture.store.session).strideM == 0.655)
     }
 }

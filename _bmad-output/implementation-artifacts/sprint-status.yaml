@@ -43,7 +43,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: '2026-08-01'
-last_updated: 09-18-2026 12:00
+last_updated: 09-19-2026 12:00
 project: walktracker
 project_key: NOKEY
 tracking_system: file-system
@@ -67,7 +67,7 @@ development_status:
   epic-2: in-progress
   2-1-clima-snapshot-al-inicio-de-sesión-open-meteo: review
   2-2-frase-motivacional-al-iniciar-sesión: review
-  2-3-recalibración-de-zancada-en-ajustes: backlog
+  2-3-recalibración-de-zancada-en-ajustes: done
   epic-2-retrospective: optional
 
   epic-3: backlog

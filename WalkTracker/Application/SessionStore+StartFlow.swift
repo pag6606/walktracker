@@ -83,8 +83,14 @@ extension SessionStore {
         startFailure = nil
     }
 
-    /// Abre la sesión en el instante del reloj con la zancada de `formulas.json`, abre el
+    /// Abre la sesión en el instante del reloj con la zancada que toque **ahora**, abre el
     /// conteo y guarda el primer snapshot. Si el dominio la rechaza, no hay sesión ni conteo.
+    ///
+    /// **La zancada se resuelve aquí, no en el init del store** (2.3, criterio central). Se le
+    /// pregunta al dueño de los ajustes en el momento de abrir: si Paul recalibró hace un
+    /// instante, esta sesión ya nace con el valor nuevo **sin relanzar la app**; si nunca la
+    /// tocó, nace con el default de `formulas.json`. Con el `let` del store leído al
+    /// construirlo, recalibrar no habría surtido efecto hasta el siguiente lanzamiento.
     ///
     /// El clima (2.1) va después y en paralelo: la apertura nunca lo espera.
     ///
@@ -93,6 +99,7 @@ extension SessionStore {
     /// snapshot: es síncrona y local, así que no hay nada que esperar.
     private func openSession() {
         do {
+            let strideM = settings.resolvedStrideM(default: defaultStrideM)
             let session = try Session.start(at: clock.now, strideM: strideM)
             self.session = session
             metrics = session.metrics(at: clock.now)

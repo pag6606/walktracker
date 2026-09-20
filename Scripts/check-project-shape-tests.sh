@@ -561,6 +561,74 @@ assert_gate "\`loadActiveSession\` en SettingsStore.swift falla" "$ROOT" 1 \
     "Application/SettingsStore.swift:3: error: AD-16: solo .SessionStore. usa el snapshot"
 rm -rf "$ROOT"
 
+# ── 4f''. Rojo: la UI o la app llaman a `save()` del store de ajustes (2.3) ─
+# `SettingsStore.save()` dejó de ser `private` en la 2.3, así que `settingsStore.save()`
+# COMPILA desde una vista y escribe el fichero saltándose la intención. La sección 9 no lo
+# veía —allí se miran las llamadas al puerto, no los métodos del store—, así que lo caza la 6.
+for target in UI/SessionView.swift App/WalkTrackerApp.swift; do
+    ROOT="$(make_fixture)"
+    printf 'import SwiftUI\nfunc f(_ settingsStore: SettingsStore) {\n    settingsStore.save()\n}\n' \
+        > "$ROOT/WalkTracker/$target"
+    assert_gate "\`settingsStore.save()\` en WalkTracker/$target falla" "$ROOT" 1 \
+        "$target:3: error: AD-7/AD-16"
+    rm -rf "$ROOT"
+done
+
+# Verde: las INTENCIONES de la zancada sí, que es para lo que están. `save\b` no casa con
+# `saveStride`, y si casara este caso lo diría.
+ROOT="$(make_fixture)"
+cat > "$ROOT/WalkTracker/UI/Ajustes.swift" <<'SWIFT'
+import SwiftUI
+
+struct Ajustes: View {
+    let settingsStore: SettingsStore
+    @State private var text = ""
+    var body: some View {
+        Button("Guardar") { settingsStore.saveStride(fromText: text) }
+        Button("Usar el valor por defecto") { settingsStore.clearStride() }
+            .disabled(settingsStore.strideM == nil)
+    }
+}
+SWIFT
+assert_gate "las intenciones de la zancada en UI/ pasan" "$ROOT" 0 "forma del proyecto correcta"
+rm -rf "$ROOT"
+
+# ── 4f'''. Rojo: dentro de `Application/`, escribir los ajustes de otro dueño ─
+# El mismo hueco un piso más adentro: `settings` es el store de ajustes que `SessionStore`
+# tiene inyectado, y su estado y su `save()` dejaron de ser privados en la 2.3.
+for line in '    settings.save()' '    settings.settings = AppSettings()' '    self.settings.strideOutcome = nil'; do
+    ROOT="$(make_fixture)"
+    printf 'import Domain\nfunc f() {\n%s\n}\n' "$line" \
+        > "$ROOT/WalkTracker/Application/SessionStore+Motivation.swift"
+    assert_gate "\`${line#    }\` en Application/SessionStore+Motivation.swift falla" "$ROOT" 1 \
+        "SessionStore+Motivation.swift:3: error: AD-16: \`settings\` es el store de ajustes"
+    rm -rf "$ROOT"
+done
+
+# Verde: pedirle intenciones y leerle el estado, que es lo que hace hoy `SessionStore`.
+ROOT="$(make_fixture)"
+cat > "$ROOT/WalkTracker/Application/SessionStore+Motivation.swift" <<'SWIFT'
+import Domain
+
+extension SessionStore {
+    func attachQuoteForNewSession() {
+        let recientes = settings.recentQuoteIds
+        settings.recordShownQuote(id: recientes.count)
+        let zancada = settings.resolvedStrideM(default: 0.655)
+        _ = zancada
+    }
+}
+SWIFT
+assert_gate "leer e invocar intenciones del store de ajustes en Application/ pasa" "$ROOT" 0 "forma del proyecto correcta"
+rm -rf "$ROOT"
+
+# Verde: y su propio dueño sí escribe su estado, que es exactamente su trabajo.
+ROOT="$(make_fixture)"
+printf 'import Domain\n\nextension SettingsStore {\n    func clearStride() {\n        settings.strideM = nil\n        _ = save()\n    }\n}\n' \
+    > "$ROOT/WalkTracker/Application/SettingsStore+Stride.swift"
+assert_gate "el dueño escribiendo su estado en SettingsStore+Stride.swift pasa" "$ROOT" 0 "forma del proyecto correcta"
+rm -rf "$ROOT"
+
 # ── 4g. Rojo: una vista importa un framework de sistema (AD-10) ─────────────
 for module in CoreMotion CoreLocation HealthKit ActivityKit WidgetKit CoreHaptics AVFoundation AudioToolbox \
               UserNotifications UIKit 'struct UIKit.UIApplication' 'internal import UIKit' \

@@ -47,6 +47,10 @@ struct SessionStoreFixture {
     ///   - motion: permiso concedido por defecto.
     ///   - storage: vacío por defecto; "relanzar" es montar otro store sobre el mismo.
     ///   - instant: instante inicial del reloj.
+    ///   - defaultStrideM: la zancada **por omisión**, la de `formulas.json`. No es la de la
+    ///     sesión: desde la 2.3 el override de `settings` gana, y `openSession()` lo resuelve al
+    ///     abrir. Para montar una zancada recalibrada, o se guarda con
+    ///     `settings.saveStride(fromText:)` o se parte de un `StorageStub(settings:)`.
     ///   - timeoutS: tope de la reconciliación. Largo por defecto: una consulta inmediata nunca
     ///     pierde contra el temporizador en una máquina cargada.
     ///   - orphanThresholdS: umbral de la sesión huérfana.
@@ -62,7 +66,7 @@ struct SessionStoreFixture {
         motion: MotionStub = MotionStub(status: .granted),
         storage: StorageStub = StorageStub(),
         at instant: Date = SessionStoreFixture.t0,
-        strideM: Double = 0.655,
+        defaultStrideM: Double = 0.655,
         timeoutS: TimeInterval = 5,
         orphanThresholdS: TimeInterval = SessionStoreFixture.orphanThresholdS,
         maxEstimableGapS: TimeInterval = SessionStoreFixture.maxEstimableGapS,
@@ -86,7 +90,7 @@ struct SessionStoreFixture {
             clock: clock,
             motion: motion,
             storage: storage,
-            strideM: strideM,
+            defaultStrideM: defaultStrideM,
             reconciliationTimeoutS: timeoutS,
             orphanSessionThresholdS: orphanThresholdS,
             maxEstimableGapS: maxEstimableGapS,

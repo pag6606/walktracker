@@ -15,8 +15,14 @@
 #      (localTime · wmoCategory); un divergente que pase también rompe.
 #   3. Swift — xcodebuild test de los vectores, el arnés, el catálogo de logros,
 #      las constantes de fórmula, los escenarios portados a mano del Epic 1, el
-#      clima del inicio (`WeatherSnapshotTests`, 2.1) y la motivación
-#      (`MotivationEngineTests` y `QuoteBankTests`, 2.2).
+#      clima del inicio (`WeatherSnapshotTests`, 2.1), la motivación
+#      (`MotivationEngineTests` y `QuoteBankTests`, 2.2) y el invariante de los
+#      ajustes (`AppSettingsTests`, 2.2/2.3).
+#      SOLO suites de `Domain/` y `Vectors/`: este gate es de dominio (AD-6), y
+#      los de `Application/` —`SessionStoreTests`, `SettingsStoreStrideTests`—
+#      los ejecuta la suite completa. El criterio está fijado desde la 1.1
+#      (hallazgo B3, rechazado) y la 2.3 lo volvió a aplicar quitando de aquí
+#      `SettingsStoreStrideTests`, que había entrado siendo de `Application/`.
 #      La lista de `-only-testing:` es EXPLÍCITA: un suite nuevo que no se añada a
 #      mano no se ejecuta aquí y nadie se entera.
 #      Las funciones aún no portadas se listan como pendientes; las portadas que
