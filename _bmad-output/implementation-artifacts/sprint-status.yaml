@@ -43,7 +43,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: '2026-08-01'
-last_updated: 09-19-2026 12:00
+last_updated: 09-20-2026 10:54
 project: walktracker
 project_key: NOKEY
 tracking_system: file-system
@@ -65,10 +65,12 @@ development_status:
   epic-1-retrospective: done
 
   epic-2: in-progress
+  # 2-1 sigue en review: sus checks manuales de clima en el iPhone (con red, en modo avión,
+  # con ubicación denegada, force-quit con clima) nunca se ejecutaron. Decisión de Paul, 2026-09-20.
   2-1-clima-snapshot-al-inicio-de-sesión-open-meteo: review
-  2-2-frase-motivacional-al-iniciar-sesión: review
+  2-2-frase-motivacional-al-iniciar-sesión: done
   2-3-recalibración-de-zancada-en-ajustes: done
-  epic-2-retrospective: optional
+  epic-2-retrospective: done
 
   epic-3: backlog
   3-1-meta-semanal-configurable-con-anillo-de-progreso: backlog
@@ -172,3 +174,86 @@ action_items:
     owner: "Paul"
     status: open
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-09-14.md"
+  - id: "epic-2-retro-item-9-b-1-chore-inmediato-settingsstore-debe-r"
+    epic: 2
+    action: "B-1 Chore inmediato: SettingsStore debe recordar que la lectura falló
+      y no escribir hasta tener una lectura buena (pérdida de datos confirmada)"
+    owner: "Dev"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-09-20.md"
+  - id: "epic-2-retro-item-10-b-2-chore-inmediato-color-medido-para-el"
+    epic: 2
+    action: "B-2 Chore inmediato: color medido para el mensaje de error de Ajustes;
+      tokenizar el rol color de error y medirlo en el arnés"
+    owner: "Dev"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-09-20.md"
+  - id: "epic-2-retro-item-11-b-3-acotar-la-zancada-al-rango-en-que-la"
+    epic: 2
+    action: "B-3 Acotar la zancada al rango en que la fórmula es representable; el
+      catch de metrics(at:) deja de ser preconditionFailure"
+    owner: "Dev"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-09-20.md"
+  - id: "epic-2-retro-item-12-b-4-resolver-el-solape-entre-la-frase-y"
+    epic: 2
+    action: "B-4 Resolver el solape entre la frase y la pre-pantalla de ubicación
+      en la primera caminata"
+    owner: "Dev"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-09-20.md"
+  - id: "epic-2-retro-item-13-b-5-cerrar-los-tres-gates-que-afirman-cu"
+    epic: 2
+    action: "B-5 Cerrar los tres gates que afirman cubrir lo que no cubren: sección
+      6 por receptor, 12c sin anclar al target, 12b con salto silencioso"
+    owner: "Dev"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-09-20.md"
+  - id: "epic-2-retro-item-14-b-6-verify-domain-sh-deja-de-depender-de"
+    epic: 2
+    action: "B-6 verify-domain.sh deja de depender de una lista a mano: derivar los
+      suites del árbol o fallar si hay un @Suite no listado"
+    owner: "Dev"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-09-20.md"
+  - id: "epic-2-retro-item-15-b-7-decidir-a-4-arnés-de-verificación-de"
+    epic: 2
+    action: "B-7 Decidir A-4 (arnés de verificación de vistas): 8 diferidos dependen
+      de él y creció un 60% en el épico"
+    owner: "Paul"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-09-20.md"
+  - id: "epic-2-retro-item-16-b-8-ejecutar-los-checks-de-dispositivo-d"
+    epic: 2
+    action: "B-8 Ejecutar los checks de dispositivo de la 2.1 y cerrarla, o declararla
+      cerrada con la razón escrita"
+    owner: "Paul"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-09-20.md"
+  - id: "epic-2-retro-item-17-b-9-reconciliar-el-encargo-de-s6-degrada"
+    epic: 2
+    action: "B-9 Reconciliar el encargo de S6 (DegradationPolicy no existe y se cita
+      en PermissionStatus.swift) y dar destino a la atribución de AD-24"
+    owner: "Dev"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-09-20.md"
+  - id: "epic-2-retro-item-18-b-10-unificar-el-vocabulario-transversal"
+    epic: 2
+    action: "B-10 Unificar el vocabulario transversal: una forma de acotar, un nivel
+      de log por clase de suceso, el enum de resultado y MeasurementLog"
+    owner: "Dev"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-09-20.md"
+  - id: "epic-2-retro-item-19-b-11-re-apuntar-r2-y-r11-que-a-3-cerró-c"
+    epic: 2
+    action: "B-11 Re-apuntar R2 y R11, que A-3 cerró como done sin datos y sin destino"
+    owner: "Dev"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-09-20.md"
+  - id: "epic-2-retro-item-20-b-12-medir-tamaño-y-acoplamiento-en-el-g"
+    epic: 2
+    action: "B-12 Medir tamaño y acoplamiento en el gate, o aceptar por escrito que
+      A-1 se erosiona sin señal"
+    owner: "Dev"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-09-20.md"
