@@ -158,9 +158,14 @@ final class SessionStore {
 
     @ObservationIgnored let clock: any ClockPort
     @ObservationIgnored let motion: any MotionPort
-    /// Zancada con la que nace cada sesión. Hoy es la de `formulas.json`; el perfil de
-    /// calibración la sustituirá.
-    @ObservationIgnored let strideM: Double
+    /// Zancada **por omisión**, la de `formulas.json`. Es el valor de quien nunca recalibró:
+    /// el único sitio del producto donde vive el 0,655.
+    ///
+    /// **No es la zancada de la sesión, y el nombre lo dice a propósito** (2.3). La de cada
+    /// sesión se resuelve al abrirla, contra el override de `settings`, en `openSession()`:
+    /// leerla aquí —en el init del store— haría que una recalibración solo surtiera efecto
+    /// tras relanzar la app, sin que fallara ningún test.
+    @ObservationIgnored let defaultStrideM: Double
     /// Tope de la reconciliación (AD-8), de `formulas.json`. Fijado en la 8.4.
     @ObservationIgnored let reconciliationTimeoutS: TimeInterval
     /// Snapshot de la sesión viva (AD-9). Este store es su único escritor (AD-16).
@@ -264,7 +269,7 @@ final class SessionStore {
         clock: any ClockPort,
         motion: any MotionPort,
         storage: any StoragePort,
-        strideM: Double,
+        defaultStrideM: Double,
         reconciliationTimeoutS: TimeInterval,
         orphanSessionThresholdS: TimeInterval,
         maxEstimableGapS: TimeInterval,
@@ -279,7 +284,7 @@ final class SessionStore {
         self.clock = clock
         self.motion = motion
         self.storage = storage
-        self.strideM = strideM
+        self.defaultStrideM = defaultStrideM
         self.reconciliationTimeoutS = reconciliationTimeoutS
         self.orphanSessionThresholdS = orphanSessionThresholdS
         self.maxEstimableGapS = maxEstimableGapS

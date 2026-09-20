@@ -88,11 +88,88 @@ struct SettingsFileAdapterTests {
         )
     }
 
-    @Test("Un campo que el esquema todavía no conoce no rompe: la 2.3 añadirá strideM")
+    @Test("Un campo que el esquema todavía no conoce no rompe: el Epic 3 añadirá la meta semanal")
     func unknownFieldsAreIgnored() throws {
         let json = #"{ "schemaVersion": 1, "recentQuoteIds": [1], "strideM": 0.7, "weeklyGoalKm": 10 }"#
 
-        #expect(try SettingsFileAdapter.decode(Data(json.utf8)).recentQuoteIds == [1])
+        let settings = try SettingsFileAdapter.decode(Data(json.utf8))
+
+        #expect(settings.recentQuoteIds == [1])
+        #expect(settings.strideM == 0.7, "y el que sí conoce desde la 2.3 se lee")
+    }
+
+    // MARK: - Zancada (2.3)
+
+    @Test("Ida y vuelta con zancada: vuelve igual y el esquema NO sube de 1")
+    func strideRoundTrip() throws {
+        var settings = AppSettings(recentQuoteIds: [4, 5])
+        try settings.setStrideM(0.670)
+
+        let data = try SettingsFileAdapter.encode(settings)
+        let object = try Self.json(data)
+
+        #expect(object["strideM"] as? Double == 0.670)
+        #expect(
+            object["schemaVersion"] as? Int == 1,
+            "un campo opcional nuevo es compatible en las dos direcciones: subirlo a 2 dejaría a un build de la 2.2 leyendo los ajustes como del futuro y perdiendo la ventana"
+        )
+        #expect(try SettingsFileAdapter.decode(data) == settings)
+    }
+
+    @Test("Sin configurar, la clave no se escribe")
+    func absentStrideIsNotWritten() throws {
+        let object = try Self.json(SettingsFileAdapter.encode(AppSettings(recentQuoteIds: [1])))
+
+        #expect(object["strideM"] == nil)
+    }
+
+    @Test("Un fichero de la 2.2 (esquema 1, sin el campo) se lee bien y admite la zancada")
+    func fileFromPreviousStoryStillReads() throws {
+        let json = #"{ "schemaVersion": 1, "recentQuoteIds": [1, 2, 3] }"#
+
+        var settings = try SettingsFileAdapter.decode(Data(json.utf8))
+
+        #expect(settings.recentQuoteIds == [1, 2, 3])
+        #expect(settings.strideM == nil, "sin configurar, no 0,655: el default vive en formulas.json")
+
+        try settings.setStrideM(0.670)
+        let object = try Self.json(SettingsFileAdapter.encode(settings))
+        #expect(object["strideM"] as? Double == 0.670)
+        #expect(object["recentQuoteIds"] as? [Int] == [1, 2, 3])
+    }
+
+    @Test("Una zancada corrupta se lee como sin configurar y NO cuesta la ventana de frases", arguments: [
+        #"{ "schemaVersion": 1, "recentQuoteIds": [1, 2], "strideM": "abc" }"#,
+        #"{ "schemaVersion": 1, "recentQuoteIds": [1, 2], "strideM": -1 }"#,
+        #"{ "schemaVersion": 1, "recentQuoteIds": [1, 2], "strideM": 0 }"#,
+        #"{ "schemaVersion": 1, "recentQuoteIds": [1, 2], "strideM": null }"#,
+        #"{ "schemaVersion": 1, "recentQuoteIds": [1, 2], "strideM": [0.7] }"#,
+        #"{ "schemaVersion": 1, "recentQuoteIds": [1, 2], "strideM": true }"#,
+    ])
+    func corruptStrideFallsBackToUnset(json: String) throws {
+        // La puerta de lectura es TOLERANTE, a diferencia de la de escritura: un `strideM`
+        // ilegible no puede apartar el fichero entero ni perder `recentQuoteIds`.
+        let settings = try SettingsFileAdapter.decode(Data(json.utf8))
+
+        #expect(settings.strideM == nil)
+        #expect(settings.recentQuoteIds == [1, 2])
+    }
+
+    @Test("Unos ajustes con la zancada corrupta en disco se leen enteros y no se apartan")
+    func corruptStrideOnDiskIsNotSetAside() throws {
+        try Self.withDirectory { directory in
+            let adapter = SettingsFileAdapter(directory: directory)
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            let json = #"{ "schemaVersion": 1, "recentQuoteIds": [9], "strideM": "abc" }"#
+            try Data(json.utf8).write(to: adapter.fileURL)
+
+            let settings = try adapter.loadSettings()
+
+            #expect(settings?.strideM == nil)
+            #expect(settings?.recentQuoteIds == [9])
+            #expect(try Self.setAsideNames(in: directory).isEmpty, "no es un fichero ilegible: no se aparta")
+            #expect(FileManager.default.fileExists(atPath: adapter.fileURL.path(percentEncoded: false)))
+        }
     }
 
     @Test("schemaVersion desconocido: unsupportedSchemaVersion", arguments: [0, 2, 9])

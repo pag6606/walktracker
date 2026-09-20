@@ -9,13 +9,20 @@ import OSLog
 /// milisegundos que convertir: los ajustes son valores del producto, no instantes.
 ///
 /// **Campos que aún no existen.** Todo campo se decodifica como opcional y cae a su valor por
-/// omisión: la 2.3 añadirá `strideM`, el Epic 3 la meta semanal y la 4.2 el sonido, y un
+/// omisión: la 2.3 añadió `strideM`, el Epic 3 traerá la meta semanal y la 4.2 el sonido, y un
 /// `settings.json` escrito hoy tiene que seguir leyéndose entonces sin apartarse.
+///
+/// **`schemaVersion` sigue en 1 con la zancada dentro, y es deliberado** (2.3). Un campo
+/// opcional nuevo es compatible en las dos direcciones: un fichero de la 2.2 se lee entero y
+/// admite la zancada, y un fichero con zancada sigue siendo legible por un build de la 2.2, que
+/// ignora el campo desconocido. Subirlo a 2 habría hecho que un build de la 2.2 ya instalado
+/// leyera los ajustes como "del futuro" y perdiera la ventana de frases.
 ///
 /// **La ventana se sanea al leer.** Lo hace `AppSettings`, que normaliza en su `init`: sin
 /// repetidos y como mucho `MotivationEngine.recentWindow`, quedándose con los **últimos**. Ni
 /// un fichero manipulado con 500 ids deja al motor excluyendo medio banco, ni uno con 20 ids
-/// repetidos deja la exclusión real en una sola frase.
+/// repetidos deja la exclusión real en una sola frase. La zancada pasa por la misma puerta, la
+/// tolerante: `-1` o `0` se leen como "sin configurar".
 ///
 /// **Un fichero del futuro no es un fichero corrupto.** Con un `schemaVersion` **mayor** que
 /// el que esta versión escribe —alguien instaló un build anterior— se parte de
@@ -82,10 +89,37 @@ struct SettingsFileAdapter {
 
     // MARK: - Formato (puro)
 
-    /// El JSON de `schemaVersion` 1. `recentQuoteIds` ausente o `null` es la ventana vacía.
+    /// El JSON de `schemaVersion` 1. `recentQuoteIds` ausente o `null` es la ventana vacía;
+    /// `strideM` ausente o `null` es "sin configurar" (2.3).
     private struct File: Codable {
+
         var schemaVersion: Int
         var recentQuoteIds: [Int]?
+        var strideM: Double?
+
+        // `CodingKeys` no se escribe: Swift lo sintetiza igual aunque `init(from:)` sea a mano
+        // —lo que la suprime es declararla—, y tenerla a mano obliga a acordarse de ella cada
+        // vez que una épica futura añada un campo. El init por miembros sí hay que restaurarlo:
+        // ese lo suprime declarar cualquier init propio.
+        init(schemaVersion: Int, recentQuoteIds: [Int]?, strideM: Double?) {
+            self.schemaVersion = schemaVersion
+            self.recentQuoteIds = recentQuoteIds
+            self.strideM = strideM
+        }
+
+        /// Decodificación a mano por **un solo campo**: `strideM`.
+        ///
+        /// Los demás mantienen la regla de la 2.2 —un campo de otro tipo hace ilegible el
+        /// fichero, que se aparta—, pero la zancada no puede costar la ventana de frases: la
+        /// matriz de la 2.3 exige que unos ajustes con `strideM: "abc"` se lean como "sin
+        /// configurar" y que el resto siga en pie. Con la síntesis de `Codable` un
+        /// `typeMismatch` en la zancada tiraba el fichero entero.
+        init(from decoder: any Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            schemaVersion = try container.decode(Int.self, forKey: .schemaVersion)
+            recentQuoteIds = try container.decodeIfPresent([Int].self, forKey: .recentQuoteIds)
+            strideM = try? container.decodeIfPresent(Double.self, forKey: .strideM)
+        }
     }
 
     private struct VersionProbe: Decodable {
@@ -112,15 +146,20 @@ struct SettingsFileAdapter {
         } catch {
             throw .malformed(String(describing: error))
         }
-        return AppSettings(recentQuoteIds: file.recentQuoteIds ?? [])
+        return AppSettings(recentQuoteIds: file.recentQuoteIds ?? [], strideM: file.strideM)
     }
 
     /// Ajustes → JSON, con las claves ordenadas.
     ///
     /// - Throws: `failed(operation: "encode")`.
     static func encode(_ settings: AppSettings) throws(StorageError) -> Data {
-        // `AppSettings` ya garantiza la ventana normalizada: aquí no se vuelve a recortar.
-        let file = File(schemaVersion: supportedSchemaVersion, recentQuoteIds: settings.recentQuoteIds)
+        // `AppSettings` ya garantiza la ventana normalizada y una zancada válida o ausente:
+        // aquí no se vuelve a recortar ni a validar. Sin configurar, la clave no se escribe.
+        let file = File(
+            schemaVersion: supportedSchemaVersion,
+            recentQuoteIds: settings.recentQuoteIds,
+            strideM: settings.strideM
+        )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         do {

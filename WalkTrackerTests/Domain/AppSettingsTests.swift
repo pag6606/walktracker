@@ -2,9 +2,11 @@ import Domain
 import Foundation
 import Testing
 
-/// El invariante de los ajustes (2.2). `AppSettings` es lo que cruza la frontera del fichero y
-/// lo que el store lleva en memoria, así que el tope y la forma de la ventana viven **aquí** y
-/// no por convención en cada sitio que la toca. La 2.3 añadirá `strideM` por esta misma puerta.
+/// El invariante de los ajustes (2.2, 2.3). `AppSettings` es lo que cruza la frontera del
+/// fichero y lo que el store lleva en memoria, así que el tope y la forma de la ventana viven
+/// **aquí** y no por convención en cada sitio que la toca. La 2.3 añadió `strideM` por esta
+/// misma puerta, con una diferencia que es el punto de la historia: la ventana **normaliza** y
+/// la zancada, al escribirla, **rechaza**.
 @Suite("AppSettings · la ventana no se puede construir mal")
 struct AppSettingsTests {
 
@@ -53,5 +55,156 @@ struct AppSettingsTests {
         var settings = AppSettings()
         settings.setRecentQuoteIds(repeated)
         #expect(settings.recentQuoteIds == [1, 2, 3], "pero los ajustes sí")
+    }
+
+    // MARK: - Zancada (2.3)
+
+    @Test("Sin configurar: la zancada es nil y la sesión usa el default de formulas.json")
+    func strideIsUnsetByDefault() {
+        #expect(AppSettings.defaults.strideM == nil)
+        #expect(AppSettings.defaults.resolvedStrideM(default: 0.655) == 0.655)
+    }
+
+    @Test("Configurada: gana el override, y el default deja de importar")
+    func configuredStrideWins() throws {
+        var settings = AppSettings()
+        try settings.setStrideM(0.670)
+
+        #expect(settings.strideM == 0.670)
+        #expect(settings.resolvedStrideM(default: 0.655) == 0.670)
+    }
+
+    @Test("La puerta de ESCRITURA rechaza y no muta", arguments: [0, -0.5, Double.nan, .infinity, -.infinity])
+    func writeGateRejects(invalid: Double) {
+        var settings = AppSettings(recentQuoteIds: [1, 2], strideM: 0.670)
+
+        #expect(throws: DomainError.invalidValue(field: "strideM")) { try settings.setStrideM(invalid) }
+        #expect(settings.strideM == 0.670, "el valor anterior sigue: rechazar no es borrar")
+        #expect(settings.recentQuoteIds == [1, 2], "y el resto de los ajustes tampoco se toca")
+    }
+
+    @Test("La puerta de LECTURA tolera: un valor corrupto cae a sin configurar", arguments: [0, -1, Double.nan, .infinity])
+    func readGateTolerates(corrupt: Double) {
+        // Unos ajustes manipulados no pueden costar la ventana de frases: se ignora ESE campo.
+        let settings = AppSettings(recentQuoteIds: [7, 8], strideM: corrupt)
+
+        #expect(settings.strideM == nil)
+        #expect(settings.recentQuoteIds == [7, 8], "la ventana sobrevive a una zancada corrupta")
+        #expect(settings.resolvedStrideM(default: 0.655) == 0.655)
+    }
+
+    @Test("Las dos puertas son DISTINTAS: lo que la lectura tolera, la escritura lo rechaza")
+    func theTwoGatesDisagreeOnPurpose() {
+        #expect(AppSettings(strideM: -1).strideM == nil, "lectura: se ignora en silencio")
+
+        var settings = AppSettings()
+        #expect(throws: DomainError.self) { try settings.setStrideM(-1) }
+        #expect(settings.strideM == nil, "escritura: se rechaza con error, y nada se persiste")
+    }
+
+    @Test("El rango humano avisa y no bloquea: fuera de 0,3–1,2 se guarda igual", arguments: [0.067, 3.0, 0.001, 50.0])
+    func outOfHumanRangeStillSaves(meters: Double) throws {
+        var settings = AppSettings()
+        try settings.setStrideM(meters)
+
+        #expect(settings.strideM == meters, "se guarda: es su app y su zancada")
+        #expect(!AppSettings.isHumanStride(meters), "pero se avisa")
+    }
+
+    @Test("En el borde exacto NO hay aviso: el rango es cerrado", arguments: [0.3, 1.2, 0.655, 0.67])
+    func humanRangeIsClosed(meters: Double) {
+        #expect(AppSettings.isHumanStride(meters))
+    }
+
+    @Test("Fuera del borde, por poco que sea, sí avisa", arguments: [0.2999, 1.2001])
+    func justOutsideWarns(meters: Double) {
+        #expect(!AppSettings.isHumanStride(meters))
+    }
+
+    @Test("El rango humano es el de la decisión de Paul: 0,3–1,2 m")
+    func humanRangeBounds() {
+        #expect(AppSettings.humanStrideRangeM == 0.3...1.2)
+        #expect(!AppSettings.isHumanStride(.nan), "un no-número nunca es humano")
+    }
+
+    // MARK: - Texto tecleado → metros (2.3)
+
+    @Test("Coma decimal: el teclado en español da coma y se acepta")
+    func decimalCommaIsAccepted() {
+        #expect(AppSettings.strideMeters(fromText: "0,670") == 0.670)
+        #expect(AppSettings.strideMeters(fromText: "0.670") == 0.670, "y el punto también")
+        #expect(AppSettings.strideMeters(fromText: " 0,67 ") == 0.67, "con espacios alrededor")
+        #expect(AppSettings.strideMeters(fromText: ",7") == 0.7)
+        #expect(AppSettings.strideMeters(fromText: "1") == 1)
+    }
+
+    @Test("Lo que no es un número no lo es", arguments: [
+        "", "   ", "abc", ",", ".", "0,6,7", "0,,7", "1e3", "0x10", "inf", "nan", "0,67 m", "٣", "-", "1-2",
+    ])
+    func notANumber(text: String) {
+        #expect(AppSettings.strideMeters(fromText: text) == nil)
+    }
+
+    @Test("El signo se parsea y lo rechaza después la frontera, que es quien sabe por qué")
+    func negativeParsesThenGetsRejected() throws {
+        let meters = try #require(AppSettings.strideMeters(fromText: "-0,5"))
+
+        #expect(meters == -0.5, "parsear y validar son dos pasos distintos")
+
+        var settings = AppSettings()
+        #expect(throws: DomainError.invalidValue(field: "strideM")) { try settings.setStrideM(meters) }
+        #expect(settings.strideM == nil)
+    }
+
+    @Test("Un número que no cabe se parsea a infinito, y eso NO es el motivo del cero")
+    func overflowParsesToInfinity() throws {
+        // Es el caso real: 400 dígitos tecleados. Son dígitos, así que el parser los lee; lo
+        // que pasa es que no caben. `isRepresentableStride` separa ese motivo del de "≤ 0",
+        // que se corrige de otra manera y no es lo que le pasa a este número.
+        let meters = try #require(AppSettings.strideMeters(fromText: String(repeating: "9", count: 400)))
+
+        #expect(meters.isInfinite)
+        #expect(!AppSettings.isRepresentableStride(meters))
+        #expect(AppSettings.isRepresentableStride(0.655))
+        #expect(AppSettings.isRepresentableStride(0), "cero cabe: lo suyo es no ser mayor que cero")
+        #expect(AppSettings.isRepresentableStride(-0.5), "y un negativo también cabe")
+    }
+
+    // MARK: - Volver al valor por defecto (2.3, decisión de Paul)
+
+    @Test("Quitar el override devuelve la zancada al default, y no toca lo demás")
+    func clearingTheOverrideReturnsToTheDefault() throws {
+        var settings = AppSettings(recentQuoteIds: [4, 5], strideM: 0.067)
+
+        settings.clearStrideM()
+
+        #expect(settings.strideM == nil)
+        #expect(settings.resolvedStrideM(default: 0.655) == 0.655)
+        #expect(settings.recentQuoteIds == [4, 5], "la ventana de frases no es asunto suyo")
+    }
+
+    @Test("Quitar el override sin override es inofensivo")
+    func clearingWithoutOverrideIsHarmless() {
+        var settings = AppSettings()
+
+        settings.clearStrideM()
+
+        #expect(settings == AppSettings.defaults)
+    }
+
+    @Test("Vaciar el campo NO es la vuelta atrás: se sigue rechazando")
+    func emptyTextIsStillRejected() {
+        // La fila de la matriz sigue congelada: el campo vacío no es un número. La vuelta atrás
+        // es `clearStrideM()`, que es una acción explícita y aparte.
+        #expect(AppSettings.strideMeters(fromText: "") == nil)
+    }
+
+    @Test("Cero se parsea y se rechaza en la frontera")
+    func zeroParsesThenGetsRejected() throws {
+        let meters = try #require(AppSettings.strideMeters(fromText: "0"))
+
+        var settings = AppSettings()
+        #expect(throws: DomainError.invalidValue(field: "strideM")) { try settings.setStrideM(meters) }
+        #expect(settings.strideM == nil)
     }
 }

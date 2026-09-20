@@ -18,7 +18,11 @@ struct WalkTrackerApp: App {
     @ViewBuilder
     private var rootView: some View {
         #if DEBUG
-        RootView(store: root.sessionStore) {
+        RootView(
+            store: root.sessionStore,
+            settingsStore: root.settingsStore,
+            defaultStrideM: root.formulas.defaultStrideM
+        ) {
             NativeLayerDiagnosticsView(
                 clock: root.clock,
                 motion: root.motion,
@@ -28,7 +32,11 @@ struct WalkTrackerApp: App {
             )
         }
         #else
-        RootView(store: root.sessionStore)
+        RootView(
+            store: root.sessionStore,
+            settingsStore: root.settingsStore,
+            defaultStrideM: root.formulas.defaultStrideM
+        )
         #endif
     }
 }

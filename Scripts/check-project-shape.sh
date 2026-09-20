@@ -218,8 +218,15 @@ fi
 # se permite leer el estado y llamar a las intenciones (y a `restoreOnLaunch()`); no se
 # permite asignar una propiedad del store, llamar a sus pasos internos ni tocar sus puertos.
 # "Del store" es cualquier receptor que acabe en `store`/`Store` (`store`, `sessionStore`).
+#
+# Vale para los DOS stores. `SettingsStore.save()` dejó de ser `private` en la 2.3 —una
+# extensión en otro fichero no ve lo privado—, así que `settingsStore.save()` compila desde
+# una vista: escribe el fichero saltándose la intención, que es quien decide qué contarle a
+# Paul. Por eso `save` está en la lista. La sección 9 NO lo cubría: allí se miran las
+# llamadas al PUERTO (`loadSettings`/`saveSettings`), no los métodos del store.
+# `saveStride(...)` sigue permitido: es una intención, y `save\b` no casa con ella.
 store_write='[sS]tore\.[A-Za-z_][A-Za-z0-9_]*[[:space:]]*=[^=]'
-store_internal='[sS]tore\.(persist|record|reconcile|countSteps|stopCountingSteps|clearSnapshot|capLastSampleAt|beginWeatherForNewSession|cancelWeatherCapture|attachQuoteForNewSession|recordShownQuote|weatherCapture|stepCounting|storage|motion|clock|location|weather|random|quotes|settings)\b'
+store_internal='[sS]tore\.(persist|save|record|reconcile|countSteps|stopCountingSteps|clearSnapshot|capLastSampleAt|beginWeatherForNewSession|cancelWeatherCapture|attachQuoteForNewSession|recordShownQuote|weatherCapture|stepCounting|storage|motion|clock|location|weather|random|quotes|settings)\b'
 for dir in "$ROOT/WalkTracker/UI" "$ROOT/WalkTracker/App"; do
     [ -d "$dir" ] || continue
     while IFS= read -r hit; do
@@ -227,7 +234,7 @@ for dir in "$ROOT/WalkTracker/UI" "$ROOT/WalkTracker/App"; do
         hit_file="${hit%%:*}"
         rest="${hit#*:}"
         hit_line="${rest%%:*}"
-        err "$hit_file:$hit_line" "AD-7/AD-16: la UI y la app no escriben el estado de \`SessionStore\`: solo leen y llaman a sus intenciones. Asignar una propiedad del store, llamar a \`persist\`, \`record\`, \`reconcile\`, \`countSteps\`, \`stopCountingSteps\`, \`clearSnapshot\`, \`capLastSampleAt\`, \`beginWeatherForNewSession\`, \`cancelWeatherCapture\`, \`attachQuoteForNewSession\` o \`recordShownQuote\`, tocar sus tareas \`stepCounting\`/\`weatherCapture\`, o usar \`storage\`/\`motion\`/\`clock\`/\`location\`/\`weather\`/\`random\`/\`quotes\`/\`settings\` del store es cosa de \`SessionStore*.swift\`."
+        err "$hit_file:$hit_line" "AD-7/AD-16: la UI y la app no escriben el estado de \`SessionStore\`: solo leen y llaman a sus intenciones. Asignar una propiedad del store, llamar a \`persist\`, \`save\`, \`record\`, \`reconcile\`, \`countSteps\`, \`stopCountingSteps\`, \`clearSnapshot\`, \`capLastSampleAt\`, \`beginWeatherForNewSession\`, \`cancelWeatherCapture\`, \`attachQuoteForNewSession\` o \`recordShownQuote\`, tocar sus tareas \`stepCounting\`/\`weatherCapture\`, o usar \`storage\`/\`motion\`/\`clock\`/\`location\`/\`weather\`/\`random\`/\`quotes\`/\`settings\` del store es cosa de \`SessionStore*.swift\`."
     done < <(grep -rnE "$store_write|$store_internal" "$dir" --include='*.swift' 2>/dev/null)
 done
 
@@ -404,6 +411,37 @@ storage_owner_rule '(load|save|clear|setAside)ActiveSession' 'SessionStore' \
     "solo \`SessionStore\` usa el snapshot de \`StoragePort\`. \`loadActiveSession\`, \`saveActiveSession\`, \`clearActiveSession\` y \`setAsideActiveSession\` se llaman desde \`WalkTracker/Application/SessionStore*.swift\`; fuera de ahí se pide al store una intención."
 storage_owner_rule '(load|save)Settings' 'SettingsStore' \
     "solo \`SettingsStore\` usa los ajustes de \`StoragePort\` (2.2). \`loadSettings\` y \`saveSettings\` se llaman desde \`WalkTracker/Application/SettingsStore.swift\`; fuera de ahí —incluido \`SessionStore\`, que le pide la ventana de frases recientes— se pide al store de ajustes una intención."
+
+# ── 9b. Dentro de `Application/`, los ajustes se escriben por su intención ───
+# El hueco equivalente al de la sección 6, un piso más adentro: `SettingsStore.settings` y
+# `save()` perdieron `private` en la 2.3 —una extensión en otro fichero no ve lo privado—, y
+# la sección 6 solo mira `UI/` y `App/`. `SessionStore` guarda el store de ajustes en una
+# propiedad llamada `settings`, así que dentro de `Application/` compila
+# `settings.settings = …` y `settings.save()`: escribir el fichero de otro dueño saltándose
+# su intención (AD-16), que es lo que la 2.2 estrenó y la 2.3 amplió.
+#
+# Exentos `SettingsStore.swift` y sus extensiones `SettingsStore+Algo.swift`, con la misma
+# regla de forma de la sección 9. Las llamadas a las intenciones
+# (`settings.recordShownQuote(id:)`, `settings.resolvedStrideM(default:)`) siguen permitidas:
+# lo que se prohíbe es asignar su estado y escribir su fichero.
+if [ -d "$ROOT/WalkTracker/Application" ]; then
+    settings_owner='settings[[:space:]]*\.[[:space:]]*([A-Za-z_][A-Za-z0-9_]*[[:space:]]*=[^=]|save[[:space:]]*\()'
+    while IFS= read -r hit; do
+        [ -n "$hit" ] || continue
+        hit_file="${hit%%:*}"
+        case "$hit_file" in
+            "$ROOT/WalkTracker/Application/"*) ;;
+            *) continue ;;
+        esac
+        rel="${hit_file#"$ROOT/WalkTracker/Application/"}"
+        case "$rel" in
+            "SettingsStore.swift" | "SettingsStore+"*".swift") continue ;;
+        esac
+        rest="${hit#*:}"
+        hit_line="${rest%%:*}"
+        err "$hit_file:$hit_line" "AD-16: \`settings\` es el store de ajustes de otro dueño: desde \`Application/\` se le piden intenciones (\`recordShownQuote\`, \`saveStride\`, \`clearStride\`, \`resolvedStrideM\`), no se le asigna estado ni se le llama \`save()\`. Su estado y su escritura son de \`WalkTracker/Application/SettingsStore*.swift\`, que es su único dueño."
+    done < <(grep -E "$code_at$settings_owner" <<< "$SCANNED")
+fi
 
 # ── 10. Ninguna vista importa un framework de sistema (AD-10) ───────────────
 # La UI solo pinta el estado del store y llama a sus intenciones. Sensores, salud,

@@ -180,6 +180,12 @@
     "En pausa": {
       "comment": "Señal de estado de la pantalla de sesión con la sesión pausada. Sustituye a \"Caminata en curso\": nunca aparecen a la vez."
     },
+    "Escribe la longitud en metros, por ejemplo 0,67.": {
+      "comment": "Mensaje de error en línea de Ajustes cuando el campo está vacío o no contiene un número. Nada se ha guardado."
+    },
+    "Ese número es demasiado grande para una zancada. Escribe la longitud de un paso, en metros.": {
+      "comment": "Mensaje de error en línea de Ajustes cuando el número tecleado desborda (cientos de dígitos). Nada se ha guardado."
+    },
     "Este dispositivo no puede contar pasos: no tiene el sensor de movimiento que WalkTracker necesita.": {
       "comment": "Explicación de la pantalla bloqueante en un dispositivo sin coprocesador de movimiento."
     },
@@ -195,6 +201,12 @@
     "Granos de nieve": {
       "comment": "Condición del clima, código WMO 77 (granos de nieve, no granizo), en la tarjeta de clima de la sesión."
     },
+    "Guardada, aunque lo normal en una persona es entre %@ y %@ m. Compruébala por si fue un dedazo.": {
+      "comment": "Aviso en línea de Ajustes: la zancada se guardó igual, pero cae fuera del rango humano. Avisa, no bloquea. Los dos marcadores son los extremos del rango, ya formateados: hoy 0,3 y 1,2."
+    },
+    "Guardar": {
+      "comment": "Botón explícito de la pantalla de Ajustes que persiste la zancada recalibrada."
+    },
     "Historial": {
       "comment": "Pestaña Historial del TabView (AD-14) y título de su pantalla."
     },
@@ -204,8 +216,17 @@
     "Inicio": {
       "comment": "Pestaña Inicio del TabView (AD-14) y título de su pantalla."
     },
+    "La distancia y el ritmo salen de multiplicar tus pasos por este valor. Se aplica a la siguiente caminata: las que ya hiciste no cambian.": {
+      "comment": "Pie de la sección de zancada en Ajustes: qué hace el ajuste y desde cuándo."
+    },
     "La distancia y el ritmo se recalcularán sin ellos. No se puede deshacer.": {
       "comment": "Mensaje del diálogo de confirmación de Descartar: descartar los pasos estimados es irreversible."
+    },
+    "La siguiente caminata la usará, pero no se pudo guardar: al cerrar la app volverá al valor anterior.": {
+      "comment": "Mensaje en línea de Ajustes cuando el cambio se aplicó en memoria pero falló la escritura en disco. No dice \"guardada\", porque no lo está."
+    },
+    "La zancada tiene que ser mayor que cero.": {
+      "comment": "Mensaje de error en línea de Ajustes cuando el número es cero o negativo. Nada se ha guardado."
     },
     "Las caminatas que termines aparecerán aquí.": {
       "comment": "Descripción del historial vacío."
@@ -240,8 +261,17 @@
     "Lluvia moderada": {
       "comment": "Condición del clima, código WMO 63, en la tarjeta de clima de la sesión."
     },
+    "Listo": {
+      "comment": "Botón de la barra sobre el teclado decimal de Ajustes: cierra el teclado sin guardar. El teclado decimal no trae tecla de retorno."
+    },
+    "Listo: vuelve a usarse el valor por defecto.": {
+      "comment": "Mensaje en línea de Ajustes tras pulsar \"Usar el valor por defecto\": se borró la zancada recalibrada."
+    },
     "Logros": {
       "comment": "Pestaña Logros del TabView (AD-14) y título de su pantalla."
+    },
+    "Longitud de zancada, en metros": {
+      "comment": "Etiqueta del campo de Ajustes donde Paul recalibra su zancada. Lleva la unidad porque es también lo que lee VoiceOver."
     },
     "Los logros que desbloquees aparecerán aquí.": {
       "comment": "Descripción de la pestaña de logros vacía."
@@ -306,9 +336,6 @@
     "Sesión recuperada": {
       "comment": "Indicador transitorio (3 s) bajo el título de la pantalla de sesión, y anuncio de VoiceOver, al restaurar la caminata tras relanzar la app."
     },
-    "Sin ajustes": {
-      "comment": "Ajustes vacío: todavía no hay ajustes."
-    },
     "Sin caminatas": {
       "comment": "Historial vacío: aún no hay caminatas terminadas."
     },
@@ -330,9 +357,6 @@
     "Toca para continuar con la caminata, que ya está en curso.": {
       "comment": "Pista de VoiceOver del overlay de la frase motivacional: cómo se descarta y que la caminata no está esperando."
     },
-    "Todavía no hay nada que ajustar.": {
-      "comment": "Descripción de la pestaña de ajustes vacía."
-    },
     "Tormenta": {
       "comment": "Condición del clima, código WMO 95, en la tarjeta de clima de la sesión."
     },
@@ -351,11 +375,23 @@
     "WalkTracker usa el sensor de movimiento del iPhone para contar tus pasos, también con la pantalla bloqueada y el teléfono en el bolsillo. A continuación, iOS te pedirá acceso a Movimiento y forma física.": {
       "comment": "Explicación de la pre-pantalla del permiso de Movimiento y forma física."
     },
+    "Usar el valor por defecto": {
+      "comment": "Botón de Ajustes que borra la zancada recalibrada y devuelve la de fábrica. Es la única vuelta atrás: vaciar el campo se rechaza."
+    },
     "WalkTracker usa tu ubicación aproximada al empezar para guardar el clima. La caminata ya está contando.": {
       "comment": "Explicación de la pre-pantalla de ubicación, que aparece sobre la sesión ya abierta antes de pedir el permiso del sistema."
     },
+    "Zancada": {
+      "comment": "Encabezado de la única sección de la pantalla de Ajustes (2.3): la longitud de zancada."
+    },
+    "Zancada guardada. La siguiente caminata la usará.": {
+      "comment": "Mensaje en línea de Ajustes tras guardar una zancada válida y dentro de lo normal."
+    },
     "km": {
       "comment": "Unidad visible de la distancia en la pantalla de sesión (kilómetros)."
+    },
+    "m": {
+      "comment": "Unidad del campo de zancada en Ajustes: metros, junto al valor."
     },
     "spm": {
       "comment": "Unidad visible de la cadencia en la rejilla de la pantalla de sesión (pasos por minuto)."

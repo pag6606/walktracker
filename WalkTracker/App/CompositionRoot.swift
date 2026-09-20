@@ -77,7 +77,7 @@ struct CompositionRoot {
             clock: clock,
             motion: motion,
             storage: storage,
-            strideM: formulas.defaultStrideM,
+            defaultStrideM: formulas.defaultStrideM,
             reconciliationTimeoutS: formulas.reconciliationTimeoutS,
             orphanSessionThresholdS: formulas.orphanSessionThresholdS,
             maxEstimableGapS: formulas.maxEstimableGapS,
