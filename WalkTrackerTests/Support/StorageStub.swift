@@ -2,6 +2,8 @@ import Domain
 import Foundation
 import Synchronization
 
+@testable import WalkTracker
+
 /// `StoragePort` de test: el snapshot y los ajustes viven en memoria. El test fija lo que hay
 /// guardado, hace fallar cada operación a demanda y cuenta guardados, borrados y apartados.
 final class StorageStub: StoragePort {
@@ -97,10 +99,19 @@ final class StorageStub: StoragePort {
             state.settingsLoadCount += 1
             if let error = state.settingsLoadError {
                 // Como el adapter: un ilegible se aparta antes de lanzar; con `failed` no se
-                // pudo leer y sigue en su sitio.
+                // pudo leer y sigue en su sitio. Y **el de un esquema del futuro tampoco se
+                // aparta** (B-1): no es corrupto, es de una versión que aún no se conoce, y
+                // apartarlo perdería la ventana y la zancada en cuanto Paul volviera a ella.
                 switch error {
+                case .unsupportedSchemaVersion(let version) where version > SettingsFileAdapter.supportedSchemaVersion:
+                    break
                 case .malformed, .unsupportedSchemaVersion:
                     state.setAsideCurrentSettings()
+                    // Apartar es renombrar: lo que queda en disco es "no hay fichero", así que
+                    // la lectura siguiente ya no falla. Sin esto el doble diría algo que el
+                    // adapter no dice —un ilegible que sigue ilegible para siempre— y el store
+                    // parecería bloqueado cuando ya no hay nada que proteger.
+                    state.settingsLoadError = nil
                 case .failed:
                     break
                 }
@@ -164,7 +175,11 @@ final class StorageStub: StoragePort {
         state.withLock { $0.settings = settings }
     }
 
-    /// Las lecturas de ajustes siguientes lanzan `error`.
+    /// Las lecturas de ajustes siguientes lanzan `error`. Con `nil` vuelven a funcionar, que es
+    /// como se expresa un fallo **transitorio**: falla al arrancar y se recupera al reintentar.
+    ///
+    /// `malformed` y una versión **anterior** desconocida apartan los ajustes antes de lanzar;
+    /// `failed` y un esquema del **futuro** los dejan en su sitio, como el adapter.
     func failLoadSettings(with error: StorageError?) {
         state.withLock { $0.settingsLoadError = error }
     }

@@ -6,7 +6,10 @@ public enum StorageError: Error, Equatable, Sendable {
     /// El fichero existe pero no es JSON o no tiene la forma del esquema (el `TypeError`
     /// de `restoreV3Session`). El adapter ya lo apartó: no se destruye.
     case malformed(String)
-    /// `schemaVersion` desconocido. El adapter ya lo apartó, como un ilegible.
+    /// `schemaVersion` desconocido. El adapter ya lo apartó, como un ilegible —salvo el de un
+    /// esquema **más nuevo**, que no es corrupto sino de una versión que aún no se conoce: ese
+    /// se deja intacto para que quien lo entienda lo recupere entero, y por eso hay que
+    /// distinguirlo de "aquí no había nada" (B-1).
     case unsupportedSchemaVersion(Int)
     /// El sistema de ficheros falló durante `operation`. Diagnóstico, no mensaje de usuario.
     case failed(operation: String)
@@ -49,8 +52,13 @@ public protocol StoragePort: Sendable {
     /// Los ajustes guardados, o `nil` si el fichero no existe todavía (primera vez).
     ///
     /// Un fichero ilegible se aparta —como el snapshot, nunca se destruye— y lanza
-    /// `malformed` o `unsupportedSchemaVersion`. Quien llama parte de `AppSettings.defaults`:
-    /// unos ajustes corruptos no pueden costar una caminata.
+    /// `malformed` o `unsupportedSchemaVersion`; uno de un esquema **más nuevo** lanza
+    /// `unsupportedSchemaVersion` y se queda donde está. Quien llama parte de
+    /// `AppSettings.defaults`: unos ajustes corruptos no pueden costar una caminata.
+    ///
+    /// **`nil` y un error no son lo mismo, y confundirlos cuesta los ajustes.** `nil` es "no
+    /// hay nada que perder" y deja escribir; un error es "hay algo que no se pudo leer" y no
+    /// (B-1).
     func loadSettings() throws(StorageError) -> AppSettings?
 
     /// Sustituye los ajustes de forma atómica: o quedan los anteriores enteros, o los nuevos.

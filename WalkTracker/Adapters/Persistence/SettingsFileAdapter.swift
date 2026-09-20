@@ -25,11 +25,18 @@ import OSLog
 /// tolerante: `-1` o `0` se leen como "sin configurar".
 ///
 /// **Un fichero del futuro no es un fichero corrupto.** Con un `schemaVersion` **mayor** que
-/// el que esta versión escribe —alguien instaló un build anterior— se parte de
-/// `AppSettings.defaults` y el fichero **se deja donde está**: apartarlo perdería la ventana,
-/// y mañana la zancada de la 2.3, en cuanto Paul volviera a la versión nueva. Solo se aparta
+/// el que esta versión escribe —alguien instaló un build anterior— el fichero **se deja donde
+/// está** y la lectura lanza `unsupportedSchemaVersion`: apartarlo perdería la ventana, y
+/// mañana la zancada de la 2.3, en cuanto Paul volviera a la versión nueva. Solo se aparta
 /// lo que de verdad no se puede leer: JSON roto, campos de otro tipo o una versión anterior
 /// que ya no se sabe migrar.
+///
+/// **Lanzar, y no devolver `AppSettings.defaults`, es lo que hace verdadera esa promesa**
+/// (B-1, hallazgo D1 de la retro del Epic 2). Devolviendo los valores por omisión, el dueño
+/// del fichero no tenía cómo distinguir "aquí no había nada" de "aquí hay algo que no
+/// entiendo", y su primera escritura —la ventana de frases, al iniciar una caminata— borraba
+/// el fichero preservado. El fichero se sigue dejando intacto exactamente igual: lo que cambia
+/// es que ahora se dice.
 ///
 /// **Disco.** Escritura atómica y apartado del ilegible, de `JSONFileStore`: mismas garantías
 /// que `activeSession.json`. Unos ajustes corruptos no pueden costar una caminata — se
@@ -67,10 +74,11 @@ struct SettingsFileAdapter {
         do {
             return try Self.decode(data)
         } catch .unsupportedSchemaVersion(let version) where version > Self.supportedSchemaVersion {
-            // Del futuro, no corrupto: se ignora su contenido y se deja intacto, para que la
-            // versión que sí lo entiende lo recupere entero.
-            Self.log.error("settings.json es de un esquema más nuevo (\(version, privacy: .public) > \(Self.supportedSchemaVersion, privacy: .public)); se parte de los ajustes por omisión y el fichero se deja donde está")
-            return .defaults
+            // Del futuro, no corrupto: no se aparta, no se migra y no se adivina su contenido.
+            // El error se propaga tal cual para que su dueño sepa que ahí hay algo que no puede
+            // sobrescribir; sin eso, la preservación duraba hasta la primera caminata.
+            Self.log.error("settings.json es de un esquema más nuevo (\(version, privacy: .public) > \(Self.supportedSchemaVersion, privacy: .public)); el fichero se deja donde está y la lectura lanza")
+            throw .unsupportedSchemaVersion(version)
         } catch {
             // El apartado es lo secundario: si falla, lo que hay que contar sigue siendo por
             // qué no se pudo leer. Se registra el fallo y se propaga el error original.

@@ -30,11 +30,17 @@ extension SettingsStore {
         case savedOutsideHumanRange(Double)
         /// Se quitó el override: vuelve a mandar el default de `formulas.json`.
         case clearedToDefault
-        /// El cambio vale para esta ejecución, pero **el disco falló** y no quedó escrito.
+        /// El cambio vale para esta ejecución, pero **no quedó escrito**.
+        ///
+        /// Dos causas, un solo resultado, porque lo que Paul necesita saber es el mismo: el
+        /// disco falló al escribir, o los ajustes que hay en disco no se pudieron leer y
+        /// escribir encima los borraría (B-1). En los dos casos el valor vale para la siguiente
+        /// caminata y no sobrevive a relanzar la app.
         ///
         /// No es `saved`: decir "la siguiente caminata la usará" es verdad, y decir "guardada"
-        /// no, porque al relanzar la app el valor ya no estará. `save()` no propaga el error
-        /// —la caminata no se para por un fallo de disco— pero sí lo devuelve, y aquí se cuenta.
+        /// no, porque al relanzar la app el valor ya no estará. `save(applying:)` no propaga el
+        /// error —la caminata no se para por un fallo de disco— pero sí lo devuelve, y aquí se
+        /// cuenta.
         case notPersisted
         /// No se guardó nada y el fichero no cambió.
         case rejected(StrideRejection)
@@ -86,16 +92,21 @@ extension SettingsStore {
             strideOutcome = .rejected(.tooLarge)
             return
         }
-        var updated = settings
+        // La frontera se prueba sobre una copia y **antes** de tocar nada: un valor inválido no
+        // llega a `save(applying:)`, así que no puede disparar una relectura ni una escritura.
+        var probe = settings
         do {
-            try updated.setStrideM(meters)
+            try probe.setStrideM(meters)
         } catch {
             log.info("Zancada rechazada en la frontera: \(String(describing: error), privacy: .public)")
             strideOutcome = .rejected(.notPositive)
             return
         }
-        settings = updated
-        guard save() else {
+        // Ya validado justo arriba, y `setStrideM` solo mira el valor —no el receptor—, así que
+        // aquí no puede rechazar. Va dentro del `change` para que, si la lectura se recupera en
+        // el reintento, la zancada se escriba sobre lo que hay en disco y no sobre los valores
+        // por omisión: es lo que salva la ventana de frases que el fichero ya tenía.
+        guard save(applying: { _ = try? $0.setStrideM(meters) }) else {
             strideOutcome = .notPersisted
             return
         }
@@ -119,10 +130,7 @@ extension SettingsStore {
             strideOutcome = nil
             return
         }
-        var updated = settings
-        updated.clearStrideM()
-        settings = updated
-        strideOutcome = save() ? .clearedToDefault : .notPersisted
+        strideOutcome = save { $0.clearStrideM() } ? .clearedToDefault : .notPersisted
     }
 
     /// Paul vuelve a escribir en el campo: el mensaje anterior ya no habla de lo que hay en
