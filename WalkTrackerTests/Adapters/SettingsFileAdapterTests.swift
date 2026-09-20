@@ -256,7 +256,7 @@ struct SettingsFileAdapterTests {
         }
     }
 
-    @Test("De un esquema MÁS NUEVO: valores por omisión, y el fichero se queda donde está", arguments: [2, 9])
+    @Test("De un esquema MÁS NUEVO: la lectura lanza, y el fichero se queda donde está", arguments: [2, 9])
     func newerSchemaIsLeftAlone(version: Int) throws {
         // Alguien instala un build anterior. Apartar el fichero le costaría la ventana —y la
         // zancada de la 2.3— en cuanto volviera a la versión nueva: un fichero del futuro no
@@ -267,7 +267,11 @@ struct SettingsFileAdapterTests {
             let future = Data(#"{ "schemaVersion": \#(version), "recentQuoteIds": [1, 2], "strideM": 0.7 }"#.utf8)
             try future.write(to: adapter.fileURL)
 
-            #expect(try adapter.loadSettings() == .defaults, "no se adivina la ventana de un esquema que no se entiende")
+            // Lanza, y no devuelve `.defaults` (B-1): devolviéndolos, su dueño no distinguía
+            // "aquí no había nada" de "aquí hay algo que no entiendo", y su primera escritura
+            // borraba justo el fichero que este caso existe para preservar.
+            #expect(throws: StorageError.unsupportedSchemaVersion(version)) { try adapter.loadSettings() }
+
             #expect(try Self.setAsideNames(in: directory).isEmpty, "y no se aparta nada")
             #expect(try Data(contentsOf: adapter.fileURL) == future, "el fichero sigue entero en su sitio")
         }
@@ -384,6 +388,23 @@ struct SettingsStoreTests {
 
         #expect(store.settings == .defaults)
         #expect(storage.settingsSetAside.count == 1)
+        #expect(store.readOutcome == .unreadable(.malformed("basura")))
+    }
+
+    @Test("Lo apartado ya no es nada que perder: la escritura siguiente sí crea el fichero")
+    func setAsideLeavesNothingToLose() {
+        // El ilegible se conserva con otro nombre y `settings.json` ya no existe, así que el
+        // caso pasa a ser el de la primera instalación. Bloquear aquí dejaría al producto sin
+        // guardar nada nunca más por un fichero que ya está a salvo.
+        let storage = StorageStub(settings: AppSettings(recentQuoteIds: [1]))
+        storage.failLoadSettings(with: .malformed("basura"))
+        let store = SettingsStore(storage: storage)
+
+        store.recordShownQuote(id: 7)
+
+        #expect(storage.settingsSaved.count == 1)
+        #expect(storage.settings?.recentQuoteIds == [7])
+        #expect(storage.settingsSetAside.map(\.recentQuoteIds) == [[1]], "y lo apartado sigue a salvo")
     }
 
     @Test("No se puede leer (failed): se parte de los por omisión y el fichero sigue en su sitio")
@@ -396,6 +417,50 @@ struct SettingsStoreTests {
         #expect(store.settings == .defaults)
         #expect(storage.settingsSetAside.isEmpty)
         #expect(storage.settings != nil, "no se destruye lo que no se pudo leer")
+        #expect(store.readOutcome == .unreadable(.failed(operation: "read")))
+
+        // Y la vida del proceso sigue más allá de construir el store: esta afirmación medía
+        // solo el instante anterior a que alguien escribiera, y por eso dio falsa confianza
+        // mientras la primera caminata borraba los ajustes (D1).
+        store.recordShownQuote(id: 7)
+
+        #expect(storage.settingsSaved.isEmpty, "no se escribe encima de lo que no se pudo leer")
+        #expect(storage.settings?.recentQuoteIds == [1], "el fichero sigue con lo suyo")
+        #expect(store.recentQuoteIds == [7], "y la app sigue: la ventana de esta ejecución vive en memoria")
+    }
+
+    @Test("El fallo transitorio se recupera solo, y el cambio se aplica sobre lo que hay en disco")
+    func transientFailureRecoversOnRetry() {
+        let storage = StorageStub(settings: AppSettings(recentQuoteIds: [1, 2, 3]))
+        storage.failLoadSettings(with: .failed(operation: "read"))
+        let store = SettingsStore(storage: storage)
+        #expect(store.recentQuoteIds.isEmpty, "al arrancar no se pudo leer nada")
+
+        storage.failLoadSettings(with: nil)
+        store.recordShownQuote(id: 9)
+
+        #expect(storage.settingsLoadCount == 2, "se reintenta la lectura antes de bloquear la escritura")
+        #expect(store.recentQuoteIds == [1, 2, 3, 9], "sobre lo leído del disco, no sobre los por omisión")
+        #expect(storage.settings?.recentQuoteIds == [1, 2, 3, 9])
+        #expect(store.readOutcome == .loaded)
+    }
+
+    @Test("Un esquema del futuro no se sobrescribe NUNCA, ni aunque se reintente")
+    func futureSchemaIsNeverOverwritten() {
+        // El reintento existe para el fallo de un instante; este vuelve a fallar por
+        // definición, y eso es justo lo que mantiene el fichero a salvo mientras exista.
+        let storage = StorageStub(settings: AppSettings(recentQuoteIds: [1, 2, 3]))
+        storage.failLoadSettings(with: .unsupportedSchemaVersion(2))
+        let store = SettingsStore(storage: storage)
+
+        store.recordShownQuote(id: 7)
+        store.recordShownQuote(id: 8)
+
+        #expect(storage.settingsSaved.isEmpty)
+        #expect(storage.settings?.recentQuoteIds == [1, 2, 3], "el fichero del futuro se queda entero")
+        #expect(storage.settingsSetAside.isEmpty, "y no es un corrupto: no se aparta")
+        #expect(store.recentQuoteIds == [7, 8], "la app funciona igual, con la ventana en memoria")
+        #expect(store.readOutcome == .unreadable(.unsupportedSchemaVersion(2)))
     }
 
     @Test("recordShownQuote: FIFO con tope de 20, y cada vez se guarda")
