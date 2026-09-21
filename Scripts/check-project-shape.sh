@@ -23,10 +23,11 @@
 #      del spec lo exige explícitamente: "un `import SwiftUI` o `import CoreMotion`
 #      ahí tiene que romper el build". Sin esta comprobación, no se rompe.
 #   5. Que la extensión no importe `Domain` (AD-15). Ver la sección.
-#   6. Que la UI y la app no escriban el estado de `SessionStore` (AD-7, AD-16). Desde el
+#   6. Que la UI y la app no escriban el estado de los stores (AD-7, AD-16). Desde el
 #      A-1 de la retro del Epic 1 sus propiedades y pasos internos tienen acceso de
 #      módulo, porque los comparten sus extensiones: el compilador ya no impide un
-#      `store.session = nil` en una vista.
+#      `store.session = nil` en una vista. El receptor se reconoce por su TIPO declarado
+#      (`SessionStore`, `SettingsStore`), no por cómo se llame la variable.
 #   7. Que solo el adapter de movimiento importe CoreMotion (AD-10): en `WalkTracker/`,
 #      `import CoreMotion` solo en `WalkTracker/Adapters/Motion/`. Y lo mismo para la
 #      ubicación (2.1): `import CoreLocation` solo en `WalkTracker/Adapters/Location/`.
@@ -59,9 +60,11 @@
 #      `WalkTracker/UI/Style/DesignTokens.swift`. Los valores que la spec decide NO
 #      tokenizar (`spacing: 0`, `spacing: 2`, `.padding(.top, 48)`) siguen permitidos.
 #      Además: la key `UIDesignRequiresCompatibility` no aparece en ningún `Info.plist`
-#      del manifiesto (AD-13), y `project.yml` fija
-#      `ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor`, sin la cual el
-#      acento de la app vuelve al azul del sistema POR OMISIÓN, no por decisión.
+#      del manifiesto (AD-13) —y un `Info.plist` declarado que no exista es un fallo, no
+#      un salto silencioso—, y el target de la app (`type: application`) fija
+#      `ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor` con su colorset en el
+#      árbol, sin lo cual el acento de la app vuelve al azul del sistema POR OMISIÓN, no
+#      por decisión.
 #      Sin target de UI tests, este check es lo único que impide que el vocabulario se
 #      erosione en la primera historia que lo use.
 #
@@ -104,6 +107,31 @@ parse_sources() {
 }
 
 SOURCES="$(parse_sources)"
+
+# ── Ajustes del manifiesto, por target ───────────────────────────────────────
+# `target<TAB>clave<TAB>valor` de todo `clave: valor` que cuelgue de un target, a
+# cualquier profundidad (`type:`, `settings.base.*`, `settings.configs.*`). Es lo que
+# permite anclar una comprobación AL TARGET en vez de a `project.yml` entero: la
+# sección 12c salía verde con la key del acento movida al target de la extensión.
+parse_target_settings() {
+    awk '
+        /^[A-Za-z_]/          { section = $1; target = ""; next }
+        section != "targets:" { next }
+        /^  [A-Za-z_][A-Za-z0-9_]*:[[:space:]]*$/ { target = $1; sub(/:$/, "", target); next }
+        target == ""          { next }
+        /^ +[A-Za-z_][A-Za-z0-9_]*:[[:space:]]*[^[:space:]]/ {
+            line = $0
+            sub(/^[[:space:]]+/, "", line)
+            key = line; sub(/:.*$/, "", key)
+            val = line; sub(/^[^:]*:[[:space:]]*/, "", val)
+            sub(/[[:space:]]*$/, "", val)
+            gsub(/"/, "", val)
+            print target "\t" key "\t" val
+        }
+    ' "$MANIFEST"
+}
+
+TARGET_SETTINGS="$(parse_target_settings)"
 
 if [ -z "$SOURCES" ]; then
     err "$MANIFEST" "no se pudo leer ninguna \`sources:\` del manifiesto. El gate no puede validar nada y no se declara en verde por no saber."
@@ -214,13 +242,31 @@ if [ -d "$ROOT/WalkTrackerActivity" ]; then
     done < <(grep -rnE "^[[:space:]]*import[[:space:]]+Domain\b" "$ROOT/WalkTrackerActivity" --include='*.swift' 2>/dev/null)
 fi
 
-# ── 6. La UI y la app no escriben el estado del store (AD-7, AD-16) ─────────
-# `SessionStore` es el único escritor de la sesión y del snapshot. Sus propiedades y sus
-# pasos internos tienen acceso de módulo para que los compartan `SessionStore*.swift`, así
-# que el compilador no lo hace cumplir fuera de ahí. En `WalkTracker/UI` y `WalkTracker/App`
-# se permite leer el estado y llamar a las intenciones (y a `restoreOnLaunch()`); no se
-# permite asignar una propiedad del store, llamar a sus pasos internos ni tocar sus puertos.
-# "Del store" es cualquier receptor que acabe en `store`/`Store` (`store`, `sessionStore`).
+# ── 6. La UI y la app no escriben el estado de los stores (AD-7, AD-16) ─────
+# `SessionStore` es el único escritor de la sesión y del snapshot, y `SettingsStore` el
+# único de `settings.json`. Sus propiedades y sus pasos internos tienen acceso de módulo
+# para que los compartan sus extensiones, así que el compilador no lo hace cumplir fuera de
+# ahí. En `WalkTracker/UI` y `WalkTracker/App` se permite leer el estado y llamar a las
+# intenciones (y a `restoreOnLaunch()`); no se permite asignar una propiedad del store,
+# llamar a sus pasos internos ni tocar sus puertos.
+#
+# QUÉ ES "del store" (corregido por B-5, 2026-09-20). Antes era *cualquier receptor que
+# acabe en `store`/`Store`*, que es una regla sobre el NOMBRE DE LA VARIABLE y no sobre el
+# invariante: `settings.save()` en una vista salía en verde, y lo único que lo impedía era
+# un comentario en producción pidiendo no renombrar la variable — un *rename* en Xcode lo
+# desarmaba (retro del Epic 2, D9). Ahora el criterio principal es el TIPO: se derivan de
+# cada fichero los identificadores declarados como `SessionStore` o `SettingsStore`
+# (`let settingsStore: SettingsStore`, `init(store: SessionStore, …)`,
+# `func f(_ settings: SettingsStore)`, `let s = SessionStore(…)`), y esos son los
+# receptores de ese fichero. Un tipo ANIDADO no cuenta (`SessionStore.ScenePhase`,
+# `SettingsStore.StrideOutcome` son valores, no stores).
+#
+# LO QUE ESTA REGLA NO ALCANZA, y por eso se conserva el criterio por nombre COMO RESPALDO:
+# un receptor al que se llega a través de otro objeto (`root.sessionStore.isReconciling`)
+# no se declara en el fichero que lo usa, así que su tipo no es derivable línea a línea.
+# Para esos sigue valiendo el sufijo `store`/`Store`. Es decir: un receptor tipado se caza
+# SIEMPRE, y uno encadenado solo si además se llama como se llama. El límite está
+# registrado en `deferred-work.md`; no se anuncia como cubierto.
 #
 # Vale para los DOS stores. `SettingsStore.save()` dejó de ser `private` en la 2.3 —una
 # extensión en otro fichero no ve lo privado—, así que `settingsStore.save()` compila desde
@@ -228,17 +274,43 @@ fi
 # Paul. Por eso `save` está en la lista. La sección 9 NO lo cubría: allí se miran las
 # llamadas al PUERTO (`loadSettings`/`saveSettings`), no los métodos del store.
 # `saveStride(...)` sigue permitido: es una intención, y `save\b` no casa con ella.
-store_write='[sS]tore\.[A-Za-z_][A-Za-z0-9_]*[[:space:]]*=[^=]'
-store_internal='[sS]tore\.(persist|save|record|reconcile|countSteps|stopCountingSteps|clearSnapshot|capLastSampleAt|beginWeatherForNewSession|cancelWeatherCapture|attachQuoteForNewSession|recordShownQuote|weatherCapture|stepCounting|storage|motion|clock|location|weather|random|quotes|settings)\b'
+store_types='(SessionStore|SettingsStore)'
+# Un identificador declarado con el tipo de un store. `[?!]?` admite el opcional; el
+# `[^A-Za-z0-9_.]` final deja fuera los tipos anidados (`…Store.ScenePhase`).
+store_decl="[A-Za-z_][A-Za-z0-9_]*[[:space:]]*:[[:space:]]*(any[[:space:]]+)?$store_types[?!]?([^A-Za-z0-9_.]|\$)"
+store_init="[A-Za-z_][A-Za-z0-9_]*[[:space:]]*=[[:space:]]*$store_types\("
+store_props='(persist|save|record|reconcile|countSteps|stopCountingSteps|clearSnapshot|capLastSampleAt|beginWeatherForNewSession|cancelWeatherCapture|attachQuoteForNewSession|recordShownQuote|weatherCapture|stepCounting|storage|motion|clock|location|weather|random|quotes|settings)'
+
+# Los identificadores de ESTE fichero declarados con el tipo de un store, uno por línea.
+store_receivers_in() {
+    {
+        grep -oE "$store_decl" "$1" 2>/dev/null | sed -E 's/[[:space:]]*:.*$//'
+        grep -oE "$store_init" "$1" 2>/dev/null | sed -E 's/[[:space:]]*=.*$//'
+    } | sed -E 's/^[[:space:]]+//' | sort -u
+}
+
 for dir in "$ROOT/WalkTracker/UI" "$ROOT/WalkTracker/App"; do
-    [ -d "$dir" ] || continue
-    while IFS= read -r hit; do
-        [ -n "$hit" ] || continue
-        hit_file="${hit%%:*}"
-        rest="${hit#*:}"
-        hit_line="${rest%%:*}"
-        err "$hit_file:$hit_line" "AD-7/AD-16: la UI y la app no escriben el estado de \`SessionStore\`: solo leen y llaman a sus intenciones. Asignar una propiedad del store, llamar a \`persist\`, \`save\`, \`record\`, \`reconcile\`, \`countSteps\`, \`stopCountingSteps\`, \`clearSnapshot\`, \`capLastSampleAt\`, \`beginWeatherForNewSession\`, \`cancelWeatherCapture\`, \`attachQuoteForNewSession\` o \`recordShownQuote\`, tocar sus tareas \`stepCounting\`/\`weatherCapture\`, o usar \`storage\`/\`motion\`/\`clock\`/\`location\`/\`weather\`/\`random\`/\`quotes\`/\`settings\` del store es cosa de \`SessionStore*.swift\`."
-    done < <(grep -rnE "$store_write|$store_internal" "$dir" --include='*.swift' 2>/dev/null)
+    if [ ! -d "$dir" ]; then
+        err "$dir" "no existe: el gate no puede comprobar que la UI y la app no escriben el estado de los stores (AD-7, AD-16) y no se declara en verde por no haber mirado."
+        continue
+    fi
+    while IFS= read -r file; do
+        [ -n "$file" ] || continue
+        # Respaldo por nombre (sin anclar a la izquierda, para que alcance a
+        # `root.sessionStore.…`), más los receptores tipados de este fichero.
+        recv='[sS]tore'
+        while IFS= read -r name; do
+            [ -n "$name" ] || continue
+            recv="$recv|(^|[^A-Za-z0-9_.])$name"
+        done < <(store_receivers_in "$file")
+        store_write="($recv)\.[A-Za-z_][A-Za-z0-9_]*[[:space:]]*=[^=]"
+        store_internal="($recv)\.$store_props\b"
+        while IFS= read -r hit; do
+            [ -n "$hit" ] || continue
+            hit_line="${hit%%:*}"
+            err "$file:$hit_line" "AD-7/AD-16: la UI y la app no escriben el estado de \`SessionStore\` ni de \`SettingsStore\`: solo leen y llaman a sus intenciones. Asignar una propiedad del store, llamar a \`persist\`, \`save\`, \`record\`, \`reconcile\`, \`countSteps\`, \`stopCountingSteps\`, \`clearSnapshot\`, \`capLastSampleAt\`, \`beginWeatherForNewSession\`, \`cancelWeatherCapture\`, \`attachQuoteForNewSession\` o \`recordShownQuote\`, tocar sus tareas \`stepCounting\`/\`weatherCapture\`, o usar \`storage\`/\`motion\`/\`clock\`/\`location\`/\`weather\`/\`random\`/\`quotes\`/\`settings\` del store es cosa de \`SessionStore*.swift\` y \`SettingsStore*.swift\`."
+        done < <(grep -nE "$store_write|$store_internal" "$file" 2>/dev/null)
+    done < <(find "$dir" -name '*.swift' -type f 2>/dev/null | sort)
 done
 
 # ── Ayudantes de las secciones 7–10 ──────────────────────────────────────────
@@ -584,15 +656,26 @@ fi
 # La lista sale del manifiesto (`INFOPLIST_FILE`), no escrita a mano: un target nuevo con
 # plist propio se comprueba solo. Si el manifiesto no declara ninguno —el arnés del camino
 # rojo monta un árbol mínimo— se cae a los dos del producto, para no dejar de mirar.
+#
+# Un plist de la lista que NO exista es un fallo (B-5, 2026-09-20). Antes había un
+# `[ -f "$plist" ] || continue` que se lo saltaba en silencio: borrados los dos
+# `Info.plist`, el gate salía verde por no haber mirado (retro del Epic 2, D9). Vale para
+# los dos orígenes de la lista: si el manifiesto declara un plist, tiene que estar; y si no
+# declara ninguno, los dos del respaldo tienen que estar, porque si no tampoco se miró nada.
 PLISTS="$(sed -nE 's/^[[:space:]]*INFOPLIST_FILE:[[:space:]]*"?([^"#]*[^"#[:space:]])"?[[:space:]]*$/\1/p' "$MANIFEST" | sort -u)"
+PLISTS_SOURCE="declarado en \`project.yml\` (\`INFOPLIST_FILE\`)"
 if [ -z "$PLISTS" ]; then
     PLISTS="WalkTracker/App/Info.plist
 WalkTrackerActivity/Info.plist"
+    PLISTS_SOURCE="el respaldo de esta sección, porque el manifiesto no declara ningún \`INFOPLIST_FILE\`"
 fi
 while IFS= read -r plist_rel; do
     [ -n "$plist_rel" ] || continue
     plist="$ROOT/$plist_rel"
-    [ -f "$plist" ] || continue
+    if [ ! -f "$plist" ]; then
+        err "$plist" "AD-13: este \`Info.plist\` es $PLISTS_SOURCE y no existe. El gate no puede comprobar que no lleva \`UIDesignRequiresCompatibility\` y no se declara en verde por no haber mirado."
+        continue
+    fi
     while IFS= read -r hit; do
         [ -n "$hit" ] || continue
         err "$plist:${hit%%:*}" "AD-13: \`UIDesignRequiresCompatibility\` está PROHIBIDA. Liquid Glass se hereda al compilar contra el SDK de iOS 26; además el sistema ignora la key al compilar para iOS 27+, así que desactivarlo solo aplaza la adopción."
@@ -603,8 +686,42 @@ done <<< "$PLISTS"
 # `AccentColor.colorset` existe, pero sin esta key el sistema no lo toma como acento de la
 # app: el chrome que tiñe solo —controles, barra de pestañas, `.tint` heredado— vuelve al
 # azul del sistema POR OMISIÓN, no por decisión, y no falla nada. Verificado borrándola.
-if ! grep -qE '^[[:space:]]*ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME:[[:space:]]*"?AccentColor"?[[:space:]]*$' "$MANIFEST"; then
-    err "$MANIFEST" "AD-13: falta \`ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor\`. Sin esa key el colorset \`AccentColor\` existe y nadie lo mira: el acento de la app vuelve al azul del sistema por omisión, no por decisión, y \`.tint\` deja de resolver al acento elegido."
+#
+# Dos arreglos de B-5 (2026-09-20), los dos por el mismo defecto: la regla buscaba la key
+# sobre `project.yml` ENTERO y no comprobaba a qué apunta.
+#   · ANCLADA AL TARGET DE LA APP. Moverla al target de la extensión salía en verde con la
+#     app sin acento. El target de la app se deriva de `type: application`; no se escribe a
+#     mano, para que un target de app nuevo o renombrado no deje la comprobación colgando.
+#   · EL COLORSET AL QUE APUNTA EXISTE. La key nombra un colorset del catálogo; borrarlo
+#     dejaba la key apuntando a nada y el gate en verde.
+ACCENT_KEY='ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME'
+ACCENT_NAME='AccentColor'
+app_targets="$(awk -F'\t' '$2 == "type" && $3 == "application" { print $1 }' <<< "$TARGET_SETTINGS")"
+if [ -z "$app_targets" ]; then
+    err "$MANIFEST" "AD-13: el manifiesto no declara ningún target \`type: application\`, así que el gate no sabe a qué target pedirle \`$ACCENT_KEY\` y no se declara en verde por no haber mirado."
+else
+    while IFS= read -r app_target; do
+        [ -n "$app_target" ] || continue
+        accent="$(awk -F'\t' -v t="$app_target" -v k="$ACCENT_KEY" '$1 == t && $2 == k { v = $3 } END { print v }' <<< "$TARGET_SETTINGS")"
+        if [ -z "$accent" ]; then
+            err "$MANIFEST" "AD-13: el target de la app (\`$app_target\`) no fija \`$ACCENT_KEY: $ACCENT_NAME\`. Sin esa key EN SU TARGET el colorset \`$ACCENT_NAME\` existe y nadie lo mira: el acento de la app vuelve al azul del sistema por omisión, no por decisión, y \`.tint\` deja de resolver al acento elegido. Fijarla en otro target (la extensión, por ejemplo) no tiñe la app."
+        elif [ "$accent" != "$ACCENT_NAME" ]; then
+            err "$MANIFEST" "AD-13: el target de la app (\`$app_target\`) fija \`$ACCENT_KEY: $accent\`, y el acento del producto es el colorset \`$ACCENT_NAME\` (verde lima, decidido el 2026-09-18). Apuntar a otro colorset cambia el acento de toda la app sin tocar una sola vista."
+        else
+            # `-prune` y no `-not -path`: aquí cuelgan `node_modules/` (324 MB) y la referencia
+            # v3, y descender en ellos costaba segundos en cada build.
+            colorset="$(find "$ROOT" \
+                \( -name '.git' -o -name 'node_modules' -o -name 'DerivedData' \
+                   -o -name 'build' -o -name '.build' -o -name 'Pods' -o -name '*.xcodeproj' \) -prune \
+                -o -type d -name "$accent.colorset" -print \
+                2>/dev/null | sort | head -n 1)"
+            if [ -z "$colorset" ]; then
+                err "$MANIFEST" "AD-13: el target de la app (\`$app_target\`) fija \`$ACCENT_KEY: $accent\` y NO existe ningún \`$accent.colorset\` en el árbol: la key apunta a nada y el acento vuelve al azul del sistema. El colorset vive en un catálogo de \`Assets.xcassets\`, con variante clara y oscura y contraste medido."
+            elif [ ! -f "$colorset/Contents.json" ]; then
+                err "$colorset" "AD-13: \`$accent.colorset\` no tiene \`Contents.json\`, así que no define ningún color: la key \`$ACCENT_KEY\` del target de la app apunta a un colorset vacío."
+            fi
+        fi
+    done <<< "$app_targets"
 fi
 
 # ── Veredicto ────────────────────────────────────────────────────────────────

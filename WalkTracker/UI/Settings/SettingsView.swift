@@ -23,8 +23,9 @@ import SwiftUI
 /// que hace Ajustes del sistema y lo que sobrevive con Dynamic Type grande.
 struct SettingsView: View {
 
-    /// Dueño de `settings.json` (AD-16). Se llama `settingsStore` y no `settings` a propósito:
-    /// la sección 6 del gate reconoce el estado del store por un receptor acabado en `Store`.
+    /// Dueño de `settings.json` (AD-16). La vista le pide intenciones y le lee el estado;
+    /// escribirlo es cosa suya, y eso lo comprueba la sección 6 del gate por el TIPO del
+    /// receptor — renombrar esta propiedad ya no cambia nada (B-5, 2026-09-20).
     let settingsStore: SettingsStore
 
     /// La zancada por omisión de `formulas.json`, que es la que usa quien nunca recalibró.

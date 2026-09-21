@@ -43,7 +43,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: '2026-08-01'
-last_updated: 09-20-2026 22:34
+last_updated: 09-21-2026 02:28
 project: walktracker
 project_key: NOKEY
 tracking_system: file-system
@@ -207,14 +207,14 @@ action_items:
     action: "B-5 Cerrar los tres gates que afirman cubrir lo que no cubren: sección
       6 por receptor, 12c sin anclar al target, 12b con salto silencioso"
     owner: "Dev"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-09-20.md"
   - id: "epic-2-retro-item-14-b-6-verify-domain-sh-deja-de-depender-de"
     epic: 2
     action: "B-6 verify-domain.sh deja de depender de una lista a mano: derivar los
       suites del árbol o fallar si hay un @Suite no listado"
     owner: "Dev"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-09-20.md"
   - id: "epic-2-retro-item-15-b-7-decidir-a-4-arnés-de-verificación-de"
     epic: 2

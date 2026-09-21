@@ -45,6 +45,7 @@ make_fixture() {
     root="$(mktemp -d)"
 
     mkdir -p "$root/Domain/Ports" "$root/Domain/Session" "$root/Shared" \
+             "$root/WalkTracker/Resources/Assets.xcassets/AccentColor.colorset" \
              "$root/WalkTracker/App" "$root/WalkTracker/UI" "$root/WalkTracker/UI/Style" \
              "$root/WalkTracker/UI/Diagnostics" "$root/WalkTracker/Application" \
              "$root/WalkTracker/Adapters/Motion" "$root/WalkTracker/Adapters/Persistence" \
@@ -221,6 +222,8 @@ struct Vocabulario: View {
 SWIFT
 
     # 12b · El `Info.plist` NOMBRA la key prohibida en un comentario, para decir que lo está.
+    # Los DOS del producto existen: desde B-5 un plist de la lista que falte es un fallo, así
+    # que un árbol limpio los trae, igual que el real.
     cat > "$root/WalkTracker/App/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <plist version="1.0">
@@ -231,6 +234,23 @@ SWIFT
 </dict>
 </plist>
 PLIST
+    cat > "$root/WalkTrackerActivity/Info.plist" <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+	<key>CFBundleName</key>
+	<string>WalkTrackerActivity</string>
+</dict>
+</plist>
+PLIST
+
+    # 12c · El colorset al que apunta la key del acento existe en el catálogo.
+    cat > "$root/WalkTracker/Resources/Assets.xcassets/AccentColor.colorset/Contents.json" <<'JSON'
+{
+  "colors" : [ { "idiom" : "universal" } ],
+  "info" : { "author" : "xcode", "version" : 1 }
+}
+JSON
 
     cat > "$root/project.yml" <<'YAML'
 name: WalkTracker
@@ -574,6 +594,77 @@ for target in UI/SessionView.swift App/WalkTrackerApp.swift; do
     rm -rf "$ROOT"
 done
 
+# ── 4f''bis. Rojo: el receptor RENOMBRADO (B-5, 2026-09-20) ─────────────────
+# El defecto que cierra B-5: la regla exigía que el receptor acabase en `store`/`Store`, así
+# que `settings.save()` en una vista salía VERDE y lo único que sostenía el invariante era un
+# comentario en producción pidiendo no renombrar la variable. Ahora el criterio es el TIPO
+# declarado, así que da igual cómo se llame: un *rename* en Xcode ya no desarma la regla.
+for target in UI/Ajustes.swift App/WalkTrackerApp.swift; do
+    for line in '    settings.save()' '    ajustes.save()' '    s.settings = nil' '    vm.storage.loadSettings()'; do
+        ROOT="$(make_fixture)"
+        case "$line" in
+            *' settings.'*) decl='settings: SettingsStore' ;;
+            *' ajustes.'*)  decl='ajustes: SettingsStore' ;;
+            *' s.'*)        decl='s: SessionStore' ;;
+            *)              decl='vm: SessionStore' ;;
+        esac
+        printf 'import SwiftUI\nfunc f(_ %s) {\n%s\n}\n' "$decl" "$line" > "$ROOT/WalkTracker/$target"
+        assert_gate "\`${line#    }\` con \`$decl\` en WalkTracker/$target falla" "$ROOT" 1 \
+            "$target:3: error: AD-7/AD-16"
+        rm -rf "$ROOT"
+    done
+done
+
+# Y el mismo receptor renombrado declarado como PROPIEDAD de la vista, que es la forma real
+# (`SettingsView` tenía `let settingsStore: SettingsStore` y un comentario pidiendo no tocarlo).
+ROOT="$(make_fixture)"
+cat > "$ROOT/WalkTracker/UI/Ajustes.swift" <<'SWIFT'
+import SwiftUI
+
+struct Ajustes: View {
+    let settings: SettingsStore
+    var body: some View {
+        Button("Guardar") { settings.save() }
+    }
+}
+SWIFT
+assert_gate "\`settings.save()\` con \`let settings: SettingsStore\` en UI/ falla" "$ROOT" 1 \
+    "UI/Ajustes.swift:6: error: AD-7/AD-16"
+rm -rf "$ROOT"
+
+# Verde: con el receptor renombrado, LEER el estado y llamar a las intenciones sigue pasando.
+# Es una intención, no un paso interno, y un tipo ANIDADO (`SettingsStore.StrideOutcome`,
+# `SessionStore.ScenePhase`) no es un store: si la regla nueva los confundiera, este caso lo
+# diría y la pantalla real de Ajustes no pasaría el gate.
+ROOT="$(make_fixture)"
+cat > "$ROOT/WalkTracker/UI/Ajustes.swift" <<'SWIFT'
+import SwiftUI
+
+struct Ajustes: View {
+    let settings: SettingsStore
+    let sesion: SessionStore
+    var body: some View {
+        Text(sesion.metrics?.description ?? "")
+        Text(settings.strideM?.description ?? "")
+        Button("Guardar") { settings.saveStride(fromText: "0,72") }
+        Button("Por defecto") { settings.clearStride() }
+            .disabled(settings.strideM == nil)
+    }
+    func mensaje(for outcome: SettingsStore.StrideOutcome) -> String { "\(outcome)" }
+    func fase(_ phase: ScenePhase) { sesion.scenePhaseDidChange(to: SessionStore.ScenePhase(phase)) }
+}
+SWIFT
+assert_gate "leer el estado e invocar intenciones con el receptor renombrado pasa" "$ROOT" 0 \
+    "forma del proyecto correcta"
+rm -rf "$ROOT"
+
+# ── 4f''ter. Rojo: sin `WalkTracker/App/` la sección 6 no da el verde ───────
+# Misma regla que la 12 aplica desde el chore de tokens: no se declara verde lo que no se miró.
+ROOT="$(make_fixture)"
+rm -rf "$ROOT/WalkTracker/App"
+assert_gate "sin WalkTracker/App/ el gate no da el verde" "$ROOT" 1 "WalkTracker/App: error: no existe"
+rm -rf "$ROOT"
+
 # Verde: las INTENCIONES de la zancada sí, que es para lo que están. `save\b` no casa con
 # `saveStride`, y si casara este caso lo diría.
 ROOT="$(make_fixture)"
@@ -869,6 +960,31 @@ assert_gate "un Info.plist declarado en el manifiesto también se comprueba" "$R
     "Otro/Info.plist:4: error: AD-13"
 rm -rf "$ROOT"
 
+# ── 4i'. Rojo: un Info.plist de la lista que no existe (B-5, 2026-09-20) ────
+# Hasta B-5 había un `[ -f "$plist" ] || continue`: borrados los dos `Info.plist`, el gate
+# salía VERDE por no haber mirado. Ahora falta un plist es un fallo explícito, con los dos
+# orígenes de la lista — el manifiesto y el respaldo.
+ROOT="$(make_fixture)"
+perl -0pi -e 's/(        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor\n)/$1        INFOPLIST_FILE: WalkTracker\/Otro\/Info.plist\n/' "$ROOT/project.yml"
+grep -q 'INFOPLIST_FILE' "$ROOT/project.yml" || { echo "  ⚠️  fixture no mutado"; exit 1; }
+assert_gate "un Info.plist declarado en el manifiesto y ausente falla" "$ROOT" 1 \
+    "Otro/Info.plist: error: AD-13: este \`Info.plist\` es declarado en"
+rm -rf "$ROOT"
+
+for plist in WalkTracker/App/Info.plist WalkTrackerActivity/Info.plist; do
+    ROOT="$(make_fixture)"
+    rm -f "$ROOT/$plist"
+    assert_gate "borrar $plist (respaldo, sin manifiesto que lo declare) falla" "$ROOT" 1 \
+        "$plist: error: AD-13: este \`Info.plist\` es el respaldo"
+    rm -rf "$ROOT"
+done
+
+# Verde: los dos existen y ninguno lleva la key. Es el caso del árbol limpio, pero explícito:
+# si la regla nueva criminalizara un plist correcto, el gate entero dejaría de pasar.
+ROOT="$(make_fixture)"
+assert_gate "los dos Info.plist presentes y sin la key pasan" "$ROOT" 0 "forma del proyecto correcta"
+rm -rf "$ROOT"
+
 # ── 4j. Rojo: el acento de la app deja de ser una decisión (AD-13) ──────────
 # Verificado: sin esta key el chrome vuelve al azul del sistema y NADA falla — justo el
 # defecto que el chore denuncia ("azul por omisión, no por decisión").
@@ -883,6 +999,41 @@ ROOT="$(make_fixture)"
 perl -0pi -e 's/ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor/ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AppIcon/' "$ROOT/project.yml"
 assert_gate "la key del acento apuntando a otro colorset falla" "$ROOT" 1 \
     "ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME"
+rm -rf "$ROOT"
+
+# ── 4j'. Rojo: la key del acento en OTRO target (B-5, 2026-09-20) ───────────
+# El defecto que cierra B-5: la regla hacía `grep` sobre `project.yml` ENTERO, así que mover
+# la key al target de la extensión salía VERDE con la app sin acento. Ahora está anclada al
+# target `type: application`, que se deriva del manifiesto.
+ROOT="$(make_fixture)"
+perl -0pi -e 's/^        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor\n//m' "$ROOT/project.yml"
+perl -0pi -e 's/(  WalkTrackerActivity:\n    type: app-extension\n    sources:\n      - path: WalkTrackerActivity\n    dependencies:\n      - target: Shared\n)/$1    settings:\n      base:\n        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor\n/' "$ROOT/project.yml"
+grep -q 'ACCENT_COLOR_NAME' "$ROOT/project.yml" || { echo "  ⚠️  fixture no mutado"; exit 1; }
+assert_gate "la key del acento movida al target de la extensión falla" "$ROOT" 1 \
+    "AD-13: el target de la app (\`WalkTracker\`) no fija"
+rm -rf "$ROOT"
+
+# ── 4j''. Rojo: la key apunta a un colorset que no está en el árbol ─────────
+# `AccentColor` declarado y sin colorset: la key apunta a nada y el acento vuelve al azul del
+# sistema. Hasta B-5 el gate salía verde; la retro del Epic 2 lo verificó borrándolo (D9).
+ROOT="$(make_fixture)"
+rm -rf "$ROOT/WalkTracker/Resources/Assets.xcassets/AccentColor.colorset"
+assert_gate "borrar AccentColor.colorset con la key puesta falla" "$ROOT" 1 \
+    "NO existe ningún \`AccentColor.colorset\`"
+rm -rf "$ROOT"
+
+# Y un colorset sin `Contents.json` no define ningún color: la carpeta existe y no dice nada.
+ROOT="$(make_fixture)"
+rm -f "$ROOT/WalkTracker/Resources/Assets.xcassets/AccentColor.colorset/Contents.json"
+assert_gate "un AccentColor.colorset sin Contents.json falla" "$ROOT" 1 \
+    "no tiene \`Contents.json\`"
+rm -rf "$ROOT"
+
+# ── 4j'''. Rojo: sin target `type: application` no hay a quién preguntarle ──
+ROOT="$(make_fixture)"
+perl -0pi -e 's/^    type: application\n/    type: framework\n/m' "$ROOT/project.yml"
+assert_gate "sin target \`type: application\` el gate no da el verde" "$ROOT" 1 \
+    "no declara ningún target \`type: application\`"
 rm -rf "$ROOT"
 
 # ── 5. Rojo: manifiesto ausente ──────────────────────────────────────────────
