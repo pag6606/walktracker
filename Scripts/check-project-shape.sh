@@ -494,7 +494,7 @@ done < <(grep -E "$code_at$network_symbol|^[^:]+:[0-9]+:$(import_re 'Network' | 
 
 # ── 12. La UI no cablea el vocabulario visual (AD-13, UX-DR3, AD-20) ────────
 # El espaciado, el margen, el objetivo táctil de 44 pt, el radio de tarjeta, el relleno de
-# una superficie y los dos colores propios viven en `WalkTracker/UI/Style/DesignTokens.swift`.
+# una superficie y los tres colores propios viven en `WalkTracker/UI/Style/DesignTokens.swift`.
 # Una vista que los reteclea rompe el vocabulario en silencio: no hay target de UI tests, y
 # las cuatro superficies que faltan (anillo 3.1, logros 3.3, historial 5.2, ajustes 2.3)
 # heredarían la erosión.

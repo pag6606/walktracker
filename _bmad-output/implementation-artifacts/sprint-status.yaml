@@ -43,7 +43,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: '2026-08-01'
-last_updated: 09-20-2026 21:39
+last_updated: 09-20-2026 22:34
 project: walktracker
 project_key: NOKEY
 tracking_system: file-system
@@ -150,7 +150,7 @@ action_items:
       aviso solo al relanzar, autosave por muestras, sin idle, no se combinan, StoragePort
       de partida para la 5.1 y criterio de constantes en formulas.json"
     owner: "Paul"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-09-14.md"
   - id: "epic-1-retro-item-6-a-6-extender-check-project-shape-sh-core"
     epic: 1

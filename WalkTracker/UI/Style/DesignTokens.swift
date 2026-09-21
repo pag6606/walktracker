@@ -11,7 +11,7 @@ import SwiftUI
 // - `UX-DR3` (vigente entero, `DEROGACIONES.md §4`): escala 4/8/12/16/24, márgenes 16,
 //   objetivos táctiles ≥ 44 pt, columna única.
 // - `AD-13`: los colores del sistema se referencian, no se cablean; las superficies
-//   propias usan las APIs de adopción. Los dos colorsets de aquí viven en
+//   propias usan las APIs de adopción. Los tres colorsets de aquí viven en
 //   `Resources/Assets.xcassets/`, con variante clara y oscura, y son la única excepción
 //   declarada a UX-DR1 (`DEROGACIONES.md §4`), que derogó los tokens Volt en hexadecimal.
 // - `AD-20`: 44 pt es el mínimo verificable de un objetivo táctil, no una aspiración.

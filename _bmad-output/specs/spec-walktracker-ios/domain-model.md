@@ -35,7 +35,7 @@ Invariantes de mutación (idénticos a v3): `stepsEstimated` y `stepsMeasured` n
 elapsedS = (now − startedAt) − totalPausesS
 ```
 
-`now` vía ClockPort; ningún timer es fuente de verdad (los timers solo refrescan UI). Pausa solo explícita. Al reabrir la app con sesión activa, elapsed se recomputa desde `startedAt` — el tiempo cerrado cuenta (recuperación silenciosa, indicador 3 s).
+`now` vía ClockPort; ningún timer es fuente de verdad (los timers solo refrescan UI). Pausa solo explícita. **Al relanzar** la app con sesión activa, elapsed se recomputa desde `startedAt` — el tiempo cerrado cuenta (recuperación silenciosa, indicador "Sesión recuperada" 3 s). **Volver de background no enciende el indicador:** solo el relanzamiento. Y por encima del umbral de sesión huérfana la sesión **no se restaura**: se cierra recortada al último dato real del coprocesador, marcada `recovered`, sin disparar logros ni celebración (AD-18). [spec-1-6, Boundaries; `ARCHITECTURE-SPINE.md` AD-18]
 
 ## 4. Cálculos de dominio
 
@@ -50,15 +50,19 @@ elapsedS = (now − startedAt) − totalPausesS
 
 Validación en la frontera: `strideM` y `weeklyGoalKm` se validan (> 0, finitos) antes de materializar aggregates; el dominio permanece siempre-válido. Errores de dominio específicos (violación de invariante vs input inválido), no genéricos.
 
+**"> 0 y finita" no bastaba para `strideM`** (B-3, 2026-09-20): `1e307` es finita, entraba, y dejaba `pasos × zancada` fuera de los números en cada caminata posterior. La validación incluye además un **tope representable** —`MetricsCalculator.maxRepresentableStrideM` ≈ 9,75e286, **derivado** de la aritmética (mayor finito ÷ el ×100 del redondeo a 2 dp ÷ el tope de pasos del agregado), no elegido— y lo comprueban las dos puertas que pueden dejar entrar una zancada: `Session.validateStride` en el agregado y `AppSettings.isRepresentableStride` en la escritura desde la UI, que además distingue "no cabe" de "no es mayor que cero" porque no se corrigen igual. No es un máximo de producto: ver `capabilities.md` CAP-13. [`Domain/Session/Session.swift:158-162`, `Domain/Metrics/MetricsCalculator.swift:55-81`; spec-b3]
+
 ## 5. Engines
 
 ### GoalEngine
-Progreso semanal sobre **semana ISO**: lunes 00:00 UTC de la semana corriente hasta +7 días.
+Progreso semanal sobre **semana ISO**: lunes 00:00 de la semana corriente hasta +7 días, en la **hora local del dispositivo**. La fecha la resuelve el **único** `AppCalendar` que expone `ClockPort` (`identifier = .iso8601`, `firstWeekday = 2`, `timeZone` el del dispositivo); nadie más construye un `Calendar` y `Calendar.current` está prohibido.
 ```
 completedKm = Σ distanceM/1000  (sesiones con startedAt dentro de la semana)
 percentage  = min(100, completedKm / weeklyGoalKm × 100)
 isComplete  = completedKm ≥ weeklyGoalKm   (default weeklyGoalKm = 10)
 ```
+
+> ⚠️ **ENMENDADO el 2026-09-20.** Este párrafo decía *"lunes 00:00 **UTC**"*, y era la contradicción con **§9** (hora local) que `ARCHITECTURE-SPINE.md` **AD-19** resuelve **a favor de §9**. AD-19 sigue citando este §5 como el sitio de la contradicción: lo que queda aquí es el rastro de que se resolvió, no la contradicción viva. [`ARCHITECTURE-SPINE.md` AD-19]
 
 ### MotivationEngine
 - Selección aleatoria sobre `quotes.json` (100 frases, companion adoptado) excluyendo `recentQuoteIds` (últimas 20).
@@ -105,7 +109,16 @@ sessions (store) → { id, startedAt, endedAt, stepsMeasured, stepsEstimated, st
 achievements (store) → { key, unlockedAt: ISO8601|null, progress: 0.0..1.0 }
 ```
 
-Convenciones (heredadas): timestamps ISO-8601; duraciones en segundos enteros; distancia float metros (2 dp); pasos enteros; cadencia float spm (1 dp). Autosave del snapshot cada 10 s y al ir a background; recuperación silenciosa al reabrir.
+Convenciones (heredadas): timestamps ISO-8601; duraciones en segundos enteros; distancia float metros (2 dp); pasos enteros; cadencia float spm (1 dp). Recuperación silenciosa al relanzar.
+
+**El autosave del snapshot no es periódico.** Se escribe **por evento y por muestras, nunca con un temporizador**: al iniciar, pausar, reanudar, pasar a background y reconciliar, más con la muestra del podómetro que llegue al menos `autosaveIntervalS` (**10 s**) después del último guardado. Los 10 s son un **espaciado mínimo entre escrituras por muestra**, no una cadencia: quieto no hay muestras y no hay escrituras, que es justo lo que exige el presupuesto de energía (AD-21). Se borra al finalizar. *(Enmendado el 2026-09-20: esta línea decía "Autosave del snapshot cada 10 s y al ir a background".)* [`WalkTracker/Application/SessionStore.swift:28-32`, `SessionStore+StepCounting.swift:90`; `ARCHITECTURE-SPINE.md` AD-9 y AD-21; spec-1-6]
+
+> ⚠️ **Estado al 2026-09-20 — lo construido diverge de estas formas en tres puntos declarados.** Las formas de arriba siguen siendo el contrato del producto terminado; esto es lo que hay hoy, para que nadie lo suponga:
+> - **`settings.json` solo lleva `recentQuoteIds` y `strideM`.** `weeklyGoalKm`, `soundEnabled` y `lastExportAt` aún no existen: entran con las historias que los estrenen (3.1 y 4.2). Un campo que no está se lee con su valor por omisión.
+> - **`strideM` es un override opcional (`nil` mientras nadie lo toque)**, no un campo con el default dentro. El 0,655 vive **solo** en `formulas.json` (`defaultStrideM`) y se resuelve al abrir cada sesión: duplicarlo en dos ficheros los dejaría divergir sin que nadie lo note, y quien nunca tocó el ajuste no se beneficiaría de mejorarlo. Diverge a propósito de la forma de arriba (decisión de Paul, 2026-09-19).
+> - **El snapshot de `activeSession.json` lleva más campos** que los de arriba —los que la reconciliación necesita: `systemDistanceM`, `savedAt`, `lastSampleAt`, `segmentStart`, `segmentSteps`, `distanceBaseM`— y un `schemaVersion`, como todos los ficheros de AD-9.
+>
+> [`Domain/Ports/AppSettings.swift:29-57`, `Domain/Ports/ActiveSessionSnapshot.swift:15-42`, `WalkTracker/Resources/formulas.json`; `ARCHITECTURE-SPINE.md` AD-9; spec-2-3]
 
 ## 9. Nota de implementación heredada (corregir en iOS)
 

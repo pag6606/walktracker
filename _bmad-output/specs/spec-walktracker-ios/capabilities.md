@@ -22,10 +22,17 @@ Companion de `SPEC.md`. Una sección por capability: prioridad (MoSCoW heredado 
 ## CAP-3 — Reconstrucción exacta de background · Must
 - **Hereda:** RF-05 v3; resuelve R2.
 - Al volver a foreground (o al finalizar), los pasos de intervalos en background se obtienen por consulta histórica al sistema (query CMPedometer por rango). No se extrapola por cadencia como en la PWA.
-- La estimación por cadencia (`GapEstimator`) sobrevive en el dominio solo como degradación excepcional (p. ej. dato del sistema no disponible); siempre marcada "~" y descartable por el usuario.
+- La estimación por cadencia (`GapEstimator`) sobrevive en el dominio solo como degradación excepcional, y **solo cuando el sistema no responde** —`nil`, error, timeout, o un tramo que empieza hace más de 7 días, que `queryPedometerData` no cubre—. Ojo a que la condición de los 7 días mira el **tramo** (lo que se consulta) y la estimación se hace sobre el **hueco** (el tiempo en background): un tramo viejo con un hueco corto **sí estima**, porque lo que decide ahí es `maxEstimableGapS`, no la antigüedad del tramo. **Cualquier respuesta no nula es dato y corta la estimación**, aunque traiga menos pasos de los ya vistos: el sistema consolida su histórico con retraso y la consulta va por detrás del stream (R1, medido en el iPhone 14 el 2026-09-17).
+- Aun sin respuesta, `GapEstimator.outcome` decide con **cuatro guardas** y con cualquiera de ellas la estimación es 0: la **precondición** de sesión `active` (`notActive` en otro caso) y **las tres defensas** —así las nombra el código— que son no estimar si el stream ya trajo los pasos del hueco (`streamAdvanced`), tomar la cadencia en el **inicio del hueco** y nunca la de ahora (y por debajo de 120 s de sesión en ese instante no hay cadencia representable, `noPriorSample`), y no estimar por encima de `maxEstimableGapS` (**20 min**, decisión de Paul 2026-09-17; `gapAboveCap`). *(Enmendado el 2026-09-20: decía "tres defensas y un tope", dejando el tope fuera del recuento y metiendo `notActive` dentro, al revés que el código. El mínimo de 120 s tampoco es de R1: es anterior, `domain-model.md §4`.)*
+- Lo estimado va siempre desglosado, marcado "~" y es descartable. **El descarte es global** —todos los estimados de la sesión vuelven a 0 y distancia y ritmo se recalculan sin ellos—, no por hueco, y se permite también con la sesión en pausa, porque el aviso de estimados también se ve en pausa.
 - **Criterios:**
   - Gap de 5 min con música → pasos exactos del sistema; `stepsEstimated` permanece en 0.
-  - Si el sistema no puede proveer el dato → se ofrece estimación marcada "~", descartable; si se descarta, esos pasos no cuentan.
+  - Consulta que responde **menos** pasos de los ya vistos → se aplica como dato; `stepsEstimated` permanece en 0.
+  - El sistema **no responde** (nil, error o timeout) y ninguna defensa lo impide → estimación marcada "~", descartable.
+  - Hueco sin respuesta por encima de los 20 min → **0 pasos estimados**, no una estimación mayor.
+  - Al descartar → **todos** los estimados de la sesión vuelven a 0, en activa o en pausa; esos pasos dejan de contar en distancia y ritmo.
+
+  *(Enmendado el 2026-09-20: estas reglas decían que la estimación entraba "p. ej. [cuando el] dato del sistema no [está] disponible" y que el descarte quitaba "esos pasos". R1 restringió la entrada a la ausencia de respuesta y añadió el tope y las defensas; el descarte siempre fue global.)* [`WalkTracker/Application/SessionStore+Reconciliation.swift:58-95`, `Domain/Session/GapEstimator.swift:20, 45-58, 95-102`, `Domain/Session/Session.swift:213-219`, `WalkTracker/Resources/formulas.json`; `ARCHITECTURE-SPINE.md` AD-8; spec-r1]
 
 ## CAP-4 — Métricas en vivo · Must
 - **Hereda:** RF-03, RF-04 v3; resuelve R8.
@@ -57,7 +64,7 @@ Companion de `SPEC.md`. Una sección por capability: prioridad (MoSCoW heredado 
 
 ## CAP-7 — Meta semanal de km · Must
 - **Hereda:** RF-10 v3.
-- Configurable (default 10 km, >0 validado en frontera). Anillo de progreso sobre semana ISO (lunes 00:00 UTC → domingo, regla en `domain-model.md`).
+- Configurable (default 10 km, >0 validado en frontera). Anillo de progreso sobre semana ISO (lunes 00:00 → domingo) **en la hora local del dispositivo**: el único `AppCalendar` de AD-19, nunca `Calendar.current`. Regla en `domain-model.md` §5. *(Enmendado el 2026-09-20: decía "lunes 00:00 **UTC**"; AD-19 resuelve la contradicción a favor de la hora local.)*
 - Celebración al cumplir (toast no bloqueante + sonido/háptica).
 - **Criterios:**
   - Anillo correcto sobre semana ISO con sesiones distribuidas en distintos días.
@@ -104,11 +111,19 @@ Companion de `SPEC.md`. Una sección por capability: prioridad (MoSCoW heredado 
 
 ## CAP-13 — Recalibración de zancada · Must
 - **Hereda:** RF-14 v3, ADR-03 heredado.
-- `strideM` es la única medida cruda editable (>0, finito, validado en frontera; default 0,655 m).
+- `strideM` es la única medida cruda editable, y es un **override opcional**: solo se guarda si Paul lo toca. Sin configurar (`nil`), la sesión nace con `defaultStrideM` de `formulas.json` (0,655 m), que queda como el **único** sitio donde vive ese número. "Usar el valor por defecto" es la vuelta atrás explícita —vaciar el campo se rechaza, así que sin ella un dedazo guardado dejaba a Paul sin forma de recuperar el valor bueno— (decisión de Paul, 2026-09-19).
+- **Rechazo duro en la frontera de escritura**, con mensaje y sin persistir: ≤ 0, no finita, no numérica, o **mayor que el tope representable** de `domain-model.md` §4 (B-3). Los dos motivos se distinguen: "no cabe" y "no es mayor que cero" no se corrigen igual.
+- **Aviso que no bloquea:** fuera del rango humano **0,3–1,2 m** (cerrado: en el borde exacto no hay aviso) se **guarda igual** y se dice que está fuera de lo humano, por si fue un dedazo (0,067 por 0,67). Es regla de producto, no del dominio — el agregado acepta 0,001 m y 50 m, y bloquear aquí inventaría un límite que el modelo no tiene.
+- La puerta de **lectura** del fichero es la tolerante, no la que rechaza: un valor corrupto se lee como "sin configurar" y no cuesta el resto de los ajustes.
+- La zancada nueva se aplica a la **siguiente sesión sin relanzar la app**: se resuelve al abrir la sesión, no al construir el store.
 - Sesiones cerradas conservan su `strideM` congelado: recalibrar nunca reescribe historial.
 - **Criterios:**
-  - Recalibrar → historial inmutado; la siguiente sesión usa la nueva zancada.
-  - Valores ≤0 o no numéricos → rechazados en frontera con mensaje.
+  - Recalibrar → historial inmutado; la siguiente sesión usa la nueva zancada, sin relanzar.
+  - Valores ≤ 0, no numéricos o no representables → rechazados en frontera con mensaje, y no se persisten.
+  - Valor fuera de 0,3–1,2 m → **se guarda**, con aviso de que está fuera de lo humano; no es un rechazo.
+  - "Usar el valor por defecto" → vuelve a "sin configurar" y la siguiente sesión usa el 0,655 de `formulas.json`.
+
+  *(Enmendado el 2026-09-20: esta sección decía solo ">0, finito, validado en frontera; default 0,655 m" y un criterio de rechazo de "≤0 o no numéricos". Faltaban el tope derivado de B-3, el aviso de rango que no bloquea y el carácter opcional del override.)* [`Domain/Ports/AppSettings.swift:51, 71-84, 101-128`, `Domain/Session/Session.swift:158-162`, `WalkTracker/Resources/formulas.json`; spec-2-3, spec-b3]
 
 ## CAP-14 — Export CSV/JSON + re-import · Should
 - **Hereda:** RF-15 v3. En nativo baja de "mitigación de evicción" a respaldo voluntario (CAP-9 garantiza storage).
