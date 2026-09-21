@@ -210,6 +210,7 @@ struct MeasurementLogTests {
                 reconciliationTimeoutS: timeoutS, orphanSessionThresholdS: 21_600, maxEstimableGapS: 1200,
                 location: LocationStub(status: .denied), weather: WeatherStub(),
                 settings: SettingsStore(storage: storage),
+                history: HistoryStore(storage: storage),
                 measure: { sink.append($0) }
             )
         }

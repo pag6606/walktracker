@@ -43,7 +43,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: '2026-08-01'
-last_updated: 09-21-2026 02:28
+last_updated: 09-21-2026 (5.1 implementada)
 project: walktracker
 project_key: NOKEY
 tracking_system: file-system
@@ -73,6 +73,10 @@ development_status:
   epic-2-retrospective: done
 
   epic-3: backlog
+  # 2026-09-21 · El Epic 3 arranca DESPUÉS de la 5.1, no antes: la 3.1 suma las caminatas de la
+  # semana para el anillo y la 3.2 necesita acumulados y rachas, y hasta la 5.1 no había ningún
+  # registro persistido que sumar. La 5.1 deja además `achievements.json` con su dueño y su
+  # esquema (el de la 3.2) y el punto de escritura donde AD-17 la enchufa.
   3-1-meta-semanal-configurable-con-anillo-de-progreso: backlog
   3-2-evaluación-de-logros-al-cierre-de-sesión-achievementengine: backlog
   3-3-pantalla-de-logros-grid-locked-unlocked-con-progreso: backlog
@@ -84,8 +88,12 @@ development_status:
   4-2-háptica-nativa-corehaptics-y-sonido-respetuoso-con-música: backlog
   epic-4-retrospective: optional
 
-  epic-5: backlog
-  5-1-persistencia-garantizada-en-sandbox-storageport: backlog
+  epic-5: in-progress
+  # 2026-09-21 · ADELANTADA antes del Epic 3 por decisión de Paul: la 3.1 suma las caminatas
+  # de la semana para el anillo y hoy no se persiste ninguna. confirmFinish() borra el
+  # snapshot y no guarda nada. spec-5-1-persistencia-sesiones.md
+  # El resto del epic (5.2–5.4) NO se adelanta: sigue después del Epic 3 y del 4.
+  5-1-persistencia-garantizada-en-sandbox-storageport: review
   5-2-historial-lista-descendente-totales-semana-mes-tendencia: backlog
   5-3-export-csv-json-re-import-share-sheet: backlog
   5-4-eliminar-sesiones-individuales: backlog

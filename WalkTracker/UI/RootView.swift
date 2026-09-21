@@ -22,6 +22,11 @@ struct RootView<Diagnostics: View>: View {
     /// store de sesión: la sección 6 del gate prohíbe a `UI/` alcanzar los ajustes por dentro
     /// del store de sesión, y con razón — son dos dueños distintos del mismo puerto.
     let settingsStore: SettingsStore
+    /// Dueño de `sessions.json` (AD-16, 5.1). Llega cableado desde `WalkTrackerApp` por la misma
+    /// razón que el de ajustes: son dueños distintos del mismo puerto y la sección 6 del gate
+    /// prohíbe alcanzarlos por dentro del store de sesión. Hoy solo se le lee el aviso de
+    /// historial ilegible; la lista y los totales son de la 5.2.
+    let historyStore: HistoryStore
     /// La zancada por omisión de `formulas.json`, para el marcador de posición de Ajustes.
     let defaultStrideM: Double
     private let diagnostics: Diagnostics?
@@ -31,11 +36,13 @@ struct RootView<Diagnostics: View>: View {
     init(
         store: SessionStore,
         settingsStore: SettingsStore,
+        historyStore: HistoryStore,
         defaultStrideM: Double,
         @ViewBuilder diagnostics: () -> Diagnostics
     ) {
         self.store = store
         self.settingsStore = settingsStore
+        self.historyStore = historyStore
         self.defaultStrideM = defaultStrideM
         self.diagnostics = diagnostics()
     }
@@ -43,7 +50,7 @@ struct RootView<Diagnostics: View>: View {
     var body: some View {
         TabView {
             Tab("Inicio", systemImage: "house") {
-                HomeView(store: store, diagnostics: diagnostics)
+                HomeView(store: store, historyStore: historyStore, diagnostics: diagnostics)
             }
             Tab("Historial", systemImage: "clock.arrow.circlepath") {
                 EmptyTabView(
@@ -83,9 +90,15 @@ struct RootView<Diagnostics: View>: View {
 
 extension RootView where Diagnostics == Never {
 
-    init(store: SessionStore, settingsStore: SettingsStore, defaultStrideM: Double) {
+    init(
+        store: SessionStore,
+        settingsStore: SettingsStore,
+        historyStore: HistoryStore,
+        defaultStrideM: Double
+    ) {
         self.store = store
         self.settingsStore = settingsStore
+        self.historyStore = historyStore
         self.defaultStrideM = defaultStrideM
         self.diagnostics = nil
     }

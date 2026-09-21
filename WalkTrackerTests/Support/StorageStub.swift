@@ -4,7 +4,7 @@ import Synchronization
 
 @testable import WalkTracker
 
-/// `StoragePort` de test: el snapshot y los ajustes viven en memoria. El test fija lo que hay
+/// `StoragePort` de test: los cuatro ficheros viven en memoria. El test fija lo que hay
 /// guardado, hace fallar cada operación a demanda y cuenta guardados, borrados y apartados.
 final class StorageStub: StoragePort {
 
@@ -28,6 +28,36 @@ final class StorageStub: StoragePort {
         var settingsLoadError: StorageError?
         var settingsSaveError: StorageError?
 
+        /// Historial de caminatas cerradas (5.1). `nil` es "todavía no hay `sessions.json`".
+        var sessions: [SessionRecord]?
+        var sessionsSetAside: [[SessionRecord]] = []
+        var sessionsSaved: [[SessionRecord]] = []
+        var sessionsLoadCount = 0
+        var sessionsLoadError: StorageError?
+        var sessionsSaveError: StorageError?
+
+        /// Estado de los logros del sandbox (5.1). `nil` es "todavía no hay `achievements.json`".
+        var achievements: [AchievementUnlock]?
+        var achievementsSetAside: [[AchievementUnlock]] = []
+        var achievementsSaved: [[AchievementUnlock]] = []
+        var achievementsLoadCount = 0
+        var achievementsLoadError: StorageError?
+        var achievementsSaveError: StorageError?
+
+        /// Aparta el historial actual, si lo hay, detrás de los ya apartados.
+        mutating func setAsideCurrentSessions() {
+            guard let sessions else { return }
+            sessionsSetAside.append(sessions)
+            self.sessions = nil
+        }
+
+        /// Aparta el estado de logros actual, si lo hay, detrás de los ya apartados.
+        mutating func setAsideCurrentAchievements() {
+            guard let achievements else { return }
+            achievementsSetAside.append(achievements)
+            self.achievements = nil
+        }
+
         /// Aparta los ajustes actuales, si los hay, detrás de los ya apartados.
         mutating func setAsideCurrentSettings() {
             guard let settings else { return }
@@ -45,8 +75,13 @@ final class StorageStub: StoragePort {
 
     private let state: Mutex<State>
 
-    init(snapshot: ActiveSessionSnapshot? = nil, settings: AppSettings? = nil) {
-        state = Mutex(State(snapshot: snapshot, settings: settings))
+    init(
+        snapshot: ActiveSessionSnapshot? = nil,
+        settings: AppSettings? = nil,
+        sessions: [SessionRecord]? = nil,
+        achievements: [AchievementUnlock]? = nil
+    ) {
+        state = Mutex(State(snapshot: snapshot, settings: settings, sessions: sessions, achievements: achievements))
     }
 
     // MARK: - StoragePort
@@ -132,6 +167,70 @@ final class StorageStub: StoragePort {
         if let error { throw error }
     }
 
+    func loadSessions() throws(StorageError) -> [SessionRecord]? {
+        let result: Result<[SessionRecord]?, StorageError> = state.withLock { state in
+            state.sessionsLoadCount += 1
+            if let error = state.sessionsLoadError {
+                // Como el adapter: un ilegible se aparta antes de lanzar y deja de fallar —lo
+                // apartado ya no está en disco—; un esquema del **futuro** NO se aparta y sigue
+                // fallando para siempre, que es justo lo que protege el historial; y con `failed`
+                // el fichero sigue en su sitio y el fallo puede ser transitorio.
+                switch error {
+                case .unsupportedSchemaVersion(let version) where version > SessionHistoryFileAdapter.supportedSchemaVersion:
+                    break
+                case .malformed, .unsupportedSchemaVersion:
+                    state.setAsideCurrentSessions()
+                    state.sessionsLoadError = nil
+                case .failed:
+                    break
+                }
+                return .failure(error)
+            }
+            return .success(state.sessions)
+        }
+        return try result.get()
+    }
+
+    func saveSessions(_ sessions: [SessionRecord]) throws(StorageError) {
+        let error: StorageError? = state.withLock { state in
+            if let error = state.sessionsSaveError { return error }
+            state.sessions = sessions
+            state.sessionsSaved.append(sessions)
+            return nil
+        }
+        if let error { throw error }
+    }
+
+    func loadAchievements() throws(StorageError) -> [AchievementUnlock]? {
+        let result: Result<[AchievementUnlock]?, StorageError> = state.withLock { state in
+            state.achievementsLoadCount += 1
+            if let error = state.achievementsLoadError {
+                switch error {
+                case .unsupportedSchemaVersion(let version) where version > AchievementsFileAdapter.supportedSchemaVersion:
+                    break
+                case .malformed, .unsupportedSchemaVersion:
+                    state.setAsideCurrentAchievements()
+                    state.achievementsLoadError = nil
+                case .failed:
+                    break
+                }
+                return .failure(error)
+            }
+            return .success(state.achievements)
+        }
+        return try result.get()
+    }
+
+    func saveAchievements(_ achievements: [AchievementUnlock]) throws(StorageError) {
+        let error: StorageError? = state.withLock { state in
+            if let error = state.achievementsSaveError { return error }
+            state.achievements = achievements
+            state.achievementsSaved.append(achievements)
+            return nil
+        }
+        if let error { throw error }
+    }
+
     // MARK: - Control del test
 
     /// El snapshot guardado ahora mismo.
@@ -186,5 +285,50 @@ final class StorageStub: StoragePort {
 
     func failSaveSettings(with error: StorageError?) {
         state.withLock { $0.settingsSaveError = error }
+    }
+
+    // MARK: - Historial (5.1)
+
+    /// El historial guardado ahora mismo.
+    var sessions: [SessionRecord]? { state.withLock { $0.sessions } }
+    /// Cada historial guardado, en orden: el test comprueba **cuántas** escrituras hubo.
+    var sessionsSaved: [[SessionRecord]] { state.withLock { $0.sessionsSaved } }
+    /// Cada historial apartado, en orden.
+    var sessionsSetAside: [[SessionRecord]] { state.withLock { $0.sessionsSetAside } }
+    var sessionsLoadCount: Int { state.withLock { $0.sessionsLoadCount } }
+
+    func setSessions(_ sessions: [SessionRecord]?) {
+        state.withLock { $0.sessions = sessions }
+    }
+
+    /// Las lecturas del historial siguientes lanzan `error`. Con `nil` vuelven a funcionar, que
+    /// es como se expresa un fallo **transitorio**. `malformed` aparta el historial antes de
+    /// lanzar; `failed` y un esquema del **futuro** lo dejan en su sitio, como el adapter.
+    func failLoadSessions(with error: StorageError?) {
+        state.withLock { $0.sessionsLoadError = error }
+    }
+
+    func failSaveSessions(with error: StorageError?) {
+        state.withLock { $0.sessionsSaveError = error }
+    }
+
+    // MARK: - Logros del sandbox (5.1)
+
+    /// El estado de logros guardado ahora mismo.
+    var achievements: [AchievementUnlock]? { state.withLock { $0.achievements } }
+    var achievementsSaved: [[AchievementUnlock]] { state.withLock { $0.achievementsSaved } }
+    var achievementsSetAside: [[AchievementUnlock]] { state.withLock { $0.achievementsSetAside } }
+    var achievementsLoadCount: Int { state.withLock { $0.achievementsLoadCount } }
+
+    func setAchievements(_ achievements: [AchievementUnlock]?) {
+        state.withLock { $0.achievements = achievements }
+    }
+
+    func failLoadAchievements(with error: StorageError?) {
+        state.withLock { $0.achievementsLoadError = error }
+    }
+
+    func failSaveAchievements(with error: StorageError?) {
+        state.withLock { $0.achievementsSaveError = error }
     }
 }

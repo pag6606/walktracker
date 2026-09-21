@@ -39,6 +39,9 @@ struct SessionStoreFixture {
     let random: RandomStub
     /// Dueño de los ajustes, montado sobre el mismo `StorageStub` que el snapshot.
     let settings: SettingsStore
+    /// Dueño del historial (5.1), sobre el mismo `StorageStub`. "Relanzar" es montar otro
+    /// `SessionStoreFixture` sobre el mismo stub: el historial y el snapshot vuelven con él.
+    let history: HistoryStore
     /// Las líneas `WTM1` que escribe el store. Solo observan: sirven de condición de espera.
     let measurements: LineSink
     let store: SessionStore
@@ -86,6 +89,8 @@ struct SessionStoreFixture {
         self.measurements = measurements
         let settings = SettingsStore(storage: storage)
         self.settings = settings
+        let history = HistoryStore(storage: storage)
+        self.history = history
         store = SessionStore(
             clock: clock,
             motion: motion,
@@ -97,6 +102,7 @@ struct SessionStoreFixture {
             location: location,
             weather: weather,
             settings: settings,
+            history: history,
             quotes: quotes,
             random: random,
             weatherStepTimeoutS: weatherStepTimeoutS,

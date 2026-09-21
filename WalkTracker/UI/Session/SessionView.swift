@@ -94,7 +94,8 @@ struct SessionView: View {
             estimatedSteps: session.stepsEstimated,
             paceSecPerKm: metrics.paceSecPerKm,
             cadenceSpm: metrics.cadenceSpm,
-            recovered: session.recovered
+            recovered: session.recovered,
+            notPersisted: store.finishedWalkNotPersisted
         )
     }
 

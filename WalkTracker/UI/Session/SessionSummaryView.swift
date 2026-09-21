@@ -12,6 +12,10 @@ struct FinishedWalk: Equatable {
     let cadenceSpm: Double
     /// Sesión huérfana que la app cerró sola al arrancar (AD-18).
     var recovered = false
+    /// La caminata **no se pudo guardar en el historial** (5.1). El resumen lo dice antes de
+    /// dejar salir, porque es el único momento en que Paul está mirando; el snapshot no se ha
+    /// borrado, así que la caminata vuelve al relanzar la app.
+    var notPersisted = false
 }
 
 /// Resumen mínimo tras finalizar (decisión de Paul, 1.4): distancia, tiempo, pasos, ritmo
@@ -47,6 +51,10 @@ struct SessionSummaryView: View {
                             .multilineTextAlignment(.center)
                     }
 
+                    if walk.notPersisted {
+                        notPersistedNotice
+                    }
+
                     Spacer(minLength: Spacing.xl)
 
                     DistanceHero(meters: walk.distanceM)
@@ -80,5 +88,30 @@ struct SessionSummaryView: View {
             }
             .scrollBounceBehavior(.basedOnSize)
         }
+    }
+
+    /// "No se pudo guardar", dicho **antes de dejar salir del resumen** (5.1).
+    ///
+    /// No bloquea ni pide nada: la caminata no se ha perdido —su snapshot sigue en disco y vuelve
+    /// al relanzar la app— y lo único que hace falta es que Paul lo sepa y no se quede esperando
+    /// verla en el historial. El color del error es el rol medido de B-2, no un `.red` a mano.
+    private var notPersistedNotice: some View {
+        Label {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                Text("No se pudo guardar esta caminata")
+                    .font(.subheadline.weight(.semibold))
+                Text("Sigue a salvo: volverá a aparecer la próxima vez que abras la app.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        } icon: {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(Colors.error)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, Surface.cardPaddingHorizontal)
+        .padding(.vertical, Surface.cardPaddingVertical)
+        .background(Colors.error.opacity(Surface.noticeTintOpacity), in: .rect(cornerRadius: Radius.card))
+        .accessibilityElement(children: .combine)
     }
 }

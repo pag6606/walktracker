@@ -11,8 +11,8 @@ import OSLog
 /// conteo de pasos del coprocesador; la 1.3, las métricas derivadas; la 1.4, pausar,
 /// reanudar, finalizar y el resumen; la 1.5, la reconstrucción del background por consulta
 /// al sistema y el descarte de pasos estimados; la 1.6, la recuperación tras un force-quit; la
-/// 2.1, el clima del inicio; la 2.2, la frase motivacional del arranque.
-/// La finalizada se descarta al salir del resumen: el historial es de la 5.1.
+/// 2.1, el clima del inicio; la 2.2, la frase motivacional del arranque; la 5.1, el registro
+/// inmutable de la caminata cerrada en el historial.
 ///
 /// La pausa es solo explícita (CAP-1): pasar a segundo plano o bloquear la pantalla llega
 /// aquí solo para reconciliar los pasos del gap, y nunca pausa.
@@ -40,7 +40,8 @@ import OSLog
 /// - `SessionStore+Reconciliation.swift`: la reconciliación atómica y su carrera con el timeout;
 /// - `SessionStore+Recovery.swift`: restaurar al arrancar, la huérfana y el snapshot;
 /// - `SessionStore+Weather.swift`: la pre-pantalla de ubicación y la captura del clima del inicio;
-/// - `SessionStore+Motivation.swift`: la elección de la frase del arranque y su overlay.
+/// - `SessionStore+Motivation.swift`: la elección de la frase del arranque y su overlay;
+/// - `SessionStore+History.swift`: el registro de la caminata cerrada y su entrega a `HistoryStore`.
 ///
 /// Las propiedades que escriben varias extensiones tienen acceso de módulo (Swift no deja a
 /// una extensión de otro fichero ver lo `private`). **Invariante:** solo los ficheros
@@ -153,6 +154,13 @@ final class SessionStore {
     ///
     /// Lo apaga `dismissQuote()`: el tap y los 3 s son la misma intención.
     var quote: Quote?
+    /// La caminata que se acaba de cerrar **no se ha podido guardar en el historial** (5.1): el
+    /// resumen lo dice antes de dejar salir, y el snapshot NO se ha borrado, así que la caminata
+    /// se recupera al relanzar la app.
+    ///
+    /// Es estado observable del store y no de la vista (sección 6 del gate). Lo escriben
+    /// `SessionStore+History.swift` y el reset; la pantalla solo lo pinta.
+    var finishedWalkNotPersisted = false
 
     // MARK: - Dependencias
 
@@ -189,6 +197,10 @@ final class SessionStore {
     /// Dueño de `settings.json` (AD-16). Este store le pide la ventana de frases recientes y
     /// le comunica la mostrada; nunca toca el fichero.
     @ObservationIgnored let settings: SettingsStore
+    /// Dueño de `sessions.json` (AD-16, 5.1). Este store le entrega la caminata cerrada y le
+    /// pregunta si una sesión ya está guardada; nunca toca el fichero. Como con `settings`, la
+    /// sección 9b del gate impide asignarle estado o llamar a su `save()` desde aquí.
+    @ObservationIgnored let history: HistoryStore
     @ObservationIgnored let log = Logger(subsystem: "com.walktracker.app", category: "SessionStore")
     /// Destino de las líneas de medición de la 8.4 (`MeasurementLog`). Solo observa: nada
     /// del comportamiento depende de él. Los tests lo sustituyen para leer las líneas.
@@ -236,6 +248,15 @@ final class SessionStore {
     /// Instante del último snapshot guardado, para espaciar el autosave por muestras. Solo lo
     /// escribe `persist()` cuando el guardado sale bien.
     @ObservationIgnored var lastSavedAt: Date?
+    /// El registro de la caminata cerrada que **no se pudo escribir** en el historial (5.1), para
+    /// reintentarlo al salir del resumen. `nil` cuando no hay nada pendiente.
+    ///
+    /// **Existe porque el snapshot no es una copia eterna.** Mientras esté sin guardar, el
+    /// snapshot de esa caminata sigue en disco y relanzar la recupera; pero si Paul empieza otra
+    /// caminata en esta misma ejecución, el primer `persist()` de la nueva lo sobrescribe. El
+    /// reintento de `leaveSummary()` acota la pérdida a "el disco falló dos veces".
+    /// Lo escriben `SessionStore+History.swift` y el reset.
+    @ObservationIgnored var unsavedFinishedRecord: SessionRecord?
     /// `restoreOnLaunch()` ya corrió: relanzar la tarea de la escena no restaura dos veces. Es
     /// del arranque, no de una sesión: el reset no lo toca.
     @ObservationIgnored var didAttemptRestore = false
@@ -276,6 +297,7 @@ final class SessionStore {
         location: any LocationPort,
         weather: any WeatherPort,
         settings: SettingsStore,
+        history: HistoryStore,
         quotes: QuoteBank = .empty,
         random: any RandomPort = SystemRandom(),
         weatherStepTimeoutS: TimeInterval = SessionStore.weatherStepTimeoutS,
@@ -291,6 +313,7 @@ final class SessionStore {
         self.location = location
         self.weather = weather
         self.settings = settings
+        self.history = history
         self.quotes = quotes
         self.random = random
         self.weatherStepTimeoutS = weatherStepTimeoutS
@@ -371,6 +394,13 @@ final class SessionStore {
     /// resumen incluya los pasos que el podómetro aún no había entregado; y cierra en ese
     /// instante. Sin dato no estima, salvo que haya un gap de background pendiente. Desde
     /// pausa no consulta: el tramo ya se cerró al pausar.
+    ///
+    /// **Y guarda la caminata** (5.1). Entre materializar las métricas y borrar el snapshot está
+    /// el único instante en que coexisten la sesión finalizada y sus métricas congeladas: ese es
+    /// el punto de escritura del historial, y el mismo donde AD-17 enchufará la evaluación de
+    /// logros de la 3.2. El orden es **guardar primero y borrar el snapshot solo si el guardado
+    /// fue bien**: si falla, el snapshot sigue ahí y la caminata se recupera al relanzar, con el
+    /// resumen diciéndolo antes de dejar salir.
     func confirmFinish() async {
         isConfirmingFinish = false
         guard !isReconciling, let status = session?.status, status != .finished else { return }
@@ -394,9 +424,13 @@ final class SessionStore {
         backgroundedAt = nil
         stepsMeasuredAtGapStart = nil
         self.session = session
-        metrics = session.metrics(at: now)
+        let finalMetrics = session.metrics(at: now)
+        metrics = finalMetrics
         measureTransition(.finish, session, at: now)
-        clearSnapshot()
+        // Guardar ANTES de borrar: el snapshot es la única otra copia de esta caminata.
+        if saveFinishedWalk(session, metrics: finalMetrics) {
+            clearSnapshot()
+        }
     }
 
     /// "Descartar" en el Estimated Banner: pide confirmación explícita (AD-20). Solo con
@@ -434,11 +468,18 @@ final class SessionStore {
         showsRecoveredNotice = false
     }
 
-    /// "Volver a Inicio" en el resumen: descarta la sesión finalizada, también la huérfana
-    /// cerrada al arrancar (el historial es de la 5.1), y cierra el modo de sesión. Solo con
-    /// la sesión `finished`.
+    /// "Volver a Inicio" en el resumen: descarta la sesión finalizada —también la huérfana
+    /// cerrada al arrancar— y cierra el modo de sesión. Solo con la sesión `finished`.
+    ///
+    /// Desde la 5.1 la caminata ya no se pierde al salir: vive en `sessions.json`. Lo único que
+    /// se descarta aquí es el estado en memoria de la sesión.
+    ///
+    /// **Último reintento del guardado.** Si el historial falló al cerrar, se intenta otra vez
+    /// antes de soltar la sesión: es el último instante en que el registro sigue a mano. Si
+    /// también falla, el snapshot sigue en disco y la caminata vuelve al relanzar.
     func leaveSummary() {
         guard !isReconciling, session?.status == .finished else { return }
+        retrySavingFinishedWalk()
         resetSessionState()
     }
 
@@ -470,6 +511,8 @@ final class SessionStore {
         lastSampleAtCap = nil
         lastSavedAt = nil
         quote = nil
+        finishedWalkNotPersisted = false
+        unsavedFinishedRecord = nil
         // La captura del clima y la pre-pantalla: un clima tardío no llega a la sesión siguiente.
         cancelWeatherCapture()
     }

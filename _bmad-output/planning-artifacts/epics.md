@@ -443,6 +443,8 @@ Paul persigue su meta semanal de km con un anillo de progreso y desbloquea logro
 **ARs:** AR-1 (corrección hora local logros), AR-12
 **UX:** UX-DR1, UX-DR4, UX-DR5, UX-DR6, UX-DR8 (flows 1, 2, 4)
 **Nota:** FR-12 (feedback) vive en Epic 4 — las celebraciones de este epic **consumen** ese canal.
+**Nota de orden (2026-09-21):** este epic arranca **después de la historia 5.1**, que se ha adelantado por decisión de Paul. La razón es de datos, no de preferencia: la **3.1** suma las caminatas de la semana para el anillo y la **3.2** necesita acumulados y rachas, y hasta la 5.1 **no se persistía ninguna caminata** — `SessionStore.confirmFinish()` terminaba borrando el snapshot y la caminata cerrada solo existía en un `@State` de la vista mientras se miraba el resumen. La 5.1 deja además, listo para la 3.2: `achievements.json` con su dueño (`AchievementsStore`) y su esquema, el registro que ya sabe si cuenta para logros (`SessionRecord.countsForAchievements`, `false` para una huérfana — **AD-18**), y el punto de escritura donde **AD-17** enchufa la evaluación, señalado en `WalkTracker/Application/SessionStore+History.swift`. Lo que la 5.1 **no** resuelve y la 3.2 hereda escrito está en `deferred-work.md`: no hay atomicidad conjunta entre `sessions.json` y `achievements.json`, porque la escritura de AD-9 es por fichero y AD-16 les da dueños distintos. El resto del Epic 5 (5.2–5.4) **no** se adelanta. [`spec-5-1-persistencia-sesiones.md`; `sprint-status.yaml`]
+
 **Nota (2026-09-21):** la 3.1 es la **primera historia posterior a B-9 que toca Ajustes**. Esa pantalla ya tiene dos secciones —"Zancada" y "Acerca de"— y el "Acerca de" carga una obligación de licencia que no se puede perder al añadir la meta semanal. Ver el bloque 🔒 bajo la historia 2.3 y `NOTICE`.
 
 ### Story 3.1: Meta semanal configurable con anillo de progreso
@@ -633,6 +635,7 @@ Las sesiones se guardan de forma garantizada en el dispositivo y Paul puede cons
 **NFRs:** NFR-2, NFR-4, NFR-5
 **ARs:** AR-9, AR-10, AR-12
 **UX:** UX-DR4, UX-DR5, UX-DR6, UX-DR8 (flows 3, 5)
+**Nota de orden (2026-09-21):** la **5.1 se ejecuta antes del Epic 3**, no después, por decisión de Paul. Sin ella no hay nada que sumar para el anillo de la 3.1 ni acumulados para la 3.2: `confirmFinish()` borraba el snapshot y no guardaba nada. **El resto del epic (5.2–5.4) se queda donde estaba**, después de los epics 3 y 4: la 5.2 lee el `sessions.json` que la 5.1 crea, la 5.3 reutiliza su serialización y la 5.4 borra a través de su mismo dueño. [`spec-5-1-persistencia-sesiones.md`; `epic-5-context.md`; `sprint-status.yaml`]
 
 ### Story 5.1: Persistencia garantizada en sandbox (StoragePort)
 

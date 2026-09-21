@@ -27,7 +27,8 @@
 #      A-1 de la retro del Epic 1 sus propiedades y pasos internos tienen acceso de
 #      módulo, porque los comparten sus extensiones: el compilador ya no impide un
 #      `store.session = nil` en una vista. El receptor se reconoce por su TIPO declarado
-#      (`SessionStore`, `SettingsStore`), no por cómo se llame la variable.
+#      (`SessionStore`, `SettingsStore`, y desde la 5.1 `HistoryStore` y
+#      `AchievementsStore`), no por cómo se llame la variable.
 #   7. Que solo el adapter de movimiento importe CoreMotion (AD-10): en `WalkTracker/`,
 #      `import CoreMotion` solo en `WalkTracker/Adapters/Motion/`. Y lo mismo para la
 #      ubicación (2.1): `import CoreLocation` solo en `WalkTracker/Adapters/Location/`.
@@ -35,12 +36,14 @@
 #      `Domain/` no hay `Date()`, `Date.now` ni `Calendar.current` en código. El tiempo
 #      entra por `ClockPort`. Los comentarios que los nombran no cuentan.
 #   9. Que cada fichero de `StoragePort` tenga UN dueño (AD-16). El puerto es uno y los
-#      ficheros dos, así que el compilador no separa nada: las llamadas a
+#      ficheros CUATRO, así que el compilador no separa nada: las llamadas a
 #      `load`/`save`/`clear`/`setAsideActiveSession` solo en
-#      `WalkTracker/Application/SessionStore*.swift`, y las de `load`/`saveSettings` (2.2)
-#      solo en `WalkTracker/Application/SettingsStore.swift` — cada una con su implementación
-#      en `WalkTracker/Adapters/Persistence/`. El store de sesión no toca los ajustes y el de
-#      ajustes no toca el snapshot.
+#      `WalkTracker/Application/SessionStore*.swift`; las de `load`/`saveSettings` (2.2) solo
+#      en `WalkTracker/Application/SettingsStore*.swift`; las de `load`/`saveSessions` (5.1)
+#      solo en `WalkTracker/Application/HistoryStore*.swift`; y las de
+#      `load`/`saveAchievements` (5.1) solo en `WalkTracker/Application/AchievementsStore*.swift`
+#      — cada una con su implementación en `WalkTracker/Adapters/Persistence/`. Ningún dueño
+#      toca el fichero de otro.
 #  10. Que ninguna vista importe un framework de sistema (AD-10): `WalkTracker/UI/` no
 #      importa CoreMotion, CoreLocation, HealthKit, ActivityKit, WidgetKit, CoreHaptics,
 #      AVFoundation, AudioToolbox, UserNotifications ni UIKit. Esas capacidades entran
@@ -274,12 +277,12 @@ fi
 # Paul. Por eso `save` está en la lista. La sección 9 NO lo cubría: allí se miran las
 # llamadas al PUERTO (`loadSettings`/`saveSettings`), no los métodos del store.
 # `saveStride(...)` sigue permitido: es una intención, y `save\b` no casa con ella.
-store_types='(SessionStore|SettingsStore)'
+store_types='(SessionStore|SettingsStore|HistoryStore|AchievementsStore)'
 # Un identificador declarado con el tipo de un store. `[?!]?` admite el opcional; el
 # `[^A-Za-z0-9_.]` final deja fuera los tipos anidados (`…Store.ScenePhase`).
 store_decl="[A-Za-z_][A-Za-z0-9_]*[[:space:]]*:[[:space:]]*(any[[:space:]]+)?$store_types[?!]?([^A-Za-z0-9_.]|\$)"
 store_init="[A-Za-z_][A-Za-z0-9_]*[[:space:]]*=[[:space:]]*$store_types\("
-store_props='(persist|save|record|reconcile|countSteps|stopCountingSteps|clearSnapshot|capLastSampleAt|beginWeatherForNewSession|cancelWeatherCapture|attachQuoteForNewSession|recordShownQuote|weatherCapture|stepCounting|storage|motion|clock|location|weather|random|quotes|settings)'
+store_props='(persist|save|record|reconcile|countSteps|stopCountingSteps|clearSnapshot|capLastSampleAt|beginWeatherForNewSession|cancelWeatherCapture|attachQuoteForNewSession|recordShownQuote|saveFinishedWalk|retrySavingFinishedWalk|finishedRecord|unsavedFinishedRecord|weatherCapture|stepCounting|storage|motion|clock|location|weather|random|quotes|settings|history)'
 
 # Los identificadores de ESTE fichero declarados con el tipo de un store, uno por línea.
 store_receivers_in() {
@@ -308,7 +311,7 @@ for dir in "$ROOT/WalkTracker/UI" "$ROOT/WalkTracker/App"; do
         while IFS= read -r hit; do
             [ -n "$hit" ] || continue
             hit_line="${hit%%:*}"
-            err "$file:$hit_line" "AD-7/AD-16: la UI y la app no escriben el estado de \`SessionStore\` ni de \`SettingsStore\`: solo leen y llaman a sus intenciones. Asignar una propiedad del store, llamar a \`persist\`, \`save\`, \`record\`, \`reconcile\`, \`countSteps\`, \`stopCountingSteps\`, \`clearSnapshot\`, \`capLastSampleAt\`, \`beginWeatherForNewSession\`, \`cancelWeatherCapture\`, \`attachQuoteForNewSession\` o \`recordShownQuote\`, tocar sus tareas \`stepCounting\`/\`weatherCapture\`, o usar \`storage\`/\`motion\`/\`clock\`/\`location\`/\`weather\`/\`random\`/\`quotes\`/\`settings\` del store es cosa de \`SessionStore*.swift\` y \`SettingsStore*.swift\`."
+            err "$file:$hit_line" "AD-7/AD-16: la UI y la app no escriben el estado de \`SessionStore\` ni de \`SettingsStore\`: solo leen y llaman a sus intenciones. Asignar una propiedad del store, llamar a \`persist\`, \`save\`, \`record\`, \`reconcile\`, \`countSteps\`, \`stopCountingSteps\`, \`clearSnapshot\`, \`capLastSampleAt\`, \`beginWeatherForNewSession\`, \`cancelWeatherCapture\`, \`attachQuoteForNewSession\`, \`recordShownQuote\`, \`saveFinishedWalk\` o \`retrySavingFinishedWalk\`, tocar sus tareas \`stepCounting\`/\`weatherCapture\`, o usar \`storage\`/\`motion\`/\`clock\`/\`location\`/\`weather\`/\`random\`/\`quotes\`/\`settings\`/\`history\` del store es cosa de \`SessionStore*.swift\`, \`SettingsStore*.swift\`, \`HistoryStore*.swift\` y \`AchievementsStore*.swift\`."
         done < <(grep -nE "$store_write|$store_internal" "$file" 2>/dev/null)
     done < <(find "$dir" -name '*.swift' -type f 2>/dev/null | sort)
 done
@@ -437,9 +440,12 @@ if [ -d "$ROOT/Domain" ]; then
 fi
 
 # ── 9. Cada fichero de `StoragePort` tiene un dueño (AD-16) ─────────────────
-# `StoragePort` es UN puerto con DOS ficheros, y desde la 2.2 con dos dueños distintos:
-# `SessionStore` posee `activeSession.json` y `SettingsStore` posee `settings.json`. El
-# compilador no los separa —los dos ven el mismo protocolo—, así que se comprueba aquí.
+# `StoragePort` es UN puerto con CUATRO ficheros y cuatro dueños distintos: `SessionStore`
+# posee `activeSession.json`, `SettingsStore` posee `settings.json` (2.2), `HistoryStore`
+# posee `sessions.json` (5.1) y `AchievementsStore` posee el `achievements.json` DEL SANDBOX
+# (5.1) — que no es el catálogo congelado de `WalkTracker/Resources/`, que se llama igual y
+# no pasa por este puerto. El compilador no los separa —todos ven el mismo protocolo—, así
+# que se comprueba aquí.
 #
 # Se admiten las llamadas en el fichero dueño y en el adapter de persistencia, que las
 # implementa. Las declaraciones (`func loadActiveSession`) no son llamadas, y los
@@ -486,21 +492,30 @@ storage_owner_rule '(load|save|clear|setAside)ActiveSession' 'SessionStore' \
     "solo \`SessionStore\` usa el snapshot de \`StoragePort\`. \`loadActiveSession\`, \`saveActiveSession\`, \`clearActiveSession\` y \`setAsideActiveSession\` se llaman desde \`WalkTracker/Application/SessionStore*.swift\`; fuera de ahí se pide al store una intención."
 storage_owner_rule '(load|save)Settings' 'SettingsStore' \
     "solo \`SettingsStore\` usa los ajustes de \`StoragePort\` (2.2). \`loadSettings\` y \`saveSettings\` se llaman desde \`WalkTracker/Application/SettingsStore.swift\`; fuera de ahí —incluido \`SessionStore\`, que le pide la ventana de frases recientes— se pide al store de ajustes una intención."
+storage_owner_rule '(load|save)Sessions' 'HistoryStore' \
+    "solo \`HistoryStore\` usa el historial de \`StoragePort\` (5.1). \`loadSessions\` y \`saveSessions\` se llaman desde \`WalkTracker/Application/HistoryStore*.swift\`; fuera de ahí —incluido \`SessionStore\`, que le entrega la caminata cerrada— se pide al store del historial una intención (\`append\`, \`contains\`). Lo que hay en \`sessions.json\` no se puede reconstruir: dos escritores serían dos formas de perderlo."
+storage_owner_rule '(load|save)Achievements' 'AchievementsStore' \
+    "solo \`AchievementsStore\` usa el estado de los logros de \`StoragePort\` (5.1). \`loadAchievements\` y \`saveAchievements\` se llaman desde \`WalkTracker/Application/AchievementsStore*.swift\`. Ojo: es el \`achievements.json\` del SANDBOX, no el catálogo congelado de \`WalkTracker/Resources/\`, que se llama igual, se lee del bundle y no pasa por este puerto (AD-5)."
 
-# ── 9b. Dentro de `Application/`, los ajustes se escriben por su intención ───
-# El hueco equivalente al de la sección 6, un piso más adentro: `SettingsStore.settings` y
-# `save()` perdieron `private` en la 2.3 —una extensión en otro fichero no ve lo privado—, y
-# la sección 6 solo mira `UI/` y `App/`. `SessionStore` guarda el store de ajustes en una
-# propiedad llamada `settings`, así que dentro de `Application/` compila
-# `settings.settings = …` y `settings.save()`: escribir el fichero de otro dueño saltándose
-# su intención (AD-16), que es lo que la 2.2 estrenó y la 2.3 amplió.
+# ── 9b. Dentro de `Application/`, el fichero de otro dueño se escribe por su intención ──
+# El hueco equivalente al de la sección 6, un piso más adentro: el estado de un store y su
+# `save()` tienen acceso de MÓDULO —una extensión en otro fichero no ve lo privado— y la
+# sección 6 solo mira `UI/` y `App/`. `SessionStore` guarda el store de ajustes en una
+# propiedad llamada `settings` y, desde la 5.1, el del historial en una llamada `history`, así
+# que dentro de `Application/` compila `settings.settings = …`, `settings.save()` o
+# `history.save { … }`: escribir el fichero de otro dueño saltándose su intención (AD-16).
+# Esto existe porque YA PASÓ con los ajustes en la 2.2/2.3, no por si acaso.
 #
-# Exentos `SettingsStore.swift` y sus extensiones `SettingsStore+Algo.swift`, con la misma
-# regla de forma de la sección 9. Las llamadas a las intenciones
-# (`settings.recordShownQuote(id:)`, `settings.resolvedStrideM(default:)`) siguen permitidas:
-# lo que se prohíbe es asignar su estado y escribir su fichero.
-if [ -d "$ROOT/WalkTracker/Application" ]; then
-    settings_owner='settings[[:space:]]*\.[[:space:]]*([A-Za-z_][A-Za-z0-9_]*[[:space:]]*=[^=]|save[[:space:]]*\()'
+# Exentos el fichero del dueño y sus extensiones `DUEÑO+Algo.swift`, con la misma regla de
+# forma de la sección 9. Las llamadas a las intenciones (`settings.recordShownQuote(id:)`,
+# `history.append(record)`, `history.contains(startedAt:)`) siguen permitidas: lo que se
+# prohíbe es asignar su estado y escribir su fichero.
+#
+# Uso: `injected_owner_rule PROPIEDAD DUEÑO INTENCIONES`.
+injected_owner_rule() {
+    local property="$1" owner="$2" intentions="$3"
+    local pattern="$property[[:space:]]*\.[[:space:]]*([A-Za-z_][A-Za-z0-9_]*[[:space:]]*=[^=]|save[[:space:]]*(\(|\{))"
+    local hit hit_file rest hit_line rel
     while IFS= read -r hit; do
         [ -n "$hit" ] || continue
         hit_file="${hit%%:*}"
@@ -510,12 +525,21 @@ if [ -d "$ROOT/WalkTracker/Application" ]; then
         esac
         rel="${hit_file#"$ROOT/WalkTracker/Application/"}"
         case "$rel" in
-            "SettingsStore.swift" | "SettingsStore+"*".swift") continue ;;
+            "$owner.swift" | "$owner+"*".swift") continue ;;
         esac
         rest="${hit#*:}"
         hit_line="${rest%%:*}"
-        err "$hit_file:$hit_line" "AD-16: \`settings\` es el store de ajustes de otro dueño: desde \`Application/\` se le piden intenciones (\`recordShownQuote\`, \`saveStride\`, \`clearStride\`, \`resolvedStrideM\`), no se le asigna estado ni se le llama \`save()\`. Su estado y su escritura son de \`WalkTracker/Application/SettingsStore*.swift\`, que es su único dueño."
-    done < <(grep -E "$code_at$settings_owner" <<< "$SCANNED")
+        err "$hit_file:$hit_line" "AD-16: \`$property\` es el store de otro dueño: desde \`Application/\` se le piden intenciones ($intentions), no se le asigna estado ni se le llama \`save()\`. Su estado y su escritura son de \`WalkTracker/Application/$owner*.swift\`, que es su único dueño."
+    done < <(grep -E "$code_at$pattern" <<< "$SCANNED")
+}
+
+if [ -d "$ROOT/WalkTracker/Application" ]; then
+    injected_owner_rule 'settings' 'SettingsStore' \
+        "\`recordShownQuote\`, \`saveStride\`, \`clearStride\`, \`resolvedStrideM\`"
+    injected_owner_rule 'history' 'HistoryStore' \
+        "\`append\`, \`contains\`"
+    injected_owner_rule 'achievements' 'AchievementsStore' \
+        "las que estrene la 3.2"
 fi
 
 # ── 10. Ninguna vista importa un framework de sistema (AD-10) ───────────────
