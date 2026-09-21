@@ -18,10 +18,47 @@ persistent_facts = [
   justifica trocear es que la historia tenga **dos entregables independientes**, que es el
   criterio de objetivo único del estándar y sigue vigente sin cambios.""",
 
-  """LECCIÓN DE SPECS (decisión de Paul, 2026-09-20, action item A-7 de la retro del Epic 1).
-  Dos reglas, y la decisión fue hacerlas **verificables**, no dejarlas en convención:
-  (a) todo traspaso de trabajo a otra historia va a `deferred-work.md` con destino explícito;
-  (b) una spec que toque `SessionStore` lista en su Code Map los campos compartidos del store
-  y sus invariantes. La (b) solo se cumplió en la 2.1 y se olvidó en la 2.2, que tocaba
-  `SessionStore+Motivation`. Mientras el check no exista, las dos se aplican a mano.""",
+  """LECCIÓN DE SPECS (decisión de Paul, 2026-09-20, action item A-7 de la retro del Epic 1;
+  ampliada el 2026-09-21 con la FORMA CANÓNICA que el gate exige). Dos reglas, y la decisión
+  fue hacerlas **verificables**, no dejarlas en convención. Desde el 2026-09-21 las comprueba
+  `Scripts/check-spec-shape.sh` —camino rojo en `Scripts/check-spec-shape-tests.sh`—, que se
+  ejecuta al terminar este workflow y NUNCA en el build.
+
+  (a) Todo traspaso de trabajo a otra historia va a `deferred-work.md`, y su destino se
+  escribe con la forma canónica **literal `Destino:`** —dentro del `summary` o del
+  `evidence`—, seguida de la historia, epic o chore que lo recoge. Ni `Destino explícito:`,
+  ni `Encaja al…`, ni en prosa: el gate comprueba forma, no intención, y una redacción
+  distinta es trabajo diferido que nadie encuentra. **La plantilla `defer` de la skill
+  (`step-04-review.md`) escribe las entradas SIN destino**, así que el destino hay que
+  añadirlo al escribir la entrada: ése es el origen de las 27 entradas sin destino que había
+  el 2026-09-21. Una entrada ya resuelta se marca con `**CERRADO el <fecha>` al principio del
+  `summary` y deja de exigir destino. La entrada son tres líneas y ninguna más
+  (`- source_spec:`, `  summary:`, `  evidence:`), y el `source_spec` tiene que existir.
+
+  (b) Una spec que toque `SessionStore` lista en su Code Map los campos compartidos del store
+  y sus invariantes, en una línea que empieza por **`**Campos compartidos`** y que vive
+  DENTRO de `## Code Map` —ésa es la marca que el gate busca—. La (b) solo se cumplió en la
+  2.1 y se olvidó en la 2.2, que tocaba `SessionStore+Motivation`; medido el 2026-09-21,
+  llevaba incumpliéndose en 14 specs. Esas 14, todas cerradas antes del A-7, están exentas
+  una a una dentro del propio gate (decisión D1): la exención cubre a esas 14, no a la
+  regla.""",
 ]
+
+# Instrucción final del workflow, tras presentar el resumen.
+on_complete = """Ejecuta `bash Scripts/check-spec-shape.sh` desde la raíz del repositorio y lee
+su salida entera, incluida la lista de exenciones que imprime.
+
+Es el gate de las dos reglas de la lección de specs (A-7): destino canónico `Destino:` en cada
+entrada de `deferred-work.md`, y campos compartidos de `SessionStore` en el `## Code Map` de la
+spec que lo toque. Vive FUERA del build a propósito —una spec a medio escribir no puede tumbar
+la compilación de la app—, así que este es el único sitio donde se ejecuta y por eso no se salta.
+
+- Si sale rojo por algo que ESTA ejecución escribió —una spec nueva sin sus campos compartidos,
+  una entrada diferida sin `Destino:`—, arréglalo ahora: es parte del trabajo, no un hallazgo
+  para otro día.
+- Si sale rojo solo por incumplimientos anteriores, ni los silencies ni los arregles de
+  tapadillo: di el veredicto y el número de violaciones, y sigue.
+- Nunca lo enganches a una `preBuildScript`, y nunca añadas una exención para ponerlo en verde:
+  una exención la decide Paul y se escribe dentro del propio gate, con fecha y razón.
+
+Cierra con el veredicto del gate en una línea."""

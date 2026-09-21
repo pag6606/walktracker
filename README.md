@@ -119,6 +119,45 @@ pasa sobre un árbol limpio. Un gate sin prueba de su camino rojo no es un gate.
 > de salida la hacía cacheable y desactivaba el gate en silencio (verificado: una violación pasó el
 > build). El precio es una `note:` de Xcode en cada build. No es un warning.
 
+### Forma de las specs y del trabajo diferido (A-7)
+
+```bash
+bash Scripts/check-spec-shape.sh
+```
+
+Comprueba las dos reglas de la lección de specs, que se decidieron **verificables y no convención**
+y hasta el 2026-09-21 se aplicaban a mano —y llevaban incumpliéndose desde el principio—:
+
+- **(a)** toda entrada de `_bmad-output/implementation-artifacts/deferred-work.md` declara su
+  destino con la forma canónica literal `Destino:` seguida de a quién va, tiene sus tres campos y
+  apunta a un `source_spec` que existe. Una entrada cerrada se marca `**CERRADO el <fecha>` y deja
+  de necesitar destino.
+- **(b)** una spec cuyo `## Code Map` menciona `SessionStore` lista ahí sus campos compartidos, en
+  una línea que empieza por `**Campos compartidos`. Las 14 specs cerradas antes del A-7 están
+  exentas **una a una dentro del script**, con fecha y razón, y el gate las imprime cada vez que
+  corre: lo que está exento se ve.
+
+**No corre en el build, a propósito.** Estas reglas son sobre documentos: una spec a medio escribir
+no puede tumbar la compilación de la app, porque lo previsible es que alguien desactive el gate, y
+un gate desactivado es peor que ninguno. Lo invoca el `on_complete` del workflow de `bmad-build`
+(`_bmad/custom/bmad-build.toml`) — y eso significa que su **ejecución** sigue siendo un prompt, no
+un mecanismo; el límite está registrado en `deferred-work.md`.
+
+Su camino rojo es ejecutable, y correrlo es obligatorio si tocas el gate:
+
+```bash
+bash Scripts/check-spec-shape-tests.sh
+```
+
+Además **lo ejecuta el propio gate** cuando se le invoca sin raíz, como hace `verify-domain.sh` con
+el suyo: si el arnés falla, el gate sale en rojo antes de mirar el corpus. El arnés monta árboles
+temporales con `mktemp -d` y nunca toca el repositorio.
+
+**No entra en las precondiciones de release** (decisión del 2026-09-21, al escribirlo). Lo que
+`Scripts/release.sh` exige son propiedades del binario que se sube; la forma de una spec no lo es, y
+bloquear un release por un documento crearía la misma presión de desactivarlo que lo mantiene fuera
+del build. Si alguna vez entra, entra con su razón escrita aquí.
+
 ## Dominio de referencia (AD-6)
 
 `domain.js`, `motivation.js`, `climate.js`, `storage.js` y las suites de `test/` se conservan
