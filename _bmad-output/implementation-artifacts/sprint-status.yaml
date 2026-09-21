@@ -173,7 +173,7 @@ action_items:
     action: "A-7 Lección de specs: todo traspaso a otra historia va a deferred-work.md
       y el Code Map lista los campos compartidos de SessionStore y sus invariantes"
     owner: "Paul"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-09-14.md"
   - id: "epic-1-retro-item-8-a-8-revisar-el-umbral-de-tamaño-de-spec"
     epic: 1
