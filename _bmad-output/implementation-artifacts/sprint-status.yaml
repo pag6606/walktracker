@@ -81,6 +81,9 @@ development_status:
   3-2-evaluación-de-logros-al-cierre-de-sesión-achievementengine: backlog
   3-3-pantalla-de-logros-grid-locked-unlocked-con-progreso: backlog
   3-4-celebración-de-meta-y-logros-no-bloqueante: backlog
+  # 2026-09-21 · Historia nueva del correct course: la Summary Screen de UX-DR4/UX-DR5 no tenía
+  # historia dueña desde la 1.4, porque no existe FR que la cubra. sprint-change-proposal-2026-09-21.md
+  3-5-summary-screen-la-pantalla-de-cierre-y-su-contrato-de-filas: backlog
   epic-3-retrospective: optional
 
   epic-4: backlog

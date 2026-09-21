@@ -139,6 +139,12 @@ This document provides the complete epic and story breakdown for WalkTracker iOS
 - FR-16: Epic 6 — Notificaciones recordatorio
 - FR-17: Epic 7 — Live Activity / Dynamic Island
 
+> **Nota (2026-09-21):** este mapa cubre los 17 FRs y **no cubre la Summary Screen**, que la UX pide
+> en UX-DR4 y UX-DR5 sin que exista un FR detrás. Ésa es la razón de que pasara sin historia dueña
+> desde la 1.4: las historias de este proyecto se derivan de FRs, y no había de dónde colgarla. La
+> **Story 3.5** la reclama citando la UX como origen. **No se inventa un FR-18 a posteriori.**
+> [`sprint-change-proposal-2026-09-21.md`]
+
 ## Epic List
 
 ### Epic 1: Sesión y conteo de pasos nativo
@@ -442,6 +448,7 @@ Paul persigue su meta semanal de km con un anillo de progreso y desbloquea logro
 **NFRs:** NFR-9
 **ARs:** AR-1 (corrección hora local logros), AR-12
 **UX:** UX-DR1, UX-DR4, UX-DR5, UX-DR6, UX-DR8 (flows 1, 2, 4)
+**Nota (2026-09-21):** este epic gana la **Story 3.5**, dueña de la superficie **Summary** de UX-DR5, que no tenía historia. Ver `sprint-change-proposal-2026-09-21.md`.
 **Nota:** FR-12 (feedback) vive en Epic 4 — las celebraciones de este epic **consumen** ese canal.
 **Nota de orden (2026-09-21):** este epic arranca **después de la historia 5.1**, que se ha adelantado por decisión de Paul. La razón es de datos, no de preferencia: la **3.1** suma las caminatas de la semana para el anillo y la **3.2** necesita acumulados y rachas, y hasta la 5.1 **no se persistía ninguna caminata** — `SessionStore.confirmFinish()` terminaba borrando el snapshot y la caminata cerrada solo existía en un `@State` de la vista mientras se miraba el resumen. La 5.1 deja además, listo para la 3.2: `achievements.json` con su dueño (`AchievementsStore`) y su esquema, el registro que ya sabe si cuenta para logros (`SessionRecord.countsForAchievements`, `false` para una huérfana — **AD-18**), y el punto de escritura donde **AD-17** enchufa la evaluación, señalado en `WalkTracker/Application/SessionStore+History.swift`. Lo que la 5.1 **no** resuelve y la 3.2 hereda escrito está en `deferred-work.md`: no hay atomicidad conjunta entre `sessions.json` y `achievements.json`, porque la escritura de AD-9 es por fichero y AD-16 les da dueños distintos. El resto del Epic 5 (5.2–5.4) **no** se adelanta. [`spec-5-1-persistencia-sesiones.md`; `sprint-status.yaml`]
 
@@ -562,6 +569,44 @@ So que me motive sin interrumpir mi caminata ni mi música.
 **And** el canal de celebración **consume** el feedback del Epic 4 (beep + háptica), que es el dueño del canal transversal — este epic no implementa sonido/háptica directamente [fuente: epics.md#Epic 4, AR-13]
 
 **And** los toasts de celebración son accesibles: `role=status aria-live=polite`, Reduce Motion sin animación [fuente: UX-DR6]
+
+### Story 3.5: Summary Screen — la pantalla de cierre y su contrato de filas
+
+As a caminante (usuario único),
+I want ver al terminar una caminata todo lo que esa caminata significó —sus métricas, el clima con el que salí, lo que sumó a mi meta y lo que desbloqueó—,
+So que el cierre de la sesión me devuelva algo y no solo un botón para volver.
+
+**Dueña de la pantalla, no de todo su contenido.** Esta historia es dueña de la **composición**: qué secciones hay, en qué orden, qué pasa cuando una falta, el recorrido de VoiceOver y la restricción *forward-only* de UX-DR5. El **contenido** lo aportan las historias que traen cada pieza, a través del contrato que esta historia define. Al cerrarse, la pantalla **NO estará completa**: le faltará la fila de Salud hasta la 6.1, y eso es deliberado, no un descuido.
+
+**Origen:** **UX-DR4** (componente "Summary Screen") y **UX-DR5** (superficie "Summary", estado "finished (Summary forward-only)"). **No cubre ningún FR**: el resumen nunca tuvo uno — ver la nota del FR Coverage Map. Es una historia gobernada por la UX y se declara como tal, en vez de inventarle un FR a posteriori. [`sprint-change-proposal-2026-09-21.md`]
+
+**Lo que ya existe y esta historia compone, no reimplementa:** las métricas y "Volver al inicio" de la 1.4 (`WalkTracker/UI/Session/SessionSummaryView.swift`), el clima del inicio de la 2.1, la marca de recuperada/huérfana de la 1.6 y AD-18, y el aviso de "no se pudo guardar" de la 5.1.
+
+**Acceptance Criteria:**
+
+**Given** una caminata recién finalizada
+**When** se presenta el resumen
+**Then** muestra, en orden fijo y declarado: métricas de la caminata, clima del inicio si se capturó, lo que suma a la meta semanal, los logros desbloqueados en este cierre, y el estado de guardado — y "Volver al inicio" como única salida [fuente: UX-DR4, UX-DR5]
+
+**Given** una sección cuya pieza no se capturó (sin clima, sin logros nuevos, sin meta fijada)
+**When** se presenta el resumen
+**Then** esa sección **se omite entera**, sin hueco ni texto de relleno — y la pantalla sigue teniendo sentido leída de arriba abajo con VoiceOver [fuente: UX-DR6]
+
+**Given** el resumen presentado
+**When** intento volver a la sesión que acabo de cerrar
+**Then** no puedo: el resumen es **forward-only**, la única salida es a Inicio, y una sesión finalizada es inmutable [fuente: UX-DR5, domain-model.md#13]
+
+**Given** una caminata recuperada o cerrada como huérfana (AD-18)
+**When** se presenta el resumen
+**Then** lo dice, y **no** muestra sección de logros: una huérfana no cuenta para logros [fuente: AD-18, `SessionRecord.countsForAchievements`]
+
+**Given** que la caminata no se pudo persistir
+**When** se presenta el resumen
+**Then** se conserva el aviso que ya entregó la 5.1 — el resumen no se convierte en el sitio donde se pierde esa señal [fuente: spec-5-1]
+
+**Given** una historia posterior que aporta una fila nueva (la 6.1 con el estado de Salud)
+**When** la añade
+**Then** le basta con declararla en el contrato de secciones: **no** tiene que tocar la composición, ni el orden, ni el recorrido de accesibilidad [fuente: `epics.md` Story 6.1, que ya escribía contra esta pantalla antes de que existiera]
 
 ### Epic 4: Feedback háptico y sonoro (mini-epic transversal)
 Paul recibe un beep respetuoso y una vibración en los momentos clave — inicio, cada km, meta cumplida, logro desbloqueado — sin interrumpir la música en reproducción. Es un canal de eventos transversal que E1 y E3 consumen; este epic lo posee y lo expone.
