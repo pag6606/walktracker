@@ -220,4 +220,112 @@ struct MetricsScenarios {
             try MetricsCalculator.distanceM(stepsMeasured: 10, stepsEstimated: 0, strideM: .nan)
         }
     }
+
+    // MARK: - El producto que no cabe (B-3, hallazgo D3 de la retro del Epic 2)
+
+    @Test("Nativo · el límite de la zancada es el que impone la aritmética, y es exacto")
+    func strideLimitIsDerivedFromTheArithmetic() throws {
+        let limit = MetricsCalculator.maxRepresentableStrideM
+
+        // Los tres factores, cada uno comprobado: el mayor finito, el ×100 del redondeo a dos
+        // decimales y el tope de pasos del agregado.
+        #expect(MetricsCalculator.distanceFractionDigits == 2, "el redondeo de la v3 no cambia (AD-6)")
+        #expect(MetricsCalculator.maxSteps == Double(Int.max) + Double(Int.max))
+        #expect(limit == (Double.greatestFiniteMagnitude / 100) / MetricsCalculator.maxSteps)
+
+        // Y la propiedad que el número solo sirve para cumplir: con el límite la fórmula da un
+        // número, y con el `Double` inmediatamente superior ya no.
+        #expect((MetricsCalculator.maxSteps * limit * 100).isFinite)
+        #expect(!(MetricsCalculator.maxSteps * limit.nextUp * 100).isFinite, "un ulp más y desborda")
+    }
+
+    @Test("Nativo · con el tope de pasos y la zancada máxima la distancia sigue siendo un número")
+    func maximumStrideStillComputes() throws {
+        let distance = try MetricsCalculator.distanceM(
+            stepsMeasured: .max,
+            stepsEstimated: .max,
+            strideM: MetricsCalculator.maxRepresentableStrideM
+        )
+
+        #expect(distance.isFinite, "el borde cabe: por eso es el borde")
+        #expect(distance > 0)
+    }
+
+    @Test("Nativo · una caminata entera con la zancada máxima no se cae y da una distancia finita")
+    func fullSessionWithMaximumStride() throws {
+        var session = try Session.start(at: Self.now, strideM: MetricsCalculator.maxRepresentableStrideM)
+        try session.addMeasuredSteps(.max)
+        try session.addEstimatedSteps(.max)
+
+        let metrics = session.metrics(at: Self.at(ms: 3_720_000))
+
+        #expect(metrics.distanceM.isFinite)
+        #expect(!metrics.degraded, "no hay nada que degradar: este valor cabe")
+        #expect(metrics.cadenceSpm > 0)
+    }
+
+    @Test("Nativo · distanceM valida su RESULTADO: un producto que no cabe lanza, no devuelve inf")
+    func distanceValidatesItsOwnResult() {
+        // Tres entradas válidas —pasos ≥ 0, zancada > 0 y finita— y un producto que no es un
+        // número. Antes salía `inf` de aquí y el problema se lo encontraba `paceSecPerKm`.
+        #expect(throws: DomainError.invalidValue(field: "distanceM")) {
+            try MetricsCalculator.distanceM(
+                stepsMeasured: .max,
+                stepsEstimated: .max,
+                strideM: MetricsCalculator.maxRepresentableStrideM.nextUp
+            )
+        }
+        #expect(throws: DomainError.invalidValue(field: "distanceM")) {
+            try MetricsCalculator.distanceM(stepsMeasured: .max, stepsEstimated: 0, strideM: 1e307)
+        }
+    }
+
+    @Test("Nativo · metrics(at:) ante un cálculo imposible DEGRADA: no mata el proceso")
+    func metricsDegradesInsteadOfCrashing() throws {
+        // El `catch` de `metrics(at:)` era un `preconditionFailure` comentado como
+        // "Inalcanzable". Se alcanza: la suma `systemDistanceM + estimados` puede desbordar
+        // aunque los dos sumandos sean finitos y la zancada quepa. Aquí se fuerza ese caso.
+        let session = try Session.restore(
+            startedAt: Self.now,
+            stepsMeasured: 4980,
+            stepsEstimated: .max,
+            totalPausesS: 0,
+            paused: false,
+            pausedAt: nil,
+            strideM: MetricsCalculator.maxRepresentableStrideM,
+            systemDistanceM: .greatestFiniteMagnitude
+        )
+
+        let metrics = session.metrics(at: Self.at(ms: 3_720_000))
+
+        #expect(metrics.degraded, "y queda dicho que estos números son una degradación")
+        #expect(metrics.distanceM == 0, "una distancia que no se pudo calcular no se inventa ni se da como inf")
+        #expect(metrics.distanceM.isFinite)
+        #expect(metrics.paceSecPerKm == nil, "sin distancia no hay ritmo (AD-4: ausente es ausente)")
+        #expect(metrics.cadenceSpm == 80.3, "la cadencia no depende de la distancia: se conserva")
+    }
+
+    @Test("Nativo · el agregado no puede nacer con una zancada que no cabe, ni por start ni por restore")
+    func aggregateRefusesNonRepresentableStride() {
+        let tooLarge = MetricsCalculator.maxRepresentableStrideM.nextUp
+
+        #expect(throws: DomainError.invalidValue(field: "strideM")) {
+            try Session.start(at: Self.now, strideM: tooLarge)
+        }
+        #expect(throws: DomainError.invalidValue(field: "strideM")) {
+            try Session.start(at: Self.now, strideM: 1e307)
+        }
+        #expect(throws: DomainError.invalidValue(field: "strideM")) {
+            try Session.restore(
+                startedAt: Self.now,
+                stepsMeasured: 0,
+                stepsEstimated: 0,
+                totalPausesS: 0,
+                paused: false,
+                pausedAt: nil,
+                strideM: 1e307,
+                systemDistanceM: nil
+            )
+        }
+    }
 }

@@ -24,7 +24,8 @@ public struct Session: Equatable, Sendable {
     public private(set) var stepsMeasured: Int
     /// Pasos de la degradación del `GapEstimator`. Entero ≥ 0, siempre desglosado.
     public private(set) var stepsEstimated: Int
-    /// Zancada en metros, > 0 y finita. Congelada: recalibrar nunca reescribe una sesión.
+    /// Zancada en metros, > 0, finita y representable en la fórmula de la distancia
+    /// (`validateStride`). Congelada: recalibrar nunca reescribe una sesión.
     public let strideM: Double
     /// Última distancia acumulada del sistema en metros, o `nil` si no la ha dado. Nunca
     /// baja. Cuando existe, sustituye a la derivada de los pasos medidos (CAP-4).
@@ -76,8 +77,9 @@ public struct Session: Equatable, Sendable {
 
     /// Crea una sesión `active` que empieza en `now`.
     ///
-    /// - Throws: `DomainError.invalidValue(field: "strideM")` si la zancada es ≤ 0 o no
-    ///   finita. Se rechaza **antes** de crear el agregado.
+    /// - Throws: `DomainError.invalidValue(field: "strideM")` si la zancada es ≤ 0, no finita
+    ///   o mayor que `MetricsCalculator.maxRepresentableStrideM`. Se rechaza **antes** de crear
+    ///   el agregado.
     public static func start(at now: Date, strideM: Double) throws(DomainError) -> Session {
         try validateStride(strideM)
         return Session(startedAt: now, strideM: strideM)
@@ -97,9 +99,10 @@ public struct Session: Equatable, Sendable {
     ///   - weather: el clima ya capturado (2.1), que ya validó `WeatherSnapshot`; `nil` sin clima.
     ///   - quoteId: la frase del inicio (2.2), o `nil` sin frase. No se comprueba contra el
     ///     banco: un `id` que el banco ya no tiene simplemente no se encuentra al pintarlo.
-    /// - Throws: `DomainError.invalidValue` con `strideM` (≤ 0 o no finita), `stepsMeasured`
-    ///   o `stepsEstimated` (< 0), `totalPausesS` (< 0 o no finito), `distanceM` (< 0 o no
-    ///   finita) o `pausedAt` (pausada sin `pausedAt`, o activa con él).
+    /// - Throws: `DomainError.invalidValue` con `strideM` (≤ 0, no finita o mayor que
+    ///   `MetricsCalculator.maxRepresentableStrideM`), `stepsMeasured` o `stepsEstimated`
+    ///   (< 0), `totalPausesS` (< 0 o no finito), `distanceM` (< 0 o no finita) o `pausedAt`
+    ///   (pausada sin `pausedAt`, o activa con él).
     public static func restore(
         startedAt: Date,
         stepsMeasured: Int,
@@ -136,9 +139,24 @@ public struct Session: Equatable, Sendable {
     }
 
     /// La regla de la zancada, única para el agregado y para las constantes de
-    /// `formulas.json`: > 0 y finita.
+    /// `formulas.json`: > 0, finita y **representable en la fórmula de la distancia**.
+    ///
+    /// La tercera condición la añadió B-3 y no es una regla de producto: es
+    /// `MetricsCalculator.maxRepresentableStrideM`, el borde que impone la aritmética. Una
+    /// zancada mayor cumple "> 0 y finita" y aun así hace que `pasos × zancada` deje de ser un
+    /// número (hallazgo D3 de la retro del Epic 2: con `1e307` la app se caía en cada
+    /// caminata).
+    ///
+    /// **Se comprueba aquí y también en `AppSettings.isRepresentableStride`, a propósito.**
+    /// No es la misma pregunta dos veces: la de `AppSettings` existe para **decirle a Paul el
+    /// motivo verdadero** ("no cabe", distinto de "no es mayor que cero") antes de tocar nada,
+    /// y esta es la del **agregado**, que es la que garantiza que ninguna sesión pueda nacer
+    /// —ni por `start`, ni por `restore`, ni desde `formulas.json`— con una zancada cuya
+    /// distancia no se puede calcular. Estar aquí es además lo que hace que la puerta
+    /// **tolerante** de `AppSettings` lea como "sin configurar" un `settings.json` guardado
+    /// antes de este arreglo, sin costar la ventana de frases.
     public static func validateStride(_ strideM: Double) throws(DomainError) {
-        guard strideM.isFinite, strideM > 0 else {
+        guard strideM.isFinite, strideM > 0, strideM <= MetricsCalculator.maxRepresentableStrideM else {
             throw .invalidValue(field: "strideM")
         }
     }
@@ -355,6 +373,10 @@ public struct Session: Equatable, Sendable {
     ///
     /// El tiempo es el de `elapsedS(at:)`: en pausa no avanza y en una sesión finalizada
     /// es `durationS`, así que las métricas finales quedan congeladas.
+    ///
+    /// **No lanza y no mata el proceso.** Si algo no se puede calcular devuelve la degradación
+    /// —distancia 0, sin ritmo, y la cadencia que sí se pueda— marcada con
+    /// `SessionMetrics.degraded`. Ver el `catch`.
     public func metrics(at now: Date) -> SessionMetrics {
         let elapsed = elapsedS(at: now)
         do {
@@ -362,6 +384,9 @@ public struct Session: Equatable, Sendable {
             if let systemDistanceM {
                 let estimated = try MetricsCalculator.distanceM(stepsMeasured: 0, stepsEstimated: stepsEstimated, strideM: strideM)
                 distance = systemDistanceM + estimated
+                // La suma también puede desbordar, y no la mira `distanceM`: es de aquí. Sin
+                // esto la distancia saldría `inf` y el problema se lo comería `paceSecPerKm`.
+                guard distance.isFinite else { throw DomainError.invalidValue(field: "distanceM") }
             } else {
                 distance = try MetricsCalculator.distanceM(stepsMeasured: stepsMeasured, stepsEstimated: stepsEstimated, strideM: strideM)
             }
@@ -371,9 +396,25 @@ public struct Session: Equatable, Sendable {
             let cadence = try MetricsCalculator.cadenceSpm(stepsMeasured: stepsMeasured, activeSeconds: elapsed)
             return SessionMetrics(distanceM: distance, paceSecPerKm: pace, cadenceSpm: cadence)
         } catch {
-            // Inalcanzable: el agregado garantiza pasos ≥ 0, zancada > 0 y finita, distancia
-            // del sistema ≥ 0 y finita, y `Chronometer` un tiempo ≥ 0 y finito.
-            preconditionFailure("Session viola sus invariantes al calcular métricas: \(error)")
+            // **Esto ya no es inalcanzable, y afirmarlo costó un crash** (B-3, hallazgo D3 de
+            // la retro del Epic 2). Hasta aquí había un `preconditionFailure` que enumeraba
+            // garantías sobre los FACTORES —pasos ≥ 0, zancada > 0 y finita, distancia del
+            // sistema ≥ 0 y finita, tiempo ≥ 0 y finito— y ninguna sobre el PRODUCTO: con una
+            // zancada enorme pero finita el agregado cumplía todas sus invariantes, la
+            // distancia desbordaba a `inf`, `paceSecPerKm` lanzaba y la app se caía en CADA
+            // caminata hasta reinstalar.
+            //
+            // Hoy la frontera de escritura y `validateStride` impiden ese caso y
+            // `MetricsCalculator` ya no devuelve `inf`; esto es la tercera línea de defensa, y
+            // su trabajo es no matar el proceso si alguna vez nos volvemos a equivocar. La
+            // cadencia no depende de la distancia, así que se conserva si se puede calcular: no
+            // hay razón para tirar la métrica buena junto con la que falló.
+            //
+            // `degraded` es el registro que el dominio puede llevar: `Domain/` solo importa
+            // `Foundation` (AD-3), así que aquí no hay `Logger` ni lo va a haber sin un puerto.
+            // Quien lo escriba en `OSLog` es de fuera, y eso está en `deferred-work.md`.
+            let cadence = (try? MetricsCalculator.cadenceSpm(stepsMeasured: stepsMeasured, activeSeconds: elapsed)) ?? 0
+            return SessionMetrics(distanceM: 0, paceSecPerKm: nil, cadenceSpm: cadence, degraded: true)
         }
     }
 }

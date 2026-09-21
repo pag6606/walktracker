@@ -154,7 +154,15 @@ struct SettingsFileAdapter {
         } catch {
             throw .malformed(String(describing: error))
         }
-        return AppSettings(recentQuoteIds: file.recentQuoteIds ?? [], strideM: file.strideM)
+        let settings = AppSettings(recentQuoteIds: file.recentQuoteIds ?? [], strideM: file.strideM)
+        if file.strideM != nil, settings.strideM == nil {
+            // La puerta tolerante se comió el campo: `-1`, `0`, `NaN` o —desde B-3— una zancada
+            // que no cabe en la fórmula de la distancia y que un build anterior sí guardaba.
+            // El fichero NO se aparta y el resto (la ventana de frases) sigue en pie; queda
+            // dicho porque, si no, la caminata usa el default y no hay rastro de por qué.
+            log.info("settings.json trae una zancada que no pasa la frontera del dominio; se lee como sin configurar y manda el default de formulas.json")
+        }
+        return settings
     }
 
     /// Ajustes → JSON, con las claves ordenadas.

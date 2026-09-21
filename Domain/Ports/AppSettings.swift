@@ -43,9 +43,11 @@ public struct AppSettings: Equatable, Sendable {
     /// duplicarlo en dos ficheros los deja divergir sin que nadie lo note, y quien nunca tocó
     /// el ajuste no se beneficiaría de mejorarlo.
     ///
-    /// **Invariante, garantizado por construcción:** o es `nil`, o es > 0 y finita
-    /// (`Session.validateStride`). El `init` es la puerta **tolerante** —lo que no valida se
-    /// lee como "sin configurar"—; `setStrideM(_:)` es la que **rechaza**.
+    /// **Invariante, garantizado por construcción:** o es `nil`, o es > 0, finita y
+    /// representable en la fórmula de la distancia (`Session.validateStride`). El `init` es la
+    /// puerta **tolerante** —lo que no valida se lee como "sin configurar", incluida una
+    /// zancada guardada antes de B-3 que hoy ya no cabría—; `setStrideM(_:)` es la que
+    /// **rechaza**.
     public private(set) var strideM: Double?
 
     public init(recentQuoteIds: [Int] = [], strideM: Double? = nil) {
@@ -62,8 +64,10 @@ public struct AppSettings: Equatable, Sendable {
     /// aquí no se normaliza en silencio, porque quien escribe es Paul en un campo de texto y
     /// corregirle el valor sin decírselo es peor que no guardarlo.
     ///
-    /// - Throws: `DomainError.invalidValue(field: "strideM")` si es ≤ 0 o no finita, la misma
-    ///   regla del agregado (`Session.validateStride`), no una copia suya.
+    /// - Throws: `DomainError.invalidValue(field: "strideM")` si es ≤ 0, no finita o mayor que
+    ///   `MetricsCalculator.maxRepresentableStrideM`: la misma regla del agregado
+    ///   (`Session.validateStride`), no una copia suya. Quien pinta el rechazo distingue antes
+    ///   "no cabe" con `isRepresentableStride(_:)`, porque los dos motivos no se corrigen igual.
     public mutating func setStrideM(_ meters: Double) throws(DomainError) {
         try Session.validateStride(meters)
         strideM = meters
@@ -101,15 +105,28 @@ public struct AppSettings: Equatable, Sendable {
         meters.isFinite && humanStrideRangeM.contains(meters)
     }
 
-    /// El número **cabe**: es finito. Un texto de 400 dígitos se parsea —son dígitos— y
-    /// desborda a `inf`.
+    /// El número **cabe en la fórmula de la distancia**: es finito y no pasa de
+    /// `MetricsCalculator.maxRepresentableStrideM`.
     ///
     /// Existe para que el motivo del rechazo sea el verdadero. `Session.validateStride` rechaza
-    /// lo no finito con la misma causa que el cero y los negativos, y el mensaje que le toca a
+    /// lo que no cabe con la misma causa que el cero y los negativos, y el mensaje que le toca a
     /// esa causa es "la zancada tiene que ser mayor que cero": para un número de 400 dígitos,
     /// que no es ni cero ni negativo, eso manda a Paul a corregir lo que no está mal.
+    ///
+    /// **Comprobar que es finito no bastaba** (B-3, hallazgo D3 de la retro del Epic 2). Esto
+    /// se escribió para atajar el desbordamiento del **parseo** —400 dígitos dan `inf`—, no el
+    /// del **cálculo**: `1e307` tiene 308 dígitos, es finito, entraba, y hacía que
+    /// `pasos × zancada` dejara de ser un número en cada caminata posterior. El tope nuevo sale
+    /// de la aritmética y está derivado factor a factor en `maxRepresentableStrideM`.
+    ///
+    /// **No es un máximo "razonable" de producto**, que renegociaría la decisión de Paul de
+    /// 2026-09-19: fuera de `humanStrideRangeM` se **avisa y se guarda**. Una zancada absurda
+    /// pero representable —50 m— se sigue guardando con su aviso; lo único que se rechaza es lo
+    /// que no cabe.
+    ///
+    /// Cero y los negativos **sí caben**: su problema es otro y su mensaje también.
     public static func isRepresentableStride(_ meters: Double) -> Bool {
-        meters.isFinite
+        meters.isFinite && meters <= MetricsCalculator.maxRepresentableStrideM
     }
 
     /// Texto tecleado → metros, o `nil` si eso no es un número.
@@ -153,6 +170,12 @@ public struct AppSettings: Equatable, Sendable {
     ///
     /// Un `settings.json` manipulado con `strideM: -1` no puede costar la ventana de frases ni
     /// impedir el arranque: se ignora ese campo y el resto del fichero se conserva.
+    ///
+    /// Es también la puerta por la que entra —sin apartar nada— una zancada **guardada antes de
+    /// B-3** que hoy ya no cabe en la fórmula: se lee como "sin configurar" y la caminata usa el
+    /// default de `formulas.json`. Que el tope viva en `Session.validateStride` y no solo en la
+    /// frontera de escritura es lo que hace que ese fichero entre por aquí y no por la puerta
+    /// que rechaza.
     private static func tolerated(_ strideM: Double?) -> Double? {
         guard let strideM else { return nil }
         do {
