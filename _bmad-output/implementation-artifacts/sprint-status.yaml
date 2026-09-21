@@ -235,7 +235,7 @@ action_items:
     action: "B-9 Reconciliar el encargo de S6 (DegradationPolicy no existe y se cita
       en PermissionStatus.swift) y dar destino a la atribución de AD-24"
     owner: "Dev"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-09-20.md"
   - id: "epic-2-retro-item-18-b-10-unificar-el-vocabulario-transversal"
     epic: 2

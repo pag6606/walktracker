@@ -1,0 +1,234 @@
+NOTICE — obligaciones de terceros en WalkTracker
+================================================
+
+Qué es este fichero
+-------------------
+
+WalkTracker usa **una** fuente de datos de terceros, y esa fuente lleva una licencia con
+una obligación que el producto tiene que cumplir en pantalla. Este documento existe porque
+esa obligación se cayó una vez, y se cayó por la razón más tonta: **nadie la poseía**. La
+atribución de Open-Meteo estaba escrita en el spine (AD-24), en el SPEC y en la spec de la
+historia 2.1 — y en el código acabó dentro de un `if let weather`, invisible para quien
+nunca capturara clima. Toda la cadena se citaba a sí misma sin haber transcrito nunca la
+cláusula.
+
+Aquí está la cláusula, citada de su fuente, y **dónde la cumple el producto**.
+
+Esto **no es** un fichero de licencia del propio WalkTracker: el repo no tiene `LICENSE` y
+este documento no se lo inventa. WalkTracker es un producto personal de un solo usuario y
+no se distribuye como código. Lo que sigue son obligaciones **hacia fuera**, de terceros.
+
+---
+
+1. Qué se usa
+-------------
+
+| Recurso | Uso en el producto | Licencia |
+|---|---|---|
+| **Open-Meteo Weather API** (`https://api.open-meteo.com`) | La **única** llamada de red del producto: un snapshot de clima congelado al iniciar una caminata (CAP-5, historia 2.1). `WalkTracker/Adapters/Weather/OpenMeteoAdapter.swift` | **CC BY 4.0** (Creative Commons Attribution 4.0 International) |
+
+No hay dependencias de terceros en el código: ni paquetes Swift, ni pods, ni binarios
+embebidos. XcodeGen es herramienta de build y no entra en ningún target. Los iconos son
+SF Symbols del SDK de Apple, cubiertos por su acuerdo de licencia, no por este documento.
+
+**El código fuente de Open-Meteo es AGPLv3 — y eso NO nos afecta.** Solo se consume su API
+pública por HTTPS; no se enlaza, ni se redistribuye, ni se despliega su servidor. Lo que
+llega es el **dato**, y el dato es CC BY 4.0. La restricción de licencias del SPEC
+("copyleft fuerte es bloqueante") se refiere a dependencias de **código**, y esa distinción
+está escrita en AD-24.
+
+---
+
+2. La cláusula, citada
+----------------------
+
+**Fuente:** texto canónico en inglés de la licencia, versión de texto plano publicada por
+Creative Commons.
+
+- URL descargada: `https://creativecommons.org/licenses/by/4.0/legalcode.txt`
+- URL canónica de la licencia: `https://creativecommons.org/licenses/by/4.0/`
+- Fecha de descarga: **2026-09-21**
+- Fichero descargado: 396 líneas, 18 657 bytes
+- SHA-256: `9ba9550ad48438d0836ddab3da480b3b69ffa0aac7b7878b5a0039e7ab429411`
+
+Creative Commons mantiene una **página de erratas** (`https://creativecommons.org/licenses/
+by/4.0/legalcode.en`, enlace "errata page") con las correcciones aplicadas al texto y su
+fecha. Lo citado abajo es lo que ese fichero decía el 2026-09-21.
+
+Transcripción literal de la **Sección 3 — License Conditions**, apartado `a. Attribution`.
+Se reproduce entera, sin cortar, y en su idioma original: traducirla la convertiría en una
+paráfrasis, que es justo lo que este documento existe para no hacer.
+
+```
+Section 3 -- License Conditions.
+
+Your exercise of the Licensed Rights is expressly made subject to the
+following conditions.
+
+  a. Attribution.
+
+       1. If You Share the Licensed Material (including in modified
+          form), You must:
+
+            a. retain the following if it is supplied by the Licensor
+               with the Licensed Material:
+
+                 i. identification of the creator(s) of the Licensed
+                    Material and any others designated to receive
+                    attribution, in any reasonable manner requested by
+                    the Licensor (including by pseudonym if
+                    designated);
+
+                ii. a copyright notice;
+
+               iii. a notice that refers to this Public License;
+
+                iv. a notice that refers to the disclaimer of
+                    warranties;
+
+                 v. a URI or hyperlink to the Licensed Material to the
+                    extent reasonably practicable;
+
+            b. indicate if You modified the Licensed Material and
+               retain an indication of any previous modifications; and
+
+            c. indicate the Licensed Material is licensed under this
+               Public License, and include the text of, or the URI or
+               hyperlink to, this Public License.
+
+       2. You may satisfy the conditions in Section 3(a)(1) in any
+          reasonable manner based on the medium, means, and context in
+          which You Share the Licensed Material. For example, it may be
+          reasonable to satisfy the conditions by providing a URI or
+          hyperlink to a resource that includes the required
+          information.
+
+       3. If requested by the Licensor, You must remove any of the
+          information required by Section 3(a)(1)(A) to the extent
+          reasonably practicable.
+
+       4. If You Share Adapted Material You produce, the Adapter's
+          License You apply must not prevent recipients of the Adapted
+          Material from complying with this Public License.
+```
+
+Y la parte de la **Sección 4** que engancha la anterior con un conjunto de datos, que es
+exactamente lo que es un pronóstico del tiempo:
+
+```
+Section 4 -- Sui Generis Database Rights.
+
+Where the Licensed Rights include Sui Generis Database Rights that
+apply to Your use of the Licensed Material:
+
+[...]
+
+  c. You must comply with the conditions in Section 3(a) if You Share
+     all or a substantial portion of the contents of the database.
+```
+
+*(El `[...]` sustituye los apartados `a.` y `b.` de esa sección, que tratan del derecho de
+extracción y de cuándo una base de datos derivada es Adapted Material. No se han recortado
+palabras dentro de ninguna frase citada.)*
+
+---
+
+3. Lo que Open-Meteo pide, además, por escrito
+----------------------------------------------
+
+**Fuente:** `https://open-meteo.com/en/licence`, consultada el **2026-09-21**. Transcripción
+literal del apartado "Licence":
+
+> API data are offered under Attribution 4.0 International (CC BY 4.0)
+>
+> [...]
+>
+> **Attribution:** You must give appropriate credit, provide a link to the licence, and
+> indicate if changes were made. You may do so in any reasonable manner, but not in any way
+> that suggests the licensor endorses you or your use.
+>
+> You must include a link next to any location Open-Meteo data are displayed, for example:
+> `<a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a>`
+
+Y sus condiciones de uso (`https://open-meteo.com/en/terms`, misma fecha) remiten a esa
+página: *"You accept to the CC-BY 4.0 licence, as specified in the licence conditions."*
+
+**Esta frase es la que decide el diseño:** *"next to any location Open-Meteo data are
+displayed"*. No dice "en algún sitio de la app": dice **junto al dato**. Por eso la
+atribución de la tarjeta de clima **no se quita**, y por eso Ajustes por sí solo no
+bastaría.
+
+---
+
+4. Dónde se cumple, requisito por requisito
+--------------------------------------------
+
+| Lo que pide | Dónde se cumple hoy |
+|---|---|
+| Crédito al autor — §3(a)(1)(A)(i) | "Open-Meteo" nombrado en los dos sitios: `WalkTracker/UI/Session/WeatherCard.swift` (tarjeta de clima) y `WalkTracker/UI/Settings/AboutSection.swift` → "Acerca de" en Ajustes |
+| Enlace al material — §3(a)(1)(A)(v) | `https://open-meteo.com/`, como `Link` de SwiftUI en los dos sitios. La URL se escribe **una vez por sitio** y un test las empareja para que no diverjan |
+| Indicar la licencia — §3(a)(1)(C), primera mitad | El pie de la sección "Acerca de" nombra **CC BY 4.0** |
+| Enlace o texto de la licencia — §3(a)(1)(C), segunda mitad | `https://creativecommons.org/licenses/by/4.0/` —la URL canónica de §2—, como segunda fila de la sección "Acerca de": `AboutSection.licenseTextURL`, pintada por `SettingsView`. **Cerrado el 2026-09-21**; ver §5, que conserva el rastro de cuando no se cumplía |
+| Indicar si se modificó — §3(a)(1)(B) | **No se modifica el dato.** El snapshot se congela tal cual llega y solo se *formatea* para mostrarlo: redondeo al entero y traducción del código WMO 4677 a su nombre en español (`WeatherFormat`, en `WeatherCard.swift`). Ningún valor se recalcula, corrige ni mezcla con otra fuente |
+| "Junto al dato" (petición de Open-Meteo) | La atribución de la tarjeta de clima, en la misma superficie que la temperatura. **Requisito de por qué sigue ahí**, no una duplicación por indecisión |
+| Visible sin clima — obligación de AD-24 | La sección "Acerca de" de Ajustes. Es constante: no depende de que haya sesión ni de que se haya capturado clima nunca. Lo sostiene `AboutSectionTests` |
+| No sugerir respaldo del licenciante | En ninguna de las dos superficies aparece Open-Meteo como patrocinador, ni su marca fuera del texto de crédito |
+
+**Nota sobre §3(a)(1)(A)(ii) y (iv)** — aviso de copyright y aviso de exención de garantías:
+la cláusula los exige *"if it is supplied by the Licensor with the Licensed Material"*. Las
+respuestas de la API de Open-Meteo **no traen** ni aviso de copyright ni de garantías en su
+carga útil (`OpenMeteoAdapter` decodifica solo campos de medición). Al no suministrarse, no
+hay nada que retener. Esto es una lectura del texto citado arriba, no una opinión legal.
+
+---
+
+5. El hueco que hubo, y cómo se cerró
+--------------------------------------
+
+**Estuvo abierto, y se deja escrito que lo estuvo.** Esta sección no se borra al cerrarse: lo
+que se perdió la primera vez fue precisamente el rastro de una obligación.
+
+**Lo que estaba abierto (2026-09-21, primera mitad del día).** §3(a)(1)(C) pide indicar que
+el material está bajo esta licencia **e incluir su texto o un enlace a ella**; Open-Meteo lo
+repite ("provide a link to the licence"). La app **nombraba** la licencia en el pie de
+"Acerca de" —la primera mitad— y el enlace al texto vivía **solo en este fichero**, que
+**no viaja dentro del `.app`**: es un documento del repositorio. El chore B-9 lo dejó así a
+propósito, porque su bloque congelado acotaba "Acerca de" a la atribución, y lo registró con
+dueño (la historia 3.1) en `deferred-work.md` en vez de callarlo.
+
+**Cerrado el 2026-09-21 por decisión de Paul**, el mismo día y antes de que la 3.1 llegara:
+"Acerca de" gana una **segunda fila** que enlaza a `https://creativecommons.org/licenses/by/4.0/`
+—la URL canónica de §2, la que se descargó y se verificó, no una tecleada de memoria—. Paul
+renegoció para ello la línea del bloque congelado de B-9 que lo impedía (*"Never: … ni otras
+licencias"*), y la renegociación queda anotada en la spec, en su bloque congelado y en su
+Spec Change Log. El destino de cada fila lo fija `AboutSectionTests`, ruta incluida: apuntar
+a `creativecommons.org` a secas o a la 3.0 rompe la suite.
+
+**Sigue habiendo dos filas, no tres.** La versión de la app, licencias de otras cosas y los
+ajustes del Epic 3, de la 4.2 y del Epic 5 siguen sin adelantarse.
+
+**Y lo que este documento no es:** no es asesoramiento legal, y ninguna de las lecturas de
+arriba lo es. Lo que sí es: la cláusula transcrita de su fuente, con fecha y huella, y un
+mapa honesto de qué línea del producto cumple qué parte — y, cuando algo no lo cumple,
+escribirlo aquí con su fecha en vez de callarlo, como hizo esta misma sección.
+
+---
+
+6. Si alguien cambia el proveedor de clima
+-------------------------------------------
+
+Sustituir Open-Meteo por **WeatherKit** elimina esta obligación entera y es un cambio de
+adapter, aislado por AD-10. Si ocurre: este fichero se vacía de la fila de Open-Meteo, las
+dos superficies de atribución se retiran **a la vez** —la tarjeta de clima y las **dos filas**
+de "Acerca de", que incluyen el enlace a CC BY 4.0, una licencia que sin este dato ya no
+aplica a nada—, y AD-24 se deroga en `DEROGACIONES.md`. Retirar una superficie sin la otra, o
+sin tocar AD-24, es volver al estado que hizo falta un action item para detectar.
+
+---
+
+**Referencias del repositorio:** `ARCHITECTURE-SPINE.md` AD-24 y AD-11 ·
+`_bmad-output/specs/spec-walktracker-ios/SPEC.md` (restricción de Licencias) ·
+`_bmad-output/planning-artifacts/epics.md` (nota bajo la historia 2.3) ·
+`_bmad-output/implementation-artifacts/spec-b9-degradacion-y-atribucion.md`
+
+**Última revisión:** 2026-09-21 (segunda del día: cierre del hueco de §5).

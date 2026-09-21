@@ -428,6 +428,14 @@ So que mis métricas de distancia sean más precisas sin alterar el historial ya
 
 **And** el campo de Ajustes sigue UX-DR4 (Settings Field) y el flujo de recalibración sigue UX-DR8 flow 5. La zancada es un **override opcional**, no un campo con valor: `AppSettings.strideM` es `nil` mientras Paul nunca la toque, y entonces la sesión nace con `formulas.defaultStrideM` —**el único sitio donde vive el 0,655**—. "Usar el valor por defecto" vuelve a `nil`, no escribe 0,655. Diverge a propósito de `domain-model.md:95`, que mete el default dentro de la config: duplicarlo en dos ficheros los deja divergir sin que nadie lo note [fuente: capabilities.md#CAP-13, `Domain/Ports/AppSettings.swift:37-52`; spec-2-3]
 
+> 🔒 **La pantalla de Ajustes tiene DOS secciones, y la segunda no es de esta historia ni de ninguna: "Acerca de" (añadida el 2026-09-21 por `B-9`).**
+>
+> **Lee esto antes de tocar Ajustes.** La 2.3 creó la pantalla con una sola sección y no había ninguna historia dueña del "Acerca de": este documento no lo nombraba **ni una vez**. Por eso la atribución de Open-Meteo —que es una **obligación de licencia**, CC BY 4.0 (**AD-24**, `NFR-7`)— se quedó sin destino y acabó metida dentro de `if let weather` en la tarjeta de clima, invisible para quien nunca capturara clima. Hizo falta un action item de retrospectiva para detectarlo y dos aplazamientos para arreglarlo.
+>
+> **Qué hay hoy, y qué no se puede perder:** `WalkTracker/UI/Settings/SettingsView.swift` pinta la sección "Acerca de" a partir de `AboutSection` (`UI/Settings/AboutSection.swift`), que es una **constante**: no depende de que haya sesión ni de que se haya capturado clima nunca. La misma atribución **sigue también** en la tarjeta de clima, y eso es deliberado: Open-Meteo pide el enlace *junto al dato*. Quitar cualquiera de las dos empeora el cumplimiento. **Son dos filas, y las dos son obligatorias** (decisión de Paul, 2026-09-21): el crédito a Open-Meteo y el **enlace al texto de CC BY 4.0**, porque §3(a)(1)(C) pide nombrar la licencia *e* incluir su texto o un enlace a ella — nombrarla en el pie solo hacía la primera mitad.
+>
+> **Las historias que van a tocar esta pantalla son la 3.1 (meta semanal), la 4.2 (sonido) y el Epic 5 (exportar y borrar datos).** Cualquiera de ellas puede añadir su sección, y ninguna puede reorganizar la pantalla dejando fuera el "Acerca de". La cláusula citada de su fuente, y qué línea del producto cumple qué parte, están en **`NOTICE`** (raíz del repo). [`epic-2-retro-2026-09-20.md` D6/B-9; `spec-b9-degradacion-y-atribucion.md`; `ARCHITECTURE-SPINE.md` AD-24]
+
 ### Epic 3: Metas, logros y motivación
 Paul persigue su meta semanal de km con un anillo de progreso y desbloquea logros al cerrar sesiones, con celebraciones que no interrumpen su caminata ni su música.
 **FRs covered:** FR-7, FR-8
@@ -435,6 +443,7 @@ Paul persigue su meta semanal de km con un anillo de progreso y desbloquea logro
 **ARs:** AR-1 (corrección hora local logros), AR-12
 **UX:** UX-DR1, UX-DR4, UX-DR5, UX-DR6, UX-DR8 (flows 1, 2, 4)
 **Nota:** FR-12 (feedback) vive en Epic 4 — las celebraciones de este epic **consumen** ese canal.
+**Nota (2026-09-21):** la 3.1 es la **primera historia posterior a B-9 que toca Ajustes**. Esa pantalla ya tiene dos secciones —"Zancada" y "Acerca de"— y el "Acerca de" carga una obligación de licencia que no se puede perder al añadir la meta semanal. Ver el bloque 🔒 bajo la historia 2.3 y `NOTICE`.
 
 ### Story 3.1: Meta semanal configurable con anillo de progreso
 

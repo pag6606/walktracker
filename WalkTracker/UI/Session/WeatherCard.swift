@@ -42,13 +42,19 @@ struct WeatherCard: View {
     }
 
     /// Destino de la atribución (CC-BY 4.0).
+    ///
+    /// **Esta atribución no se quita**, aunque desde B-9 exista también en Ajustes → Acerca
+    /// de: Open-Meteo pide el enlace *"next to any location Open-Meteo data are displayed"*,
+    /// y esta tarjeta es el único sitio donde el dato se ve. La cláusula, citada de su
+    /// fuente, y qué parte cumple cada sitio están en `NOTICE`, en la raíz del repositorio.
+    /// El mismo destino lo declara `AboutSection.openMeteoURL`, y un test los empareja.
     static let attributionURL = URL(string: "https://open-meteo.com/")!
 
     private func content(_ weather: WeatherSnapshot) -> some View {
         VStack(spacing: 0) {
             summary(weather)
             Link(destination: Self.attributionURL) {
-                Text("Datos: Open-Meteo")
+                Text("Datos: Open-Meteo", comment: "Atribución de la licencia CC-BY 4.0 de Open-Meteo en la tarjeta de clima de la sesión, como enlace a open-meteo.com. \"Open-Meteo\" es un nombre propio: no se traduce.")
                     .font(.caption2)
                     .underline()
                     .frame(minHeight: LayoutMetrics.touchTargetMin)
