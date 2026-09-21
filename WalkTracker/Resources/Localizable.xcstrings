@@ -108,6 +108,9 @@
     "Aceptar": {
       "comment": "Botón que cierra la alerta de inicio fallido."
     },
+    "Acerca de": {
+      "comment": "Encabezado de la sección de Ajustes que reúne los créditos del producto. Hoy contiene las dos obligaciones de licencia de los datos de clima: el crédito a la fuente y el enlace al texto de la licencia."
+    },
     "Ahora no": {
       "comment": "Botón de dos pre-pantallas: en la de Motion vuelve a Inicio sin pedir el permiso ni iniciar la caminata; en la de ubicación, sobre la sesión ya abierta, sigue sin clima y no vuelve a preguntar mientras la app siga abierta."
     },
@@ -159,8 +162,11 @@
     "Cuenta tus pasos": {
       "comment": "Título de la pre-pantalla que explica el permiso de Movimiento y forma física antes de pedirlo (AD-11)."
     },
+    "Datos meteorológicos: Open-Meteo.com": {
+      "comment": "Atribución de la licencia CC-BY 4.0 de Open-Meteo en la sección \"Acerca de\" de Ajustes, como enlace a open-meteo.com. \"Open-Meteo.com\" es un nombre propio: no se traduce."
+    },
     "Datos: Open-Meteo": {
-      "comment": "Atribución de la licencia CC-BY 4.0 de Open-Meteo en la tarjeta de clima de la sesión. \"Open-Meteo\" es un nombre propio: no se traduce."
+      "comment": "Atribución de la licencia CC-BY 4.0 de Open-Meteo en la tarjeta de clima de la sesión, como enlace a open-meteo.com. \"Open-Meteo\" es un nombre propio: no se traduce."
     },
     "Del intervalo que el sistema no pudo reconstruir": {
       "comment": "Explicación del Estimated Banner: de dónde salen los pasos estimados."
@@ -176,6 +182,9 @@
     },
     "Distancia": {
       "comment": "Etiqueta de VoiceOver de la distancia recorrida, la métrica principal de la pantalla de sesión."
+    },
+    "El clima lo proporciona Open-Meteo bajo licencia CC BY 4.0.": {
+      "comment": "Pie de la sección \"Acerca de\" en Ajustes: nombra la licencia de los datos de clima. \"Open-Meteo\" y \"CC BY 4.0\" son nombres propios: no se traducen."
     },
     "En pausa": {
       "comment": "Señal de estado de la pantalla de sesión con la sesión pausada. Sustituye a \"Caminata en curso\": nunca aparecen a la vez."
@@ -348,6 +357,9 @@
     "Sin ritmo hasta los 100 metros": {
       "comment": "Lectura de VoiceOver del ritmo cuando aún no existe: por debajo de 100 m."
     },
+    "Texto de la licencia: CC BY 4.0": {
+      "comment": "Segunda fila de la sección \"Acerca de\" de Ajustes, como enlace al texto de la licencia en creativecommons.org. Dice que lleva AL TEXTO de la licencia, para distinguirla de la fila de arriba, que lleva a la web de Open-Meteo. \"CC BY 4.0\" es el nombre propio de la licencia: no se traduce."
+    },
     "Tiempo": {
       "comment": "Etiqueta del tiempo transcurrido en la pantalla de sesión."
     },
@@ -382,7 +394,7 @@
       "comment": "Explicación de la pre-pantalla de ubicación, que aparece sobre la sesión ya abierta antes de pedir el permiso del sistema."
     },
     "Zancada": {
-      "comment": "Encabezado de la única sección de la pantalla de Ajustes (2.3): la longitud de zancada."
+      "comment": "Encabezado de la primera sección de la pantalla de Ajustes: la longitud de zancada."
     },
     "Zancada guardada. La siguiente caminata la usará.": {
       "comment": "Mensaje en línea de Ajustes tras guardar una zancada válida y dentro de lo normal."

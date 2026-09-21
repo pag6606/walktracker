@@ -1,10 +1,18 @@
 import Domain
 import SwiftUI
 
-/// Pestaña Ajustes (AD-14). Nace en la 2.3 con **un solo** ajuste: la longitud de zancada.
+/// Pestaña Ajustes (AD-14). Nació en la 2.3 con **un solo** ajuste —la longitud de zancada— y
+/// desde B-9 (2026-09-21) tiene **dos secciones**: "Zancada" y "Acerca de".
 ///
-/// La meta semanal (Epic 3), el sonido (4.2), exportar y borrar datos (Epic 5) y el "Acerca de"
-/// con la atribución de Open-Meteo llegan con sus historias; aquí no se adelanta ninguno.
+/// La meta semanal (Epic 3), el sonido (4.2) y exportar y borrar datos (Epic 5) llegan con sus
+/// historias; aquí no se adelanta ninguno.
+///
+/// **"Acerca de" no es opcional y tiene dueño.** Hasta B-9 este comentario decía que llegaría
+/// "con su historia", y esa historia no existía: `epics.md` no nombraba el "Acerca de" ni una
+/// vez, así que la atribución de Open-Meteo —una **obligación de licencia**, CC BY 4.0,
+/// AD-24— se quedó sin destino y acabó dentro de `if let weather` en la tarjeta de clima,
+/// invisible para quien nunca capturara clima. Quien reorganice esta pantalla: la sección de
+/// abajo **se queda**, y `NOTICE` (raíz del repo) dice por qué, con la cláusula citada.
 ///
 /// **La vista no decide nada** (sección 6 del gate). Entrega el texto crudo del campo a
 /// `SettingsStore.saveStride(fromText:)` y pinta `strideOutcome`: qué es un número, qué se
@@ -60,10 +68,12 @@ struct SettingsView: View {
                         defaultButton
                     }
                 } header: {
-                    Text("Zancada", comment: "Encabezado de la única sección de la pantalla de Ajustes (2.3): la longitud de zancada.")
+                    Text("Zancada", comment: "Encabezado de la primera sección de la pantalla de Ajustes: la longitud de zancada.")
                 } footer: {
                     Text("La distancia y el ritmo salen de multiplicar tus pasos por este valor. Se aplica a la siguiente caminata: las que ya hiciste no cambian.", comment: "Pie de la sección de zancada en Ajustes: qué hace el ajuste y desde cuándo.")
                 }
+
+                aboutSection
             }
             // El `.decimalPad` no tiene tecla de retorno: sin estas dos, la única forma de
             // cerrarlo era pulsar Guardar, y con el teclado abierto el mensaje y el botón
@@ -165,6 +175,58 @@ struct SettingsView: View {
         }
         .buttonStyle(.glass)
         .listRowBackground(Color.clear)
+    }
+
+    // MARK: - Acerca de
+
+    /// La sección que cumple AD-24 sin depender del clima (B-9).
+    ///
+    /// **Lo que pinta no se decide aquí:** `AboutSection` es un tipo sin SwiftUI y es lo que
+    /// se prueba (`AboutSectionTests`), siguiendo la decisión D1 del 2026-09-20. Esta vista
+    /// solo recorre `items`, que es una constante: no hay estado del que pudiera colgar un
+    /// `if`, que es exactamente como esta atribución se perdió la primera vez.
+    ///
+    /// La atribución **también** sigue en `WeatherCard`, y eso no es indecisión: Open-Meteo
+    /// pide el enlace *"next to any location Open-Meteo data are displayed"*, y la tarjeta es
+    /// el único sitio donde el dato se ve. Quitar cualquiera de las dos empeora el
+    /// cumplimiento. La cláusula, citada, está en `NOTICE`.
+    ///
+    /// **Son dos filas y las dos son la misma obligación** (decisión de Paul, 2026-09-21):
+    /// §3(a)(1)(C) pide nombrar la licencia **e incluir su texto o un enlace a ella**, y el pie
+    /// de abajo solo hacía la primera mitad. La segunda fila lleva al texto de CC BY 4.0, cuyo
+    /// enlace hasta ese día vivía solo en `NOTICE` —un fichero del repo que no viaja dentro del
+    /// `.app`—. No hay una tercera: la versión de la app y los ajustes de otras épicas siguen
+    /// fuera.
+    private var aboutSection: some View {
+        Section {
+            ForEach(AboutSection.items) { item in
+                Link(destination: AboutSection.url(for: item)) {
+                    aboutLabel(item)
+                }
+            }
+        } header: {
+            Text("Acerca de", comment: "Encabezado de la sección de Ajustes que reúne los créditos del producto. Hoy contiene las dos obligaciones de licencia de los datos de clima: el crédito a la fuente y el enlace al texto de la licencia.")
+        } footer: {
+            Text("El clima lo proporciona Open-Meteo bajo licencia CC BY 4.0.", comment: "Pie de la sección \"Acerca de\" en Ajustes: nombra la licencia de los datos de clima. \"Open-Meteo\" y \"CC BY 4.0\" son nombres propios: no se traducen.")
+        }
+    }
+
+    /// El texto de cada entrada de "Acerca de", con su objetivo táctil.
+    ///
+    /// El texto vive aquí, y no en `AboutSection`, porque es donde la extracción de cadenas
+    /// del String Catalog lo ve con su `comment:`.
+    @ViewBuilder
+    private func aboutLabel(_ item: AboutSection.Item) -> some View {
+        switch item {
+        case .openMeteoAttribution:
+            Text("Datos meteorológicos: Open-Meteo.com", comment: "Atribución de la licencia CC-BY 4.0 de Open-Meteo en la sección \"Acerca de\" de Ajustes, como enlace a open-meteo.com. \"Open-Meteo.com\" es un nombre propio: no se traduce.")
+                .frame(maxWidth: .infinity, minHeight: LayoutMetrics.touchTargetMin, alignment: .leading)
+                .contentShape(.rect)
+        case .licenseText:
+            Text("Texto de la licencia: CC BY 4.0", comment: "Segunda fila de la sección \"Acerca de\" de Ajustes, como enlace al texto de la licencia en creativecommons.org. Dice que lleva AL TEXTO de la licencia, para distinguirla de la fila de arriba, que lleva a la web de Open-Meteo. \"CC BY 4.0\" es el nombre propio de la licencia: no se traduce.")
+                .frame(maxWidth: .infinity, minHeight: LayoutMetrics.touchTargetMin, alignment: .leading)
+                .contentShape(.rect)
+        }
     }
 
     // MARK: - Mensaje en línea

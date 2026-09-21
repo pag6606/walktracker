@@ -358,8 +358,13 @@ exceder 4 KB."
 - **Live Activities programadas** con `request(...startDate:)` y `AlertConfiguration` obligatoria.
 - **`activityEnablementUpdates`** — stream asíncrono de cambios de autorización, además del
   `areActivitiesEnabled` síncrono. Relevante para la fila "Live Activity no disponible" de la
-  `DegradationPolicy` de AD-11: hoy esa fila se evaluaría una sola vez; el usuario puede
+  tabla de degradación de AD-11: hoy esa fila se evaluaría una sola vez; el usuario puede
   desactivar Live Activities en Ajustes en mitad de una caminata.
+
+  > **Nota (2026-09-21, `B-9`):** este punto decía *"la `DegradationPolicy` de AD-11"*. Ese tipo
+  > **nunca existió** y AD-11 quedó enmendado para no prometerlo: la tabla vincula y la cumple
+  > cada frontera en su sitio. **El hallazgo sigue abierto tal cual**, solo cambia el nombre de
+  > lo que señala; queda citado desde la enmienda de AD-11, con dueño el Epic 7.
 
 ### Un límite duro que conviene tener escrito
 
@@ -419,9 +424,14 @@ son minutos u horas, no días). Es peligroso en dos casos que el spine sí conte
 1. **Una sesión que sobrevive un cierre largo de la app** — si el dispositivo se apaga o la app
    queda descargada más de siete días con una sesión activa, la reconciliación de AD-8 producirá
    un conteo truncado que pasará por bueno.
-2. **La `DegradationPolicy` de AD-11 no tiene fila para esto.** Tiene "Motion & Fitness denegado",
+2. **La tabla de degradación de AD-11 no tiene fila para esto.** Tiene "Motion & Fitness denegado",
    pero no "los datos históricos existen pero están truncados". Son situaciones distintas con
    respuestas distintas.
+
+   > **Nota (2026-09-21, `B-9`):** este punto decía *"la `DegradationPolicy` de AD-11"*. Ese tipo
+   > **nunca existió** y AD-11 quedó enmendado para no prometerlo. **El hallazgo sigue abierto**:
+   > la fila que falta sigue faltando, y la enmienda la cita como uno de sus dos huecos, con
+   > dueño AD-8 / la historia que vuelva a tocar la reconstrucción.
 
 **Recomendación:** AD-8 debería añadir una condición explícita — *si `startDate` de la
 reconciliación es anterior a 7 días, la reconstrucción no se intenta: se degrada directamente a

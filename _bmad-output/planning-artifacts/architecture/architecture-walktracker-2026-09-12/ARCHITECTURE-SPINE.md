@@ -7,7 +7,7 @@ paradigm: 'hexagonal (ports & adapters) con un único escritor en el main actor'
 scope: 'App iOS nativa SwiftUI que reemplaza el stack Capacitor/WebView. Gobierna dominio, aplicación, adapters de sistema, UI y la extensión de Live Activity.'
 status: final
 created: '2026-09-12'
-updated: '2026-09-20'
+updated: '2026-09-21'
 binds: [CAP-1, CAP-2, CAP-3, CAP-4, CAP-5, CAP-6, CAP-7, CAP-8, CAP-9, CAP-10, CAP-11, CAP-12, CAP-13, CAP-14, CAP-15, CAP-17, CAP-18]
 sources:
   - ../../../specs/spec-walktracker-ios/SPEC.md
@@ -200,18 +200,30 @@ stateDiagram-v2
 
 - **Binds:** CAP-2, CAP-5, CAP-11, CAP-17, CAP-18
 - **Prevents:** dos pantallas pidiendo el mismo permiso, y varios criterios sobre qué hacer cuando falta
-- **Rule:** cada adapter posee el estado de su permiso y lo expone por el puerto como `status`; nadie más consulta al sistema. Toda petición va precedida de pre-pantalla explicativa. La respuesta a "falta esta capacidad" está en **una única** `DegradationPolicy`:
+- **Rule:** cada adapter posee el estado de su permiso y lo expone por el puerto como `status`; nadie más consulta al sistema. Toda petición va precedida de pre-pantalla explicativa. La respuesta a "falta esta capacidad" **es esta tabla**, y la cumple **cada frontera en su sitio**. La tabla vincula: ninguna frontera puede responder otra cosa, y una capacidad nueva entra añadiendo una fila aquí. Lo que la regla **no** exige es un tipo que la centralice — ver la enmienda de abajo:
 
-| Capacidad ausente | Comportamiento |
-| --- | --- |
-| Motion & Fitness denegado | Pantalla bloqueante con explicación y acceso a Ajustes. Sin ella no hay producto |
-| Ubicación denegada | Sesión inicia sin clima. Nunca bloquea |
-| Red no disponible | Sesión inicia sin clima. Nunca bloquea |
-| HealthKit denegado o escritura fallida | La sesión se guarda local igual; el resumen muestra "no sincronizado", nunca un error |
-| Notificaciones denegadas | Recordatorios off en silencio |
-| Live Activity no disponible | Se omite. No es fallo de sesión |
+| Capacidad ausente | Comportamiento | Dónde se cumple hoy |
+| --- | --- | --- |
+| Motion & Fitness denegado | Pantalla bloqueante con explicación y acceso a Ajustes. Sin ella no hay producto | `SessionStore+StartFlow.swift:17-30` (`start()`) → `MotionBlockedView`. **La única fila bloqueante de las seis** |
+| Ubicación denegada | Sesión inicia sin clima. Nunca bloquea | `SessionStore+Weather.swift:26-35` (`beginWeatherForNewSession()`) |
+| Red no disponible | Sesión inicia sin clima. Nunca bloquea | `OpenMeteoAdapter.swift:61-64` → `SessionStore+Weather.swift:141-170`: `CapabilityError` y `nil` silencioso. **Esta fila no es un permiso** — no hay `PermissionStatus` de la red, ni puerto con `status` que la exponga |
+| HealthKit denegado o escritura fallida | La sesión se guarda local igual; el resumen muestra "no sincronizado", nunca un error | ⏳ **ni una línea**: no existe `Adapters/Health/` con escritura ni resumen que lo diga. La trae la **6.1** |
+| Notificaciones denegadas | Recordatorios off en silencio | ⏳ **ni una línea**: falta `NotificationPort` (ver AD-10). La trae la **6.2** |
+| Live Activity no disponible | Se omite. No es fallo de sesión | ⏳ **ni una línea** de esta decisión: `WalkTrackerActivity/` es solo render. La trae el **Epic 7** |
 
-> ⚠️ **La tabla vincula; el tipo `DegradationPolicy` no existe.** Esta regla dice "una única `DegradationPolicy`", el Structural Seed la lista en `Application/`, y `Domain/Ports/PermissionStatus.swift:7` la **cita por su nombre** — pero **no hay tal tipo en el árbol**. Lo que existe es la tabla de arriba, cumplida a mano en cada sitio. El Epic 2 tenía el encargo explícito de reconciliarlo (era la primera degradación no bloqueante) y **no se hizo ni se registró**. **Dueño: el action item `B-9`** de la retrospectiva del Epic 2 (*"reconciliar el encargo de S6: `DegradationPolicy`, que no existe y se cita en `PermissionStatus.swift:7`"*). **No se decide aquí** si el tipo debe existir o si la tabla se cumple por convención: este chore solo deja de afirmar que ya está. [`epic-2-retro-2026-09-20.md`, D6 y B-9; retro del Epic 1, S6]
+> ⚠️ **ENMENDADA el 2026-09-21 (B-9): la tabla vincula, y no hay ningún tipo que la implemente — ni lo va a haber.**
+>
+> Hasta hoy esta regla decía *"la respuesta a 'falta esta capacidad' está en **una única** `DegradationPolicy`"*, el Structural Seed listaba `Application/DegradationPolicy.swift` y `Domain/Ports/PermissionStatus.swift:7` lo citaba por su nombre. **Ese tipo nunca existió.** El Epic 2 traía el encargo explícito de reconciliarlo —era la primera degradación no bloqueante— y no se hizo ni se registró (D6 de la retro del Epic 2).
+>
+> **Decisión de Paul (2026-09-21): se enmienda la regla, no se construye el tipo.** Hoy tendría **dos llamantes** —las dos fronteras vivas— y **una sola rama bloqueante**; las otras cuatro filas las escribiría quien haga la 6.1, la 6.2 y el Epic 7, que es diseñar la abstracción antes de tener el segundo ejemplo real de cada clase. No eliminaría ningún `switch`: le pondría una indirección delante. Y no capturaría lo que de verdad varía entre filas —qué pantalla, qué texto y en qué momento—. Lo compartido ya está tipado y vive en `Domain/`: `PermissionStatus` y `CapabilityError`. **Precedente en este mismo documento:** AD-10 se dejó como conjunto cerrado con dos miembros sin escribir, en vez de cambiar la regla.
+>
+> **Lo que esta enmienda no hace, a propósito:** declarar las seis filas "cumplidas por convención". Sería cambiar una mentira por otra. La columna "Dónde se cumple hoy" dice la verdad completa: **tres filas tienen implementación y tres no tienen ni una línea**, y la fila de red **ni siquiera pasa por el vocabulario de permisos**, así que "el adapter posee el estado de su permiso" no la describe.
+>
+> **Dos huecos de la tabla siguen abiertos y no los tapa esta enmienda**, porque son de contenido y no de forma:
+> 1. La fila de Live Activity **se evaluaría una sola vez**; el usuario puede desactivar Live Activities en mitad de una caminata, y existe `activityEnablementUpdates` para verlo. Dueño: el Epic 7. [`reviews/review-vigencia-tecnologica.md:359-362`]
+> 2. **Falta una fila** para "los datos históricos existen pero están truncados" (CoreMotion guarda siete días): hoy la reconciliación de AD-8 produciría un conteo truncado que pasa por bueno, y eso no es "Motion denegado". Dueño: AD-8 / la historia que vuelva a tocar la reconstrucción. [`reviews/review-vigencia-tecnologica.md:427-429`]
+>
+> [`epic-2-retro-2026-09-20.md`, D6 y B-9; retro del Epic 1, S6; `spec-b9-degradacion-y-atribucion.md`]
 
 ### AD-12 — Swift 6, concurrencia estricta completa
 
@@ -299,9 +311,11 @@ stateDiagram-v2
 
 - **Binds:** CAP-5, restricción de Licencias del SPEC
 - **Prevents:** incumplir una licencia por no haberla mirado
-- **Rule:** Open-Meteo se publica bajo **CC-BY 4.0**, que exige atribución visible — no es copyleft, pero tampoco es Apache-2.0/MIT como la restricción del SPEC presupone. La atribución **debe ir** en Ajustes → Acerca de, y la restricción de licencias del SPEC se enmienda para admitir CC-BY en fuentes de datos (no en código). Sustituir Open-Meteo por WeatherKit elimina la obligación y es un cambio de adapter (AD-10).
+- **Rule:** Open-Meteo se publica bajo **CC-BY 4.0**, que exige atribución visible — no es copyleft, pero tampoco es Apache-2.0/MIT como la restricción del SPEC presupone. La atribución va **en dos sitios y los dos son obligatorios**: en **Ajustes → Acerca de**, que es lo que la ve alguien que nunca ha capturado clima, y **junto al dato** en la tarjeta de clima de la sesión, que es lo que pide Open-Meteo por escrito (*"You must include a link next to any location Open-Meteo data are displayed"*). La restricción de licencias del SPEC se enmienda para admitir CC-BY en fuentes de datos (no en código). Sustituir Open-Meteo por WeatherKit elimina la obligación y es un cambio de adapter (AD-10). **La cláusula, verificada y citada, y qué parte de ella cumple cada sitio, están en `NOTICE`** (raíz del repo), que es el documento que hay que leer antes de tocar cualquiera de los dos.
 
-  > ⚠️ **Abierto — no está cumplido, y esta regla lo daba por hecho.** Hasta el 2026-09-20 esta línea decía *"la atribución **va** en Ajustes → Acerca de"* en presente, como si describiera el producto. **No es así:** la atribución acabó en `WeatherCard.swift`, **dentro de `if let weather`**, así que no se ve sin clima ni fuera de una sesión; la 2.3 creó Ajustes y la excluyó con un comentario, que no es un destino. Es una **obligación de licencia** incumplida. **Dueño: el action item `B-9`** de la retrospectiva del Epic 2 (*"dar destino a la atribución de AD-24"*). Aquí el documento deja de afirmar que está resuelto; **el trabajo es de B-9 y no se hace en este chore**. [`epic-2-retro-2026-09-20.md`, D6 y B-9]
+  > ✅ **CERRADO el 2026-09-21 (B-9).** Desde el 2026-09-20 esta regla llevaba un ⚠️ que decía *"abierto — no está cumplido, y esta regla lo daba por hecho"*: la atribución vivía solo en `WeatherCard.swift`, **dentro de `if let weather`**, así que no se veía sin clima ni fuera de una sesión, y la 2.3 creó Ajustes y la excluyó con un comentario, que no es un destino. Ya existe la sección **"Acerca de"** en `WalkTracker/UI/Settings/SettingsView.swift`, con `AboutSection` como fuente única de lo que pinta; la de la tarjeta **se queda**, porque quitarla empeoraría el cumplimiento justo donde el dato se ve. **La obligación tiene dueño escrito** —`NOTICE`, esta regla, la nota de `epics.md` bajo la 2.3 y una entrada de `deferred-work.md`—, que es lo que faltó la primera vez: se cayó porque nadie poseía el "Acerca de" (lección L2). [`epic-2-retro-2026-09-20.md`, D6 y B-9; `spec-b9-degradacion-y-atribucion.md`; `NOTICE`]
+  >
+  > ✅ **Y la segunda mitad de §3(a)(1)(C), cerrada también el 2026-09-21** (decisión de Paul, el mismo día y antes de que la 3.1 llegara). Esta nota decía hasta entonces que *la app nombra la licencia ("CC BY 4.0") pero **no enlaza al texto**: ese enlace vive solo en `NOTICE`, que no viaja dentro del `.app`*. Ya lo enlaza: "Acerca de" tiene una **segunda fila** a `https://creativecommons.org/licenses/by/4.0/` —la URL canónica que `NOTICE` §2 verificó descargándola—, declarada en `AboutSection.licenseTextURL` y fijada con su ruta por `AboutSectionTests`. Para hacerlo, Paul **renegoció** la línea del bloque congelado de B-9 que lo prohibía (*"Never: … ni otras licencias"*), anotada en la spec del chore y en su Spec Change Log. El rastro de cuando estuvo abierto **no se borra**: vive en `NOTICE` §5, que lo conserva con fecha. Siguen siendo **dos filas**: la versión de la app y los ajustes de otras épicas no se adelantan.
 
 ## Consistency Conventions
 
@@ -346,9 +360,14 @@ mueve durante el desarrollo es el dispositivo, congelado en iOS 26 por decisión
 
 **Esto es el árbol *objetivo*, no un inventario de lo que hay hoy.** Fija dónde va cada cosa cuando
 se escriba; buena parte aún no existe, y así debe ser a mitad de los epics. Para que no se lea como
-inventario, lo que **todavía no está en el árbol** al **2026-09-20** lleva `⏳` con la historia que lo
-trae. El `⚠️` es distinto y solo hay uno: algo que el propio documento —y el código— dan por
-existente sin estarlo.
+inventario, lo que **todavía no está en el árbol** al **2026-09-21** lleva `⏳` con la historia que lo
+trae.
+
+> El `⚠️` estaba reservado a un caso distinto —algo que el propio documento y el código dan por
+> existente sin estarlo— y solo hubo uno: `Application/DegradationPolicy.swift`. **Sale del árbol
+> el 2026-09-21** (B-9): la enmienda de AD-11 decidió que ese tipo no se escribe, así que dejarlo
+> aquí lo seguiría prometiendo. Hoy no queda ningún `⚠️`, y eso es lo correcto: un árbol objetivo
+> puede tener cosas por escribir (`⏳`), no cosas que se dan por escritas.
 
 ```text
 WalkTracker/
@@ -363,8 +382,8 @@ WalkTracker/
     SessionStore.swift      # @MainActor @Observable — escritor único (AD-7)
     SettingsStore.swift
     HistoryStore.swift  AchievementsStore.swift     # ⏳ no existen — los trae la 5.1
-    DegradationPolicy.swift   # ⚠️ NO existe en el árbol, y AD-11 y `PermissionStatus.swift:7` lo citan
-                              #    como si existiera — abierto, dueño B-9 (ver AD-11)
+                            # La tabla de degradación de AD-11 NO tiene fichero aquí: la cumple
+                            #    cada frontera en su sitio (enmienda del 2026-09-21, B-9)
   Adapters/
     Motion/ Location/ Weather/ Health/ Feedback/ Persistence/ Clock/ Random/ LiveActivity/
     Notifications/          # ⏳ no existe — la trae la 6.2, con `NotificationPort`
