@@ -1,0 +1,27 @@
+# Personalización de `bmad-build` para WalkTracker.
+#
+# Se edita aquí y no en `.claude/skills/bmad-build/customize.toml` porque ese fichero viene
+# con la skill: una actualización se lo llevaría por delante. Este es el punto de extensión
+# del proyecto y se resuelve después del de la skill, así que gana.
+
+[workflow]
+
+# Hechos que la skill trata como contexto permanente en cada ejecución.
+persistent_facts = [
+  """UMBRAL DE TAMAÑO DE SPEC, CALIBRADO PARA ESTE PROYECTO (decisión de Paul, 2026-09-20,
+  action item A-8 de la retro del Epic 1). El estándar de la skill propone 900–1600 tokens.
+  En WalkTracker **las 7 specs escritas lo superaron** y las 7 salieron bien: el umbral está
+  mal calibrado para un proyecto cuyas specs cargan un inventario de código real —rutas,
+  líneas, conteos verificados— que es precisamente lo que evita que la implementación se
+  invente el contexto. El umbral operativo aquí es **4.000 tokens**, y por encima de él se
+  avisa una vez y se sigue; no se trocea una historia solo por tamaño de spec. Lo que sí
+  justifica trocear es que la historia tenga **dos entregables independientes**, que es el
+  criterio de objetivo único del estándar y sigue vigente sin cambios.""",
+
+  """LECCIÓN DE SPECS (decisión de Paul, 2026-09-20, action item A-7 de la retro del Epic 1).
+  Dos reglas, y la decisión fue hacerlas **verificables**, no dejarlas en convención:
+  (a) todo traspaso de trabajo a otra historia va a `deferred-work.md` con destino explícito;
+  (b) una spec que toque `SessionStore` lista en su Code Map los campos compartidos del store
+  y sus invariantes. La (b) solo se cumplió en la 2.1 y se olvidó en la 2.2, que tocaba
+  `SessionStore+Motivation`. Mientras el check no exista, las dos se aplican a mano.""",
+]
