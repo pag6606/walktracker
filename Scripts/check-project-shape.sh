@@ -50,8 +50,11 @@
 #  12. Que ninguna vista cablee el vocabulario visual (AD-13, UX-DR3, AD-20): en
 #      `WalkTracker/UI/` —salvo `Style/DesignTokens.swift` y `Diagnostics/`— no se escribe
 #      a mano un lado de marco numérico (el 44 pt del objetivo táctil), ni un radio de
-#      esquina numérico, ni un color en hexadecimal o por componentes, ni `.orange` (el
-#      color que los tokens sustituyen porque incumplía AA), ni los peldaños de la escala
+#      esquina numérico, ni un color en hexadecimal o por componentes, ni NINGÚN color
+#      CROMÁTICO del sistema —`.red`, `.orange`, `.yellow`, `.mint`…—, porque un color sin
+#      medir es como entró el incumplimiento WCAG AA dos veces (los roles semánticos
+#      `.primary`, `.secondary` y `.tint` sí pasan: su contraste lo garantiza el sistema),
+#      ni los peldaños de la escala
 #      —4, 8, 12, 16, 24— en `spacing:`, `minLength:` o `.padding(…)`. Viven en
 #      `WalkTracker/UI/Style/DesignTokens.swift`. Los valores que la spec decide NO
 #      tokenizar (`spacing: 0`, `spacing: 2`, `.padding(.top, 48)`) siguen permitidos.
@@ -547,10 +550,24 @@ else
     # `Color.init(red:…)` es el mismo constructor escrito entero.
     ui_token_rule 'Color[[:space:]]*(\.[[:space:]]*init[[:space:]]*)?\([[:space:]]*((red|hue|white)[[:space:]]*:|\.(sRGB|sRGBLinear|displayP3))' \
         "AD-13: un color por componentes numéricas es un color cableado, y no tiene variante oscura ni contraste medido; usa \`Colors\` o un color del sistema."
-    # El color que este vocabulario sustituye: `.orange` del sistema da 2,20:1 sobre blanco
-    # e incumple AA. Devolverlo a una vista reintroduce el defecto en silencio.
-    ui_token_rule '(Color[[:space:]]*)?\.[[:space:]]*orange\b' \
-        "(UX-DR6) \`.orange\` es el color que este vocabulario sustituye: da 2,20:1 sobre blanco e incumple WCAG AA. Lo estimado se pinta con \`Colors.estimated\`, que tiene variante clara y oscura y contraste medido."
+    # Cualquier color CROMÁTICO del sistema, no un nombre concreto. La versión anterior de
+    # esta regla vetaba `.orange` —el color que el chore de tokens sustituyó por incumplir
+    # AA— y la primera pantalla posterior eligió `Color.red`, que en claro da 3,55:1 sobre
+    # blanco y 3,18:1 sobre el gris agrupado: pasó el gate porque no se llamaba `.orange`.
+    # Vetar la FAMILIA y exigir medición ataca la causa; vetar un nombre solo mueve la
+    # puerta de sitio. Son los doce colores cromáticos con nombre de SwiftUI.
+    #
+    # Lo que NO veta, y es deliberado: los ROLES semánticos del sistema —`.primary`,
+    # `.secondary`, `.tint`— y los acromáticos —`.black`, `.white`, `.gray`, `.clear`—.
+    # El sistema garantiza el contraste de los roles y los adapta al tema y a los ajustes
+    # de accesibilidad del usuario; aliasarlos añadiría indirección sin ganancia, que es la
+    # regla de admisión que el propio fichero de tokens fija.
+    #
+    # La regla no distingue primer plano de fondo: un gate que trabaja línea a línea no
+    # puede saber si un color pinta texto o una superficie, y el lado conservador es
+    # prohibir la familia entera. Un color del producto vive en `Colors` y está medido.
+    ui_token_rule '(Color[[:space:]]*)?\.[[:space:]]*(red|orange|yellow|green|mint|teal|cyan|blue|indigo|purple|pink|brown)\b' \
+        "(UX-DR6) un color cromático del sistema no tiene contraste medido, y ya entró dos veces por esta puerta: \`.orange\` daba 2,20:1 sobre blanco y \`Color.red\` da 3,55:1, los dos por debajo del 4,5:1 que WCAG AA exige para texto normal. Los colores del producto viven en \`Colors\` (\`accent\`, \`estimated\`, \`error\`), con variante clara y oscura y ratios que la suite recalcula en cada ejecución. Los ROLES del sistema —\`.primary\`, \`.secondary\`, \`.tint\`— sí se usan: su contraste lo garantiza el sistema."
     # La escala de UX-DR3 reteclada. Solo sus cinco peldaños: `spacing: 0` y `spacing: 2`
     # no son tokens por decisión de la spec y siguen pasando.
     ui_token_rule '(spacing|minLength)[[:space:]]*:[[:space:]]*(4|8|12|16|24)\b' \

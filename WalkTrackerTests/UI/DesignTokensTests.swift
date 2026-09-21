@@ -10,10 +10,17 @@ import UIKit
 /// objetivo táctil de aquí sin decidir nada nuevo. Si alguien cambia un número, este
 /// fichero es el sitio donde esa decisión se ve y se discute.
 ///
-/// La parte que de verdad muerde es el contraste: los dos colorsets se **resuelven** en
+/// La parte que de verdad muerde es el contraste: los tres colorsets se **resuelven** en
 /// claro y en oscuro y se recalcula su ratio WCAG contra el fondo real sobre el que se
-/// pintan. El `.orange` del sistema daba 2,20:1 sobre blanco —AA incumplida en
-/// producción—; si alguien retoca un colorset y vuelve a caer, esto lo dice.
+/// pintan. El `.orange` del sistema daba 2,20:1 sobre blanco y el `Color.red` del sistema
+/// 3,55:1 —AA incumplida en producción, dos veces—; si alguien retoca un colorset y vuelve
+/// a caer, esto lo dice.
+///
+/// **Lo que se mide es el rol, no una lista de tokens.** Los dos mecanismos del chore de
+/// tokens eran listas enumeradas —este arnés medía `accent` y `estimated`, el gate vetaba
+/// `.orange` por su nombre— y por eso el tercer color se coló entero. Aquí entra un caso
+/// por cada color que el producto decide; el gate (sección 12) impide que una vista
+/// nombre uno que no esté aquí.
 ///
 /// Este fichero importa UIKit a propósito: resolver un color dinámico contra un
 /// `UITraitCollection` es la única forma de medir lo que el usuario verá. AD-10 prohíbe
@@ -83,7 +90,7 @@ struct DesignTokensTests {
 
     // MARK: - Colores y contraste
 
-    @Test("Los dos colorsets viajan dentro de la app", arguments: ["AccentColor", "EstimatedSteps"])
+    @Test("Los tres colorsets viajan dentro de la app", arguments: ["AccentColor", "EstimatedSteps", "ErrorMessage"])
     func colorsetsShipWithTheApp(named: String) {
         // Un colorset renombrado o dejado fuera del catálogo no rompe el build: SwiftUI
         // pinta un color de relleno y nadie se entera hasta ver la pantalla.
@@ -115,6 +122,16 @@ struct DesignTokensTests {
         #expect(Self.hex(Colors.estimated, .dark) == "FF9F0A")
     }
 
+    /// El rojo del error **no se inventó**: en claro es el rojo accesible que Apple
+    /// publica para este uso y en oscuro el rojo del sistema, que ya cumple. Si alguien
+    /// lo retoca a ojo, este test dice cuáles eran los valores publicados y el de
+    /// contraste dice si el nuevo sigue cumpliendo.
+    @Test("Error: el rojo accesible de Apple en claro, el rojo del sistema en oscuro")
+    func errorValues() {
+        #expect(Self.hex(Colors.error, .light) == "D70015")
+        #expect(Self.hex(Colors.error, .dark) == "FF453A")
+    }
+
     @Test("El acento se lee como verde en los dos temas, nunca como el dorado de UX-DR1")
     func accentIsGreen() {
         for style in [UIUserInterfaceStyle.light, .dark] {
@@ -137,6 +154,37 @@ struct DesignTokensTests {
             // con visión de color reducida.
             #expect(accent.g > accent.r, "el acento no es verde en \(style)")
             #expect(estimated.r > estimated.g, "el estimado no es naranja en \(style)")
+        }
+    }
+
+    /// El rojo del error tampoco se confunde con los otros dos, y por el mismo eje: el
+    /// **tono**.
+    ///
+    /// Con el acento basta la regla de arriba (verde contra rojo), pero con el estimado no:
+    /// los dos son cálidos y los dos tienen `r > g`, así que "rojo contra naranja" hay que
+    /// medirlo de verdad. Se compara el ángulo de tono en el círculo: **≥ 30°** de
+    /// separación entre cualesquiera dos de los tres colores del producto, en los dos
+    /// temas. Medido hoy, el par más apretado es error/estimado en oscuro, con 33°.
+    @Test("El rojo del error no se confunde con el acento ni con el estimado en ningún tema")
+    func errorIsDistinguishableFromTheOtherChromatics() {
+        for style in [UIUserInterfaceStyle.light, .dark] {
+            let error = Self.components(of: Colors.error, style)
+            let accent = Self.components(of: Colors.accent, style)
+            let estimated = Self.components(of: Colors.estimated, style)
+
+            #expect(error != accent)
+            #expect(error != estimated)
+            // El error es rojo: el rojo domina y el verde no le llega, en los dos temas.
+            #expect(error.r > error.g, "el error no es rojo en \(style)")
+            #expect(error.r > error.b, "el error no es rojo en \(style)")
+
+            for (name, other) in [("acento", accent), ("estimado", estimated)] {
+                let separation = Self.hueSeparation(error, other)
+                #expect(
+                    separation >= 30,
+                    "el error y el \(name) están a \(String(format: "%.1f", separation))° en \(style): se distinguirían solo por luminancia"
+                )
+            }
         }
     }
 
@@ -168,6 +216,15 @@ struct DesignTokensTests {
             // color al 12 % sobre el fondo de pantalla. Es el caso más apretado.
             ContrastCase("estimado sobre el fondo del aviso, claro", Colors.estimated, .light, background: (255, 255, 255), tintedAt: Surface.noticeTintOpacity),
             ContrastCase("estimado sobre el fondo del aviso, oscuro", Colors.estimated, .dark, background: (0, 0, 0), tintedAt: Surface.noticeTintOpacity),
+            // El mensaje de rechazo de Ajustes vive en una fila de un `Form`, y ahí hay
+            // DOS fondos reales, no uno: el de la lista agrupada y el de la fila. En claro
+            // la fila es blanca sobre un gris agrupado `#F2F2F7`; en oscuro la fila es
+            // `#1C1C1E` sobre negro. Los cuatro se miden, porque el mensaje puede caer
+            // sobre cualquiera de ellos según el fondo que el sistema rinda.
+            ContrastCase("error sobre la fila de la lista, claro", Colors.error, .light, background: (255, 255, 255)),
+            ContrastCase("error sobre el gris agrupado, claro", Colors.error, .light, background: (242, 242, 247)),
+            ContrastCase("error sobre el fondo de la lista, oscuro", Colors.error, .dark, background: (0, 0, 0)),
+            ContrastCase("error sobre la fila de la lista, oscuro", Colors.error, .dark, background: (28, 28, 30)),
         ]
     )
     func contrastMeetsAA(testCase: ContrastCase) {
@@ -227,6 +284,26 @@ struct DesignTokensTests {
         #expect(Self.contrastRatio(Self.components(of: Colors.estimated, .light), (255, 255, 255)) >= 4.5)
     }
 
+    /// El mismo control negativo para el segundo incumplimiento, el que abre B-2: el
+    /// `Color.red` del sistema pintaba el mensaje de rechazo de Ajustes y en claro no
+    /// llega a AA **en ninguno de los dos fondos** de la pantalla.
+    ///
+    /// Sin esto, "el arnés mide el contraste" sería una afirmación sin prueba: que los
+    /// colores elegidos pasen no demuestra que la medición sepa suspender. Estos son los
+    /// 3,55:1 y 3,18:1 que la retro del Epic 2 midió de forma independiente (hallazgo D2).
+    @Test("La medición detecta el incumplimiento del rojo del sistema que este chore sustituye")
+    func measurementCatchesTheSystemRed() {
+        let white: Components = (255, 255, 255)
+        let grouped: Components = (242, 242, 247)
+        let systemRedLight = Self.components(of: Color.red, .light)
+        #expect(Self.contrastRatio(systemRedLight, white) < 4.5)
+        #expect(Self.contrastRatio(systemRedLight, grouped) < 4.5)
+        // Y el token, en los mismos dos fondos, sí pasa.
+        let errorLight = Self.components(of: Colors.error, .light)
+        #expect(Self.contrastRatio(errorLight, white) >= 4.5)
+        #expect(Self.contrastRatio(errorLight, grouped) >= 4.5)
+    }
+
     // MARK: - Utilidades
 
     struct ContrastCase: Sendable, CustomTestStringConvertible {
@@ -278,6 +355,33 @@ struct DesignTokensTests {
             return v <= 0.04045 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4)
         }
         return 0.2126 * channel(c.r) + 0.7152 * channel(c.g) + 0.0722 * channel(c.b)
+    }
+
+    /// Ángulo de tono en el círculo de color (HSV), 0–360°. Es el eje que separa dos
+    /// colores **de forma independiente de su luminancia**, que es lo que hace falta para
+    /// afirmar que dos avisos no se confunden: dos naranjas de distinta claridad son el
+    /// mismo color para quien los mira de reojo.
+    private static func hueDegrees(_ c: Components) -> Double {
+        let r = c.r / 255, g = c.g / 255, b = c.b / 255
+        let maxV = max(r, g, b), minV = min(r, g, b)
+        let delta = maxV - minV
+        // Un gris no tiene tono. Ninguno de los tres colores del producto lo es, y el
+        // test de arriba lo afirma por separado; si alguno lo fuera, 0° lo delataría.
+        guard delta > 0 else { return 0 }
+        let hue: Double
+        switch maxV {
+        case r: hue = 60 * ((g - b) / delta)
+        case g: hue = 60 * (2 + (b - r) / delta)
+        default: hue = 60 * (4 + (r - g) / delta)
+        }
+        return hue < 0 ? hue + 360 : hue
+    }
+
+    /// La distancia entre dos tonos **por el camino corto del círculo**: el rojo a 354° y
+    /// el naranja a 29° están a 35°, no a 325°.
+    private static func hueSeparation(_ a: Components, _ b: Components) -> Double {
+        let difference = abs(hueDegrees(a) - hueDegrees(b)).truncatingRemainder(dividingBy: 360)
+        return min(difference, 360 - difference)
     }
 
     /// Ratio de contraste de WCAG 2.1. AA pide ≥ 4,5:1 para texto normal.

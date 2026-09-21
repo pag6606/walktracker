@@ -87,10 +87,15 @@ el grafo de módulos no ve:
    AD-20). Dentro de `WalkTracker/UI/` —salvo `Style/DesignTokens.swift`, que es donde viven, y
    `Diagnostics/`, marcada para borrado— fallan: un lado de marco numérico (el 44 pt del objetivo
    táctil, en cualquiera de sus formas), un radio de esquina numérico, un color en hexadecimal o
-   por componentes, `.orange` (el color que los tokens sustituyen porque daba 2,20:1 sobre blanco)
-   y los peldaños de la escala de UX-DR3 —4, 8, 12, 16, 24— escritos a mano en `spacing:`,
-   `minLength:` o `.padding(…)`. Lo que la spec decide **no** tokenizar sigue pasando:
-   `spacing: 0`, `spacing: 2`, `.padding(.top, 48)`, `.frame(maxWidth: .infinity)`. La misma
+   por componentes, **cualquier color cromático del sistema** —`.red`, `.orange`, `.yellow`,
+   `.green`, `.mint`, `.teal`, `.cyan`, `.blue`, `.indigo`, `.purple`, `.pink`, `.brown`—, que es
+   un color sin contraste medido, y los peldaños de la escala de UX-DR3 —4, 8, 12, 16, 24—
+   escritos a mano en `spacing:`, `minLength:` o `.padding(…)`. Lo que la spec decide **no**
+   tokenizar sigue pasando: `spacing: 0`, `spacing: 2`, `.padding(.top, 48)`,
+   `.frame(maxWidth: .infinity)`, y los **roles** que el sistema ya nombra —`.primary`,
+   `.secondary`, `.tint`, los acromáticos y los materiales—, cuyo contraste garantiza el sistema.
+   Los colores del producto viven en `Colors` (`accent`, `estimated`, `error`) y la suite
+   recalcula sus ratios en cada ejecución. La misma
    sección comprueba que ningún `Info.plist` del manifiesto lleve `UIDesignRequiresCompatibility`
    y que `project.yml` fije `ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor`, sin la
    cual el acento de la app vuelve al azul del sistema por omisión. Sin target de UI tests, el

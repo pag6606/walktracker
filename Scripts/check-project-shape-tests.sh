@@ -715,11 +715,25 @@ echo 'let sistema = Color.orange' >> "$ROOT/WalkTracker/UI/Style/DesignTokens.sw
 assert_gate "\`Color.orange\` en Style/DesignTokens.swift pasa" "$ROOT" 0 "forma del proyecto correcta"
 rm -rf "$ROOT"
 
+# Y lo mismo para el resto de la familia cromática: el fichero de tokens es donde un color
+# del sistema se nombra para decir cuál se sustituye y por qué. Si la regla nueva lo
+# criminalizara, el vocabulario no podría documentarse a sí mismo.
+ROOT="$(make_fixture)"
+printf 'let rojo = Color.red\nlet menta = Color.mint\n' >> "$ROOT/WalkTracker/UI/Style/DesignTokens.swift"
+assert_gate "\`Color.red\` y \`Color.mint\` en Style/DesignTokens.swift pasan" "$ROOT" 0 "forma del proyecto correcta"
+rm -rf "$ROOT"
+
 # ── 4h2. Rojo: las formas que esquivaban la regla, y las dos reglas nuevas ───
 # Cada línea de aquí pasaba el gate antes de esta vuelta: `.frame(height: 44)` (la regla
 # solo miraba `min…`), `.cornerRadius(16)` (solo miraba `cornerRadius:`), `0xCC_FF_00` y
 # `Color.init(red:)` (los dos patrones no los contemplaban), `.orange` (el color que este
 # vocabulario sustituye porque incumple AA) y la escala de UX-DR3 reteclada.
+#
+# Y los DOCE colores cromáticos del sistema (B-2, 2026-09-20). La regla vetaba `.orange`
+# **por su nombre**, así que la primera pantalla posterior al chore eligió `Color.red`
+# —3,55:1 sobre blanco, 3,18:1 sobre el gris agrupado— y el gate salió verde. El caso
+# `case .rejected: AnyShapeStyle(Color.red)` es la línea literal que pasó: está aquí para
+# que la evasión concreta tenga su camino rojo, no solo la familia.
 for line in '            .frame(height: 44)' \
             '            .frame(width: 44, height: 44)' \
             '            .frame(idealHeight: 88)' \
@@ -732,6 +746,20 @@ for line in '            .frame(height: 44)' \
             '            .foregroundStyle(.orange)' \
             '            .background(Color.orange)' \
             '            .tint(Color . orange)' \
+            '            .foregroundStyle(Color.red)' \
+            '        case .rejected: AnyShapeStyle(Color.red)' \
+            '            .foregroundStyle(.red)' \
+            '            .foregroundStyle(.yellow)' \
+            '            .foregroundStyle(.green)' \
+            '            .foregroundStyle(.mint)' \
+            '            .foregroundStyle(.teal)' \
+            '            .foregroundStyle(.cyan)' \
+            '            .foregroundStyle(.blue)' \
+            '            .foregroundStyle(.indigo)' \
+            '            .foregroundStyle(.purple)' \
+            '            .foregroundStyle(.pink)' \
+            '            .foregroundStyle(.brown)' \
+            '            .background(Color.mint, in: .capsule)' \
             '        VStack(spacing: 4) { Text("a") }' \
             '        VStack(spacing: 8) { Text("a") }' \
             '        HStack(spacing: 12) { Text("a") }' \
@@ -756,6 +784,13 @@ done
 # `spacing: 2` y `.padding(.top, 48)` son decisiones declaradas de la spec, y
 # `.frame(maxWidth: .infinity)` no lleva número. Si alguna de estas fallara, la regla
 # estaría mal calibrada y criminalizaría lo que a propósito no es token.
+#
+# Y la regla de color veta la familia CROMÁTICA, no todo lo que lleva un punto delante:
+# los roles semánticos del sistema (`.primary`, `.secondary`, `.tint`), los acromáticos
+# (`.black`, `.white`, `.gray`, `Color.clear` — que la propia pantalla de Ajustes usa dos
+# veces en `.listRowBackground`), los materiales y los tokens del producto tienen que
+# seguir pasando. Sin estos verdes, la regla nueva sería inservible: prohibiría el
+# vocabulario que el fichero de tokens declara explícitamente que NO se aliasa.
 for line in '            .frame(maxWidth: .infinity)' \
             '            .frame(minHeight: LayoutMetrics.touchTargetMin)' \
             '        VStack(spacing: 0) { Text("a") }' \
@@ -768,7 +803,20 @@ for line in '            .frame(maxWidth: .infinity)' \
             '            .padding(.vertical, Surface.cardPaddingVertical)' \
             '        Spacer(minLength: Spacing.xl)' \
             '        // el .orange del sistema daba 2,20:1 sobre blanco: por eso hay token' \
-            '        // el acento es #CCFF00, y el objetivo táctil .frame(minHeight: 44)'; do
+            '        // el acento es #CCFF00, y el objetivo táctil .frame(minHeight: 44)' \
+            '            .foregroundStyle(.primary)' \
+            '            .foregroundStyle(.secondary)' \
+            '            .foregroundStyle(.tint)' \
+            '            .tint(Colors.accent)' \
+            '        case .rejected: AnyShapeStyle(Colors.error)' \
+            '        case .saved: AnyShapeStyle(.secondary)' \
+            '            .listRowBackground(Color.clear)' \
+            '            .foregroundStyle(Color.white)' \
+            '            .background(Color.black)' \
+            '            .foregroundStyle(.gray)' \
+            '            .background(.regularMaterial)' \
+            '            .background(.fill.quaternary)' \
+            '        // el rechazo se pintaba con Color.red: 3,55:1, por debajo de AA'; do
     ROOT="$(make_fixture)"
     printf 'import SwiftUI\nstruct Verde: View {\n    var body: some View {\n%s\n    }\n}\n' "$line" \
         > "$ROOT/WalkTracker/UI/Verde.swift"
