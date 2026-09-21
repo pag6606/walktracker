@@ -43,7 +43,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: '2026-08-01'
-last_updated: 09-20-2026 10:54
+last_updated: 09-20-2026 21:39
 project: walktracker
 project_key: NOKEY
 tracking_system: file-system
@@ -142,7 +142,7 @@ action_items:
     action: "A-4 Decidir un arnés de verificación de vistas (XCUITest o lógica de
       presentación probable) para cerrar los diferidos de vista del epic"
     owner: "Paul"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-09-14.md"
   - id: "epic-1-retro-item-5-a-5-reconciliar-epics-md-y-el-spine-con"
     epic: 1
@@ -172,28 +172,28 @@ action_items:
     action: "A-8 Revisar el umbral de tamaño de spec o trocear las historias al crear
       los epics (6 de 6 lo superaron)"
     owner: "Paul"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-09-14.md"
   - id: "epic-2-retro-item-9-b-1-chore-inmediato-settingsstore-debe-r"
     epic: 2
     action: "B-1 Chore inmediato: SettingsStore debe recordar que la lectura falló
       y no escribir hasta tener una lectura buena (pérdida de datos confirmada)"
     owner: "Dev"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-09-20.md"
   - id: "epic-2-retro-item-10-b-2-chore-inmediato-color-medido-para-el"
     epic: 2
     action: "B-2 Chore inmediato: color medido para el mensaje de error de Ajustes;
       tokenizar el rol color de error y medirlo en el arnés"
     owner: "Dev"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-09-20.md"
   - id: "epic-2-retro-item-11-b-3-acotar-la-zancada-al-rango-en-que-la"
     epic: 2
     action: "B-3 Acotar la zancada al rango en que la fórmula es representable; el
       catch de metrics(at:) deja de ser preconditionFailure"
     owner: "Dev"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-09-20.md"
   - id: "epic-2-retro-item-12-b-4-resolver-el-solape-entre-la-frase-y"
     epic: 2
@@ -221,7 +221,7 @@ action_items:
     action: "B-7 Decidir A-4 (arnés de verificación de vistas): 8 diferidos dependen
       de él y creció un 60% en el épico"
     owner: "Paul"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-09-20.md"
   - id: "epic-2-retro-item-16-b-8-ejecutar-los-checks-de-dispositivo-d"
     epic: 2
