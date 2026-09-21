@@ -119,8 +119,10 @@ targets:
         # hace que el chrome que el sistema tiñe solo —controles, barra de pestañas— y
         # todo `.tint` heredado salgan del verde lima decidido el 2026-09-18.
         # `Colors.accent` es otra cosa: nombra el colorset directamente, sin pasar por el
-        # entorno, para que su contraste sea medible en un test. La sección 12 de
-        # `Scripts/check-project-shape.sh` comprueba que esta key sigue aquí.
+        # entorno, para que su contraste sea medible en un test. La sección 12c de
+        # `Scripts/check-project-shape.sh` comprueba que esta key sigue EN EL TARGET DE LA
+        # APP —moverla a otro target dejaba la app sin acento y el gate en verde— y que el
+        # colorset al que apunta existe en el árbol (B-5, 2026-09-20).
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         TARGETED_DEVICE_FAMILY: "1"
         # Solo los targets que ejecutan build phases lo desactivan.
