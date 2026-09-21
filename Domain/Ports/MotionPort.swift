@@ -2,8 +2,11 @@ import Foundation
 
 /// Conteo de pasos del coprocesador (CAP-2, CAP-3) — AD-7, AD-10, AD-11, AD-21.
 ///
-/// Dos modos que **no se combinan** (AD-21): actualizaciones continuas mientras hay
-/// sesión activa, y consulta por rango reservada a la reconciliación (AD-8).
+/// Dos modos cuyos resultados **no se suman** (AD-21): actualizaciones continuas mientras
+/// hay sesión activa, y consulta por rango reservada a la reconciliación (AD-8). Sí conviven
+/// —la reconciliación consulta con el stream abierto—: lo que entra por cada camino es un
+/// acumulado del mismo tramo, y el store se queda con el máximo visto. Sumarlos contaría dos
+/// veces el mismo paso.
 public protocol MotionPort: Sendable {
     /// Estado del permiso de Motion & Fitness, propiedad del adapter (AD-11).
     var status: PermissionStatus { get }

@@ -1,9 +1,16 @@
 ---
 id: DEROGACIONES-swiftui
 fecha: 2026-09-12
+actualizado: 2026-09-20
 companion_de: ARCHITECTURE-SPINE.md
 estado: vinculante
 ---
+
+> `fecha` es la de creación y no se mueve: es la fecha del pivot que este inventario registra.
+> `actualizado` es la de la última enmienda — **2026-09-20**, el chore A-5: §4 reescrita (tercer
+> color, condición del gate, ratios en oscuro que faltaban y la marca de fuente única de la tabla) y
+> §1 anotada con el estado abierto del wake lock. El spine companion lleva su propio `updated`, y
+> los dos apuntan ahora al mismo día.
 
 # Derogaciones y absorciones — pivot a SwiftUI
 
@@ -17,11 +24,24 @@ Una derogación sin heredero explícito es una pérdida silenciosa: esta tabla e
 | Líneas 27, 62, 179 — *"reutiliza el 90 % del código actual"*, *"el dominio y la UI no se tocan"* | **Anulado.** Falso desde AD-1 |
 | Comparativa que descartó SwiftUI *"por effort"* | **Anulada.** Recosteada en `OPCIONES-SUSTRATO.md` |
 | **AD-IOS-01** — appId `com.walktracker.app`, inmutable post-distribución | **ABSORBIDO → AD-1** |
-| Wake lock como limitación fundacional | **ABSORBIDO → AD-10** (`WakeLockPort`) |
+| Wake lock como limitación fundacional | **ABSORBIDO → AD-10** (`WakeLockPort`) — ⚠️ **con la absorción sin completar, ver la nota de abajo** |
 | Entitlements y usage strings | **ABSORBIDO → envoltura operativa del spine** |
 | Cuenta Apple Developer de pago | **ABSORBIDO → envoltura operativa** (sigue siendo A-1 del SPEC) |
 | Licencias Apache-2.0 / MIT | **Vigente**, con la enmienda de AD-24 (CC-BY admisible en fuentes de datos) |
 | Plugin `walktracker-kit`, adapters `Capacitor*`, `server.url`, `webDir` | **Anulados.** Sin heredero: no hay WebView |
+
+> ⚠️ **El wake lock: la absorción está declarada, no cumplida (anotado el 2026-09-20).** `WakeLockPort`
+> es uno de los 11 puertos del conjunto cerrado de AD-10 y **no está escrito**: el Epic 1 cerró con
+> sus seis historias en `done` sin él, ninguna lo asumió, la 1.6 lo excluye en sus Boundaries y no
+> hay `Adapters/WakeLock/` en el árbol. Esta fila decía "ABSORBIDO → AD-10" con la misma confianza
+> que `epics.md` afirmaba que "sobrevive como `WakeLockPort` en Epic 1", y esa frase ya está
+> corregida allí y en la nota de AD-10.
+>
+> **Aquí no se decide nada**: si el puerto sigue siendo necesario —ahora que el conteo funciona con
+> la pantalla bloqueada— y, si lo es, en qué epic, es la **pregunta abierta Q-3** de la
+> retrospectiva del Epic 1, y la tiene **Paul**. Lo único que cambia esta nota es que la fila deje
+> de leerse como trabajo hecho. [`epic-1-retro-2026-09-14.md`, S5 y Q-3; `ARCHITECTURE-SPINE.md`
+> AD-10; `epics.md`, historias anuladas 8.2]
 
 ## 2. `SPEC.md` — requiere enmienda (ciclo `bmad-spec` aparte)
 
@@ -56,30 +76,50 @@ nada que vaya a existir. Va en el mismo ciclo de `bmad-spec`.
 `UX-DR3`, `UX-DR4`, `UX-DR6` y `UX-DR8` siguen vigentes: espaciado, catálogo de componentes,
 accesibilidad WCAG AA y los seis flujos no dependen del sustrato.
 
-### Excepción declarada a UX-DR1 — dos colores propios (chore de tokens, 2026-09-18)
+### Excepción declarada a UX-DR1 — tres colores propios (chore de tokens 2026-09-18; ampliada por B-2 el 2026-09-20)
 
 La derogación sigue en pie: **no vuelve la paleta Volt** y ninguna vista cablea un hexadecimal. Lo que
-se promueve a excepción es distinto, y son exactamente **dos colores**, en
-`WalkTracker/Resources/Assets.xcassets/`:
+se promueve a excepción es distinto, y son exactamente **tres colores**, en
+`WalkTracker/Resources/Assets.xcassets/`.
+
+> 📍 **Esta tabla es la fuente única de los tres colores.** `ARCHITECTURE-SPINE.md` (AD-13) y
+> `epics.md` (UX-DR1, UX-DR6) remiten aquí y **no repiten los datos**: cuando los repetían, la copia
+> de AD-13 ya se había quedado sin los ratios en oscuro de `ErrorMessage`. Los hexadecimales salen
+> del catálogo y los ratios de `WalkTrackerTests/UI/DesignTokensTests.swift`, que los recalcula con
+> la fórmula de WCAG 2.1 en cada ejecución de la suite. *(Completada el 2026-09-20: faltaban los dos
+> ratios en oscuro de `EstimatedSteps`, que no estaban escritos en ninguno de los tres documentos.)*
 
 | Colorset | Claro | Oscuro | Por qué existe |
 | --- | --- | --- | --- |
 | `AccentColor` | `#4F7200` oliva — **5,62:1** sobre blanco | `#CCFF00` lima — **17,87:1** sobre negro | El acento de la app **no estaba elegido**: sin él `.tint` salía azul del sistema *por omisión, no por decisión*. Recupera el `#CCFF00` de UX-DR1 **solo en oscuro**; en claro el `#CC9900` original da 2,58:1 e incumple AA, así que se sustituye por un oliva |
-| `EstimatedSteps` | `#A34F00` — **5,71:1** sobre blanco, **4,81:1** sobre el fondo del propio aviso | `#FF9F0A` (el naranja del sistema) | El `.orange` del sistema daba **2,20:1 sobre blanco**: un incumplimiento WCAG AA **vivo en producción**, que AD-13 por sí solo no arreglaba porque el color del sistema *era* el problema |
+| `EstimatedSteps` | `#A34F00` — **5,71:1** sobre blanco, **4,81:1** sobre el fondo del propio aviso | `#FF9F0A` (el naranja del sistema) — **10,22:1** sobre negro, **8,87:1** sobre el fondo del propio aviso | El `.orange` del sistema daba **2,20:1 sobre blanco**: un incumplimiento WCAG AA **vivo en producción**, que AD-13 por sí solo no arreglaba porque el color del sistema *era* el problema. En oscuro el naranja del sistema sí cumple con holgura, y por eso se conserva tal cual: la variante clara es la que hubo que sustituir |
+| `ErrorMessage` | `#D70015`, el rojo accesible que Apple publica para este uso — **5,38:1** sobre blanco, **4,83:1** sobre el gris agrupado claro | `#FF453A` (el rojo del sistema) — **6,16:1** sobre negro, **4,99:1** sobre el gris agrupado oscuro | **Añadido por B-2.** El chore de tokens sustituyó `.orange` por incumplir AA y **la primera pantalla posterior eligió `Color.red`**, que da 3,55:1 sobre blanco y 3,18:1 sobre el gris agrupado: el mismo fallo por la misma puerta, el mismo día del merge. Lo que faltaba no era el color, era el **rol** medido. Es el color de **un error** —algo que se rechazó—, no el de todo lo que avisa: el aviso de rango humano se guardó y se distingue por jerarquía |
+
+Los **ocho fondos** contra los que se mide son los reales de cada sitio, y están enumerados en el
+arnés: fondo de pantalla (blanco / negro), gris agrupado (`#F2F2F7` / `#1C1C1E`), el cristal de la
+pre-pantalla de ubicación (`#EFEFF4` / `#2C2C2E`, el borde desfavorable de lo que `.regular` puede
+rendir) y el fondo tintado del propio aviso —el mismo color al **12 %** (`Surface.noticeTintOpacity`)
+sobre el fondo de pantalla—, que es el caso más apretado.
 
 Las condiciones de la excepción, y son las que la hacen compatible con AD-13:
 
 - Son **colorsets con variante clara y oscura**, no hexadecimales en código. Las vistas los
-  referencian por nombre (`Colors.accent`, `Colors.estimated`, en
+  referencian por nombre (`Colors.accent`, `Colors.estimated`, `Colors.error`, en
   `WalkTracker/UI/Style/DesignTokens.swift`); el hexadecimal solo existe dentro del catálogo.
 - El **contraste está medido** en los dos temas contra el fondo real sobre el que se pintan, y
   `WalkTrackerTests/UI/DesignTokensTests.swift` lo **recalcula en cada ejecución de la suite**: si
-  alguien retoca un colorset y cae de 4,5:1, la suite lo dice.
+  alguien retoca un colorset y cae de 4,5:1, la suite lo dice. Desde B-2 mide también la **separación
+  de tono** (≥ 30°) entre los tres, para que el eje que los distingue no sea solo la luminancia.
 - `Scripts/check-project-shape.sh` (sección 12) **falla** si una vista escribe un hexadecimal, un
-  color por componentes o `.orange`. La excepción es de dos ficheros del catálogo, no una puerta
+  color por componentes, o **cualquiera de los doce colores cromáticos con nombre de SwiftUI**
+  (`.red`, `.orange`, `.yellow`, `.green`, `.mint`, `.teal`, `.cyan`, `.blue`, `.indigo`, `.purple`,
+  `.pink`, `.brown`). **Desde B-2 el gate veta la familia cromática, no un nombre**: antes vetaba
+  `.orange` en concreto, y `Color.red` pasó en verde precisamente porque no se llamaba `.orange`.
+  Los **roles** del sistema —`.primary`, `.secondary`, `.tint`— y los acromáticos sí se usan: su
+  contraste lo garantiza el sistema. La excepción es de tres ficheros del catálogo, no una puerta
   abierta a una paleta.
 - El resto de la paleta sigue siendo del sistema y se referencia por su nombre (`.secondary`,
-  `.fill.quaternary`): esto son **dos decisiones de color**, no una capa de apariencia.
+  `.fill.quaternary`): esto son **tres decisiones de color**, no una capa de apariencia.
 
 ## 5. Requisitos adicionales de los epics (`AR-*`)
 

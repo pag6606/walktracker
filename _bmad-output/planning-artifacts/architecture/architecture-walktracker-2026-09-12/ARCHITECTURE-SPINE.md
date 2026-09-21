@@ -7,7 +7,7 @@ paradigm: 'hexagonal (ports & adapters) con un único escritor en el main actor'
 scope: 'App iOS nativa SwiftUI que reemplaza el stack Capacitor/WebView. Gobierna dominio, aplicación, adapters de sistema, UI y la extensión de Live Activity.'
 status: final
 created: '2026-09-12'
-updated: '2026-09-12'
+updated: '2026-09-20'
 binds: [CAP-1, CAP-2, CAP-3, CAP-4, CAP-5, CAP-6, CAP-7, CAP-8, CAP-9, CAP-10, CAP-11, CAP-12, CAP-13, CAP-14, CAP-15, CAP-17, CAP-18]
 sources:
   - ../../../specs/spec-walktracker-ios/SPEC.md
@@ -143,19 +143,22 @@ permite **validar el arnés de vectores contra un runtime que ya existe**, antes
 
 - **Binds:** CAP-3, CAP-1
 - **Prevents:** cerrar una sesión con pasos que llegan tarde; que `finish()` compita con una query en vuelo; y confiar en una query que falla en silencio
-- **Rule:** al volver a foreground, la reconstrucción del gap es **atómica**: mientras dura, `SessionStore` rechaza todo comando y la UI los deshabilita. `reconciling` es estado del **store**; `SessionStatus` sigue siendo `idle / active / paused / finished`. **`queryPedometerData` solo cubre 7 días y, pasado ese rango, devuelve datos parciales sin señalar error** — un gap con inicio anterior a 7 días **no se consulta**: se degrada directamente a estimación marcada `~`. La operación está acotada por timeout; al agotarse degrada igual y libera los comandos. Atómico sin timeout es un bloqueo con buenos modales.
+- **Rule:** al volver a foreground, la reconstrucción del gap es **atómica**: mientras dura, `SessionStore` rechaza todo comando y la UI los deshabilita. El flag es **`isReconciling`**, y es estado del **store**, nunca del agregado. **`SessionStatus` tiene tres casos: `active / paused / finished`.** No hay `idle`: "antes de iniciar" no es un estado del agregado, es que **no hay sesión** —`session == nil` en el store—, y modelarlo como cuarto caso obligaría a cada `switch` del dominio a tratar un estado que nunca existe. **`queryPedometerData` solo cubre 7 días y, pasado ese rango, devuelve datos parciales sin señalar error** — un tramo de más de 7 días **no se consulta**: se pasa directamente al estimador. La operación está acotada por timeout; al agotarse libera los comandos igual. Atómico sin timeout es un bloqueo con buenos modales.
+
+  **El tramo y el gap no son lo mismo, y cada condición mira el suyo.** La condición de los 7 días mira el **tramo** —`[segmentStart, end]`, que es lo que se consulta—, mientras que la estimación se hace sobre el **gap** —`[backgroundedAt, end]`, el tiempo en background—. Por eso "no se consulta" **no equivale** a "no se estima": un tramo viejo con un gap corto **sí estima**, y lo que decide es si el **gap** cabe en `maxEstimableGapS` (20 min hoy). Si no hay `backgroundedAt` no hay gap que reconstruir y la reconciliación sale sin estimar y sin escribir nada en el registro. Es literalmente lo que dice el código al tomar ese camino: *"Tramo de más de 7 días: no se consulta; se estima solo si el gap cabe en el tope"*.
+
+  **Cualquier respuesta no nula del sistema es dato** (R1, medido en el iPhone 14 el 2026-09-17): corta la estimación aunque traiga menos pasos de los ya vistos, porque el sistema consolida su histórico con retraso y la consulta va unos pasos por detrás del stream. Como `record` nunca resta, un acumulado menor no baja nada. Solo la **ausencia** de respuesta —`nil`, error, timeout o un tramo de más de 7 días— abre la puerta a estimar, y aun entonces `GapEstimator.outcome` decide con cuatro guardas en orden: la precondición de sesión `active`, y **las tres defensas** que nombra el código —el stream **no ha avanzado** ya sobre el gap, la **cadencia se toma en el inicio del gap** (y por debajo de `minPriorSampleS` = 120 s no hay cadencia representable, regla anterior a R1: `domain-model.md §4`) y el **tope** `maxEstimableGapS`—. *(Enmendado el 2026-09-20: esta regla decía que un tramo de más de 7 días "se degrada a estimación marcada `~`", y que se estimaba con el puerto devolviendo `null` **o vacío**. Las dos dejaron de ser ciertas con R1. **Re-enmendado el mismo día**: la primera reescritura decía que con más de 7 días "no se estima nada" y que "el registro dice que cortó el tope" — también falso, por confundir el tramo con el gap.)* [`SessionStore+Reconciliation.swift:23-26`, `:46`, `:60-95`; `GapEstimator.swift:18-20`, `:95-102`; spec-r1]
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Idle
-    Idle --> Active: iniciar
+    [*] --> Active: iniciar (antes no hay sesión, no un estado idle)
     Active --> Paused: pausar (explícita)
     Paused --> Active: reanudar
     Active --> Finished: finalizar
     Paused --> Finished: finalizar
     Finished --> [*]
     note right of Active
-        store.reconciling = true al volver
+        store.isReconciling = true al volver
         de background: comandos rechazados
         hasta resolver o agotar timeout.
         El agregado NO cambia de estado.
@@ -172,10 +175,12 @@ stateDiagram-v2
 | --- | --- | --- |
 | `sessions.json` | Historial de sesiones finalizadas | `HistoryStore` |
 | `achievements.json` | Estado `{key, unlockedAt, progress}` | `AchievementsStore` |
-| `settings.json` | Zancada, meta, toggles | `SettingsStore` |
-| `activeSession.json` | Snapshot de la sesión viva, autosave cada 10 s | `SessionStore` |
+| `settings.json` | Ajustes del producto. **Hoy: `recentQuoteIds` (ventana de frases) y `strideM`, que es un override *opcional*** — `nil` mientras nadie lo toque. La meta semanal y los toggles **aún no existen**: entran con la 3.1 y la 4.2 | `SettingsStore` |
+| `activeSession.json` | Snapshot de la sesión viva; se guarda **por evento y por muestras, nunca con un temporizador** (ver abajo) | `SessionStore` |
 
 `activeSession.json` es lo que hace posible la recuperación tras force-quit que CAP-1 y CAP-9 exigen (`domain-model.md §8`). **`§8` lo define en milisegundos; el dominio trabaja en segundos** — la conversión ocurre en el adapter de persistencia, nunca dentro.
+
+**El autosave no es periódico, y decir "cada 10 s" lo describía mal.** El snapshot se escribe al **iniciar, pausar, reanudar, pasar a background y reconciliar**, más con la **muestra del podómetro** que llegue al menos `autosaveIntervalS` (**10 s**) después del último guardado. Los 10 s son un **espaciado mínimo entre escrituras por muestra**, no una cadencia: quieto no hay muestras y no hay escrituras, que es justo lo que AD-21 exige de cualquier unidad que quiera gastar presupuesto. Un temporizador de autosave escribiría con la sesión parada y sin nada que guardar. Se borra al finalizar. *(Enmendado el 2026-09-20; antes esta tabla decía "autosave cada 10 s".)* [`SessionStore.swift:29-32`, `SessionStore+StepCounting.swift:90`; AD-21; retro del Epic 1, S4]
 
 **Export (CAP-14) es un contrato propio, no "el mismo formato".** El JSON de export **sí** reutiliza la serialización de `sessions.json`. El **CSV no**: es un segundo serializador y se especifica aquí porque dos historias lo escribirían distinto — columnas en este orden `fecha;hora;duracion_s;pasos_medidos;pasos_estimados;distancia_m;ritmo_s_km;fuente`, **separador de campo `;` y decimal `,`** (UI en español, y `,` como decimal rompe el CSV con separador `,`), cabecera siempre presente, UTF-8 con BOM para que Numbers y Excel lo abran sin pelear. El **import solo acepta JSON**, nunca CSV.
 
@@ -187,7 +192,9 @@ stateDiagram-v2
 
 `MotionPort` · `LocationPort` · `WeatherPort` · `HealthPort` · `FeedbackPort` · `NotificationPort` · `LiveActivityPort` · `WakeLockPort` · `StoragePort` · `ClockPort` · `RandomPort`
 
-`ClockPort` y `RandomPort` existen porque el dominio no puede llamar a `Date()` ni a un generador aleatorio: sin ellos, `MotivationEngine` (CAP-6) y todo cálculo temporal son invectorizables. `WakeLockPort` (`UIApplication.isIdleTimerDisabled`) recoge el wake lock que el PLAN derogado gobernaba y que si no se pierde. `LocationPort` es independiente de `WeatherPort`: **redondea las coordenadas a 2 decimales antes de entregarlas**, cumpliendo la restricción de Privacidad del SPEC en el único punto donde es verificable.
+`ClockPort` y `RandomPort` existen porque el dominio no puede llamar a `Date()` ni a un generador aleatorio: sin ellos, `MotivationEngine` (CAP-6) y todo cálculo temporal son invectorizables. `WakeLockPort` (`UIApplication.isIdleTimerDisabled`) recogería el wake lock que el PLAN derogado gobernaba y que si no se pierde. `LocationPort` es independiente de `WeatherPort`: **redondea las coordenadas a 2 decimales antes de entregarlas**, cumpliendo la restricción de Privacidad del SPEC en el único punto donde es verificable.
+
+> ⚠️ **Estado al 2026-09-20: de los 11 existen 9.** Faltan `NotificationPort`, que **tiene dueño** —la historia **6.2**—, y `WakeLockPort`, que **no lo tiene**: el Epic 1 cerró sin él, ninguna de sus seis historias lo asumió y la 1.6 lo excluye en sus Boundaries. Qué hacer con él es la **pregunta abierta Q-3** de la retrospectiva del Epic 1 (*¿sigue siendo necesario, ahora que el conteo funciona con la pantalla bloqueada? Si lo es, ¿en qué epic?*), y **no se decide aquí**. El conjunto sigue cerrado como regla: lo que esta nota dice es que dos de sus miembros aún no están escritos, no que el conjunto cambie. [`epic-1-retro-2026-09-14.md`, S5 y Q-3]
 
 ### AD-11 — El permiso lo posee el adapter; la degradación es una sola tabla
 
@@ -204,6 +211,8 @@ stateDiagram-v2
 | Notificaciones denegadas | Recordatorios off en silencio |
 | Live Activity no disponible | Se omite. No es fallo de sesión |
 
+> ⚠️ **La tabla vincula; el tipo `DegradationPolicy` no existe.** Esta regla dice "una única `DegradationPolicy`", el Structural Seed la lista en `Application/`, y `Domain/Ports/PermissionStatus.swift:7` la **cita por su nombre** — pero **no hay tal tipo en el árbol**. Lo que existe es la tabla de arriba, cumplida a mano en cada sitio. El Epic 2 tenía el encargo explícito de reconciliarlo (era la primera degradación no bloqueante) y **no se hizo ni se registró**. **Dueño: el action item `B-9`** de la retrospectiva del Epic 2 (*"reconciliar el encargo de S6: `DegradationPolicy`, que no existe y se cita en `PermissionStatus.swift:7`"*). **No se decide aquí** si el tipo debe existir o si la tabla se cumple por convención: este chore solo deja de afirmar que ya está. [`epic-2-retro-2026-09-20.md`, D6 y B-9; retro del Epic 1, S6]
+
 ### AD-12 — Swift 6, concurrencia estricta completa
 
 - **Binds:** todo
@@ -215,6 +224,12 @@ stateDiagram-v2
 - **Binds:** toda la UI
 - **Prevents:** recrear a mano la estética iOS 17 plana de los mockups v3, peleando contra el SDK
 - **Rule:** controles SwiftUI nativos; compilar contra el SDK de iOS 26 adopta Liquid Glass automáticamente. **Prohibida la key `UIDesignRequiresCompatibility`** (además, el sistema la ignora al compilar para iOS 27+: la adopción es inevitable, mejor asumirla). Para superficies propias se usan las APIs de adopción —`.glassEffect`, `GlassEffectContainer`, `ConcentricRectangle`—, nunca materiales dibujados a mano. Los colores del sistema se referencian, no se cablean en hexadecimal. Dibujo a medida limitado a **tres piezas**: anillo de meta, gráfico de tendencia, insignia de logro. Las cabeceras de sección ya **no** se renderizan en mayúsculas: los textos del String Catalog se escriben en su capitalización final.
+
+  **Excepción declarada: tres colores propios** (chore de tokens 2026-09-18, ampliada por B-2 el 2026-09-20) — `AccentColor`, `EstimatedSteps` y `ErrorMessage`, como colorsets en `Resources/Assets.xcassets/`. Un color del sistema puede *ser* el problema: `.orange` daba **2,20:1** sobre blanco y `Color.red` da **3,55:1**, los dos por debajo del 4,5:1 que WCAG AA exige para texto normal, y los dos entraron en producción por esta puerta. Por eso el producto decide **exactamente tres** colores, y no más.
+
+  **Los hexadecimales, los roles y los ratios medidos viven en un solo sitio: `DEROGACIONES.md §4`.** No se repiten aquí. Duplicar una tabla de datos es cómo divergen: esta misma copia llegó a omitir los ratios en oscuro de `ErrorMessage` que §4 sí daba, y el argumento contra duplicar el `0,655` vale igual para un ratio de contraste.
+
+  Lo que esta regla sí fija, porque es la condición de la excepción y no un dato: son **colorsets con variante clara y oscura**, no hexadecimales en código; las vistas los referencian por nombre desde `UI/Style/DesignTokens.swift`; el **contraste está medido** contra el fondo real en los **dos** temas y `WalkTrackerTests/UI/DesignTokensTests.swift` lo **recalcula en cada ejecución de la suite**; y `Scripts/check-project-shape.sh` (sección 12) **veta la familia cromática entera** del sistema en `UI/`, no un color por su nombre. El resto de la paleta sigue siendo del sistema y se usa por su **rol** (`.primary`, `.secondary`, `.tint`), cuyo contraste garantiza el sistema. [`DEROGACIONES.md §4` — **fuente única de la tabla**; spec-ux-tokens-nativos, spec-b2]
 
 ### AD-14 — La sesión activa es un modo, no un destino
 
@@ -263,7 +278,7 @@ stateDiagram-v2
 - **Binds:** NFR-8, CAP-2, CAP-4, CAP-18, Success signal
 - **Prevents:** que cada unidad elija su propia frecuencia de actualización y la suma incumpla "30 min sin degradación notoria (≤ 5 % de caída)" — el criterio de éxito del SPEC, enmendado el 2026-09-13
 - **Rule:** tres cadencias, fijadas aquí porque varias unidades deben compartirlas:
-  - **Conteo:** `CMPedometer` en modo continuo mientras hay sesión activa; la query histórica se reserva a la reconciliación de AD-8. No se combinan.
+  - **Conteo:** `CMPedometer` en modo continuo mientras hay sesión activa; la query histórica se reserva a la reconciliación de AD-8. **Sus resultados no se *suman*.** Las dos fuentes **sí conviven** —la reconciliación consulta con el stream abierto, y así lo hacen la 1.5 y la 1.6—: lo que está prohibido es acumular las dos como si fueran incrementos independientes. El mecanismo que lo garantiza es que ambas entran por el mismo camino y el store **se queda con el máximo acumulado visto** (`highestCumulativeSteps`), así que lo que el stream entregue después de una consulta no vuelve a contarse. *(Enmendado el 2026-09-20: decía "No se combinan", y esa redacción daba pie a leer que no pueden estar abiertas a la vez, que no es la intención.)* [`SessionStore+Reconciliation.swift:19-21`, `SessionStore+StepCounting.swift:71-73`; retro del Epic 1, R10]
   - **UI:** el cronómetro refresca a **1 Hz** y solo redibuja la vista de sesión. Las métricas derivadas se recalculan con el dato del coprocesador, no con el tick.
   - **Live Activity:** actualización **por evento** (cambio de km, pausa, reanudación, fin), nunca periódica. El reloj lo anima la extensión con `Text(timerInterval:)`, coste cero de actualizaciones.
   - La medición de 30 min en el iPhone 14 es **gate de la historia 8.4**, que corre **al terminar el Epic 1** y antes de los epics 2–7: no es un chequeo posterior. Mide conteo y UI; la cadencia de la Live Activity la recomprueba la 7.2 con el mismo umbral. *(Reubicado y enmendado el 2026-09-13; antes "60 min" y "gate de la historia final".)*
@@ -284,7 +299,9 @@ stateDiagram-v2
 
 - **Binds:** CAP-5, restricción de Licencias del SPEC
 - **Prevents:** incumplir una licencia por no haberla mirado
-- **Rule:** Open-Meteo se publica bajo **CC-BY 4.0**, que exige atribución visible — no es copyleft, pero tampoco es Apache-2.0/MIT como la restricción del SPEC presupone. La atribución va en Ajustes → Acerca de, y la restricción de licencias del SPEC se enmienda para admitir CC-BY en fuentes de datos (no en código). Sustituir Open-Meteo por WeatherKit elimina la obligación y es un cambio de adapter (AD-10).
+- **Rule:** Open-Meteo se publica bajo **CC-BY 4.0**, que exige atribución visible — no es copyleft, pero tampoco es Apache-2.0/MIT como la restricción del SPEC presupone. La atribución **debe ir** en Ajustes → Acerca de, y la restricción de licencias del SPEC se enmienda para admitir CC-BY en fuentes de datos (no en código). Sustituir Open-Meteo por WeatherKit elimina la obligación y es un cambio de adapter (AD-10).
+
+  > ⚠️ **Abierto — no está cumplido, y esta regla lo daba por hecho.** Hasta el 2026-09-20 esta línea decía *"la atribución **va** en Ajustes → Acerca de"* en presente, como si describiera el producto. **No es así:** la atribución acabó en `WeatherCard.swift`, **dentro de `if let weather`**, así que no se ve sin clima ni fuera de una sesión; la 2.3 creó Ajustes y la excluyó con un comentario, que no es un destino. Es una **obligación de licencia** incumplida. **Dueño: el action item `B-9`** de la retrospectiva del Epic 2 (*"dar destino a la atribución de AD-24"*). Aquí el documento deja de afirmar que está resuelto; **el trabajo es de B-9 y no se hace en este chore**. [`epic-2-retro-2026-09-20.md`, D6 y B-9]
 
 ## Consistency Conventions
 
@@ -301,7 +318,8 @@ stateDiagram-v2
 | Textos | String Catalog (`Localizable.xcstrings`), en su capitalización final. Sin literales de UI dispersos: es donde se sostiene "celebrar, nunca culpar" |
 | Accesibilidad | VoiceOver con etiquetas que dicen la magnitud completa ("3,2 kilómetros"; los pasos estimados se anuncian como estimados). Dynamic Type sin recortes. Reduce Motion respetado. Las tres piezas dibujadas de AD-13 requieren etiqueta explícita: un `Canvas` no la trae |
 | Estado | Mutación solo por métodos de intención en los stores. Nunca escritura directa a una propiedad publicada desde una vista |
-| Tests | Swift Testing para dominio y aplicación; XCUITest diferido. Todo cálculo del dominio pasa por AD-6 antes que por un test a mano |
+| Constantes | Una constante va a `Resources/formulas.json` si es una **calibración medible**: un número que una medición en el iPhone puede cambiar sin cambiar ninguna regla (`defaultStrideM`, `reconciliationTimeoutS`, `orphanSessionThresholdS`, `maxEstimableGapS`). **No** van al fichero, y viven en el código junto a la regla que las usa: los **hechos del sistema** (los 7 días de histórico de `queryPedometerData`), las **reglas de producto** (el rango humano 0,3–1,2 m: avisa, no calibra), los **límites derivados** de la aritmética (`maxRepresentableStrideM`, que sale de la fórmula y no se elige) y las **cadencias de AD-21** (1 Hz de la UI, "por evento" de la Live Activity), que son decisiones de arquitectura y no parámetros. La prueba: si el número se pudiera medir de nuevo y el cambio fuera legítimo sin tocar nada más, va al JSON — el criterio es que el número **admita** una medición que lo cambie, no que esa medición se haya hecho. **Salir de `provisional` tiene por tanto dos caminos, y los dos están usados:** el valor se **mide** (`reconciliationTimeoutS`, fijado en 1 s por la 8.4 con la regla de Paul del 2026-09-14) o se **decide**, cuando la medición no es viable y esperarla bloquearía (`orphanSessionThresholdS`, que no es medible en una caminata de 30 min y se quedó en 6 h como **valor decidido, no medido**). Lo que la marca `provisional` significa es "este número aún no está fijado", no "aún no está medido"; lo que nunca debe perderse es **cuál de los dos caminos** lo fijó, y eso se escribe donde se fija [`8-4-medicion-referencia.md:104-105`, `:189`] |
+| Tests | Swift Testing para dominio y aplicación. Todo cálculo del dominio pasa por AD-6 antes que por un test a mano. **XCUITest está descartado** (2026-09-20), no diferido: la lógica de presentación se extrae a tipos probables sin SwiftUI y se prueba con la suite que ya existe — sin target nuevo, sin fragilidad y sin romper la regla de cero dependencias de terceros. Lo que eso **no** cubre son los solapes entre capas, que solo se ven renderizando, y esos van a verificación manual [`decisiones-2026-09-20.md` D1] |
 | Logging | `OSLog` con subsistema propio. Sin telemetría, sin red, sin terceros |
 
 ## Stack
@@ -326,27 +344,38 @@ mueve durante el desarrollo es el dispositivo, congelado en iOS 26 por decisión
 
 ## Structural Seed
 
+**Esto es el árbol *objetivo*, no un inventario de lo que hay hoy.** Fija dónde va cada cosa cuando
+se escriba; buena parte aún no existe, y así debe ser a mitad de los epics. Para que no se lea como
+inventario, lo que **todavía no está en el árbol** al **2026-09-20** lleva `⏳` con la historia que lo
+trae. El `⚠️` es distinto y solo hay uno: algo que el propio documento —y el código— dan por
+existente sin estarlo.
+
 ```text
 WalkTracker/
   App/                      # entrada + composition root (único sitio que conoce todas las capas)
-  Domain/                   # PURO — solo Foundation
+  Domain/                   # PURO — solo Foundation · (vive en `Domain/` en la raíz, no bajo `WalkTracker/`)
     Session.swift  Metrics.swift  Calibration.swift
-    Engines/                # Goal · Achievement · Motivation · GapEstimator
-    Ports/                  # los 11 puertos de AD-10
+    Engines/                # Goal ⏳3.1 · Achievement ⏳3.2 — los dos escritos viven fuera de
+                            #    `Engines/`: `Session/GapEstimator.swift` y `Motivation/MotivationEngine.swift`
+    Ports/                  # los 11 puertos de AD-10 — existen 9 (ver la nota de AD-10)
     DomainError.swift
   Application/
     SessionStore.swift      # @MainActor @Observable — escritor único (AD-7)
-    HistoryStore.swift  AchievementsStore.swift  SettingsStore.swift
-    DegradationPolicy.swift
+    SettingsStore.swift
+    HistoryStore.swift  AchievementsStore.swift     # ⏳ no existen — los trae la 5.1
+    DegradationPolicy.swift   # ⚠️ NO existe en el árbol, y AD-11 y `PermissionStatus.swift:7` lo citan
+                              #    como si existiera — abierto, dueño B-9 (ver AD-11)
   Adapters/
-    Motion/ Location/ Weather/ Health/ Feedback/ Notifications/
-    LiveActivity/ WakeLock/ Persistence/ Clock/ Random/
+    Motion/ Location/ Weather/ Health/ Feedback/ Persistence/ Clock/ Random/ LiveActivity/
+    Notifications/          # ⏳ no existe — la trae la 6.2, con `NotificationPort`
+    WakeLock/               # ⏳ no existe, y NO tiene historia dueña — pregunta abierta Q-3 (ver AD-10)
   UI/
-    Home/ Session/ Summary/ History/ Achievements/ Settings/
-    Components/             # GoalRing · TrendChart · AchievementBadge (las 3 de AD-13)
-    Format/
+    Home/ Session/ Settings/ Format/ Style/ Permission/
+    Summary/ History/ Achievements/   # ⏳ no existen — 1.4 dejó un resumen mínimo; las trae 3.3 / 5.2
+    Components/             # ⏳ no existe — GoalRing (3.1) · TrendChart (5.2) · AchievementBadge (3.3), las 3 de AD-13
   Resources/
     achievements.json  formulas.json  quotes.json  Localizable.xcstrings
+    Assets.xcassets/        # los 3 colorsets de la excepción de AD-13 (`DEROGACIONES.md §4`)
 Shared/                     # ActivitySnapshot + su formateo (AD-15) — target compartido
 WalkTrackerActivity/        # Widget Extension — solo render
 WalkTrackerTests/
@@ -383,12 +412,12 @@ Scripts/verify-domain.sh    # ejecuta ambos runtimes contra los vectores (AD-6)
 
 | Diferido | Por qué puede esperar |
 | --- | --- |
-| Valor del timeout de reconciliación y del umbral de sesión huérfana | AD-8 y AD-18 fijan que existen, dónde viven (`formulas.json`) y qué pasa al agotarse. Las historias 1.5 y 1.6 los introducen con **valores provisionales marcados**; la **8.4** los reemplaza por los medidos en el iPhone 14 (2026-09-13) |
+| ~~Valor del timeout de reconciliación y del umbral de sesión huérfana~~ | **Cerrado el 2026-09-14, y no de la misma forma los dos.** El **timeout se midió**: la regla de Paul sobre la duración máxima real de la consulta lo dejó en **1 s**. El **umbral de huérfana no es medible** en una caminata de 30 min y se quedó en **6 h** como **valor decidido, no medido** — lo que la 8.4 afirmaba reemplazar "por los medidos" solo se cumplió para uno. `provisional` está vacío [`8-4-medicion-referencia.md:104-105`, `:189`] |
 | Enumeración completa de `formulas.json` | El fichero existe desde el día uno; su contenido se llena al portar cada cálculo. Hay ≥ 30 constantes en el JS, con `0.655` triplicado — consolidarlas es parte del port, no una decisión previa |
 | Migración de esquema | `schemaVersion` presente desde el día uno; con arranque limpio (OQ-3) no hay nada que migrar |
 | Diseño visual de las tres piezas dibujadas | Depende de la v4 de mockups, congelada hasta este spine |
 | WeatherKit en lugar de Open-Meteo | Cambio de adapter, aislado por AD-10; eliminaría la obligación de AD-24 |
-| XCUITest | Un usuario, validación manual en dispositivo |
+| ~~XCUITest~~ | **Descartado el 2026-09-20, ya no es un diferido.** Decisión D1: la lógica de presentación se extrae a tipos probables sin SwiftUI y se prueba con la suite existente; sin target de XCUITest. Los solapes entre capas quedan en verificación manual, no esperando un arnés que no va a llegar [`decisiones-2026-09-20.md` D1] |
 | Dynamic Island | Sin hardware para validarla (iPhone 14). Solo debe compilar |
 
 ## Preguntas abiertas
@@ -397,5 +426,5 @@ Scripts/verify-domain.sh    # ejecuta ambos runtimes contra los vectores (AD-6)
 
 | Resuelta | Cómo |
 | --- | --- |
-| iOS 27 sale el 14 de septiembre y el dispositivo de validación se actualizaría | **Paul: el iPhone 14 se congela en iOS 26** hasta terminar el desarrollo; toolchain fijo en Xcode 26.6 / Swift 6.3.3. Consecuencias aceptadas en `SPEC.md` OQ-5: sin parches nuevos durante el ciclo, y la primera sesión tras actualizar a iOS 27 es revalidación obligatoria de CAP-2 y CAP-3 |
+| iOS 27 sale el 14 de septiembre y el dispositivo de validación se actualizaría | **Paul: el iPhone 14 se congela en iOS 26** hasta terminar el desarrollo; toolchain fijo en **Xcode 26.3 (17C529) / Swift 6.2.4**, que es lo que fija la tabla de Stack de arriba y lo que responde la máquina. Consecuencias aceptadas en `SPEC.md` OQ-5: sin parches nuevos durante el ciclo, y la primera sesión tras actualizar a iOS 27 es revalidación obligatoria de CAP-2 y CAP-3. *(Corregido el 2026-09-20: esta celda decía "Xcode 26.6 / Swift 6.3.3" y contradecía al propio Stack, que ya advertía que esas versiones "existen y no están aquí". Verificado con `swift --version` y `xcodebuild -version`.)* |
 | `SPEC.md` seguía declarando Capacitor como Constraint y la reescritura SwiftUI como Non-goal | **Enmendado el 2026-09-12.** Constraints, Non-goals, A-2, Licencias y companions actualizados; `capabilities.md` y `platform-matrix.md` reescritos a mecanismos nativos. Inventario en `DEROGACIONES.md §2` y `§3` |

@@ -9,16 +9,32 @@ inputDocuments:
   - _bmad-output/specs/spec-walktracker-ios/domain-model.md
   - _bmad-output/specs/spec-walktracker-ios/achievements.md
   - _bmad-output/specs/spec-walktracker-ios/platform-matrix.md
-  - _bmad-output/planning-artifacts/architecture/architecture-walktracker-2026-07-28/ARCHITECTURE-SPINE.md
+  - _bmad-output/planning-artifacts/architecture/architecture-walktracker-2026-09-12/ARCHITECTURE-SPINE.md
+  - _bmad-output/planning-artifacts/architecture/architecture-walktracker-2026-09-12/DEROGACIONES.md
   - _bmad-output/planning-artifacts/ux-designs/ux-walktracker-2026-07-04/DESIGN.md
   - _bmad-output/planning-artifacts/ux-designs/ux-walktracker-2026-07-04/EXPERIENCE.md
 ---
+
+> 🧭 **Corregido el 2026-09-20 — el puntero apuntaba a lo derogado.** Este frontmatter declaraba como
+> entrada `architecture/architecture-walktracker-2026-07-28/ARCHITECTURE-SPINE.md`: el spine de la era
+> **Capacitor**, que sigue en el repo junto a otros cinco y que **AD-1 derogó entero**. El documento
+> cuyo propósito es que el contexto se compile de lo vigente apuntaba a lo superado. Ahora apunta a
+> `architecture-walktracker-2026-09-12/`, y se añade su companion `DEROGACIONES.md`, que es
+> **vinculante** y sin el cual media docena de referencias de aquí (UX-DR*, AR-*, §5, §6) no aterrizan.
+>
+> **Comprobadas las demás entradas:** las cinco del paquete SPEC existen y están reconciliadas
+> (`platform-matrix.md` incluido, reescrito a mecanismos nativos). `DESIGN.md` y `EXPERIENCE.md` del
+> `2026-07-04` **siguen vigentes y no se tocan**: no están superados, sino **parcialmente derogados**
+> por `DEROGACIONES.md §4`, que mantiene UX-DR3, UX-DR4, UX-DR6 y UX-DR8 en pie — por eso el companion
+> tiene que leerse con ellos, y por eso entra en la lista.
 
 # WalkTracker iOS - Epic Breakdown
 
 ## Overview
 
-This document provides the complete epic and story breakdown for WalkTracker iOS, decomposing the requirements from the SPEC package, Architecture spine, and UX design into implementable stories. Es la reimplementación de la PWA v3 como app Capacitor instalable: el dominio validado se reutiliza intacto (salvo 2 correcciones de portación) y la frontera nativa aporta conteo 24/7, HealthKit, Live Activity, recordatorios y storage garantizado.
+This document provides the complete epic and story breakdown for WalkTracker iOS, decomposing the requirements from the SPEC package, Architecture spine, and UX design into implementable stories. Es la reimplementación de la PWA v3 como **app SwiftUI nativa**: el dominio validado se **porta a Swift idiomático** —no se reutiliza intacto, y la equivalencia se demuestra por los vectores de AD-6, nunca por parecido del código— y la frontera nativa aporta conteo 24/7, HealthKit, Live Activity, recordatorios y storage garantizado.
+
+> ⛔ **REESCRITO el 2026-09-12.** Esta frase decía *"app **Capacitor** instalable"* y *"el dominio validado se reutiliza **intacto** (salvo 2 correcciones de portación)"*. **AD-1** derogó Capacitor: no hay WebView ni capa híbrida. Y las "2 correcciones de portación" que AR-1 toleraba dejaron de ser excepciones: hoy la tabla de divergencias declaradas de **AD-6** tiene **dos filas, no cuatro**. Las que quedan son **obligatorias** y de plataforma —hora local en vez de UTC (**AD-19**) y código WMO en vez de regex—; las otras dos **eran defectos de la v3**, se corrigieron en la referencia el mismo día y por eso **salieron** de la tabla: `domain.js` ya pasa esos vectores y están tachadas en AD-6. Una divergencia declarada es una decisión que se mantiene, no un bug que se tolera. [`ARCHITECTURE-SPINE.md` AD-1, AD-6; `DEROGACIONES.md §1`, `§5`, `§6` (*"la tabla de divergencias declaradas pasa de cuatro filas a dos"*)]
 
 ## Requirements Inventory
 
@@ -75,7 +91,7 @@ This document provides the complete epic and story breakdown for WalkTracker iOS
   - > ⛔ **DEROGADO el 2026-09-12** → heredero: **—**. Sin WebView no hay `server.url` ni bundle local que gobernar. [`DEROGACIONES.md §5`]
 - **AR-7 (AD-C8)**: HealthKit write una vez al finalizar (dato inmutable completo); toda petición de permiso con pre-pantalla; recordatorios de meta idempotentes (cancel→schedule) desde GoalEngine al finalizar sesión y al abrir la app.
 - **AR-8 (Stack verificado)**: @capacitor/core/cli/ios 8.4.2, @capacitor/local-notifications 8.2.1, @capacitor-community/keep-awake 8.0.1, @capacitor/preferences 8.0.1 (todos MIT); iOS deployment target 16.1; Xcode 26+; Node ≥22; gestión con pnpm.
-  - > ⛔ **DEROGADO el 2026-09-12** → heredero: **AD-2 + Stack**. Stack Capacitor y target 16.1 sustituidos por Swift 6.3.3 / Xcode 26.6 / iOS 26.0. [`DEROGACIONES.md §5`]
+  - > ⛔ **DEROGADO el 2026-09-12** → heredero: **AD-2 + Stack**. Stack Capacitor y target 16.1 sustituidos por **Swift 6.2.4 / Xcode 26.3 (17C529) / iOS deployment target 26.0**, que es el toolchain **instalado y verificado en la máquina** (`swift --version`, `xcodebuild -version`) y lo que fija el Stack del spine. *(Corregido el 2026-09-20: esta línea decía "Swift 6.3.3 / Xcode 26.6", versiones que existen pero no son las del proyecto — el propio spine ya lo decía bien en su tabla de Stack.)* [`DEROGACIONES.md §5`; `ARCHITECTURE-SPINE.md` § Stack]
 - **AR-9 (Structural Seed)**: Repo único GitFlow; `walktracker-kit/` plugin local con podspec; `ios/` proyecto Xcode commiteado; `capacitor.config.json` sin `server.url`, `webDir` local; adapters nuevos `Capacitor*Adapter` en la capa web.
   - > ⛔ **DEROGADO el 2026-09-12** → heredero: **AD-23**. El seed estructural es el árbol SwiftUI, no el repo Capacitor. [`DEROGACIONES.md §5`]
 - **AR-10 (Port contracts)**: MotionPort nativo (`onSteps(cumulativeCount, distanceM?)`, `query→{steps,distanceM}|null`) y web (`onSample` @60 Hz); HealthKitPort (`writeWorkout` una vez); LiveActivityPort (`start/updateState/stop`); NotificationPort (`rescheduleWeeklyReminder` idempotente); KeepAwakePort (`acquire/release` en foreground).
@@ -90,6 +106,7 @@ This document provides the complete epic and story breakdown for WalkTracker iOS
 
 - **UX-DR1**: Design tokens Volt — canvas `#1A1A1A`/`#F5F5F7`, surface `#2A2A2A`/`#FFFFFF`, accent `#CCFF00`/`#CC9900`, secondary `#FF6600`, danger `#FF453A`, success `#30D158`, estimated `#FFB347`/`#CC7A00`, text `#FFFFFF`/`#1D1D1F`, muted `#999999`/`#666666`, border `#555555`/`#8E8E93`; dark-mode-first con light igual; sin gradientes (solo overlay), máx 2 colores cromáticos por pantalla.
   - > ⛔ **DEROGADO el 2026-09-12** → heredero: **AD-13**. Los tokens Volt (`#CCFF00`, `#1A1A1A`…) se sustituyen por colores del sistema y Liquid Glass heredado del SDK de iOS 26. Cablear hexadecimales pelea con la plataforma. [`DEROGACIONES.md §4`]
+  - > ℹ️ **Con una excepción declarada, y son exactamente tres colores.** El chore de tokens (2026-09-18) promovió dos y **B-2 añadió el tercero** (2026-09-20): los colorsets `AccentColor`, `EstimatedSteps` y `ErrorMessage`, en `WalkTracker/Resources/Assets.xcassets/`, con variante clara y oscura y **contraste medido contra el fondo real** sobre el que se pintan — `DesignTokensTests` lo recalcula en cada ejecución de la suite. No vuelve la paleta Volt y **ninguna vista cablea un hexadecimal**: se referencian por nombre desde `WalkTracker/UI/Style/DesignTokens.swift` y la sección 12 de `Scripts/check-project-shape.sh` lo impide. Son tres decisiones de color, no una capa de apariencia. **Los hexadecimales y los ratios medidos no se copian aquí:** viven en `DEROGACIONES.md §4`, que es su **fuente única**. [`DEROGACIONES.md §4`; spec-b2]
 - **UX-DR2**: Tipografía system-fonts (`-apple-system`); tokens: `metric-hero` 64px (48px mobile) 900, `metric-sub` 16px 700, `label` 11px 400, `body` 15px 400, `button-primary` 24px 900, `button-secondary` 14px 600, `header-title` 17px 700, `status-badge` 12px 600, `quote-hero` 28px (22px mobile) 700, `ring-value` 36px 900, `ring-label` 14px 600; Dynamic Type obligatorio con `clamp()` (hero ≤80px, quote ≤36px a 200%).
   - > ⛔ **PARCIAL el 2026-09-12** → heredero: **AD-13 + convención de accesibilidad**. `px`, `clamp()` y los tamaños fijos son conceptos de CSS y **no aplican**: en SwiftUI se usan estilos de texto del sistema y Dynamic Type. Lo que sobrevive es la intención — jerarquía con números grandes y escalado accesible sin recortes. [`DEROGACIONES.md §4`]
 - **UX-DR3**: Espaciado/Layout — escala 4/8/12/16/24/32 px; márgenes 16 px; card padding 20 px; goal ring 300 px diámetro centrado; touch targets ≥44 pt; safe areas `env(safe-area-inset-bottom)`; single-column siempre; modal máx 1 nivel.
@@ -97,7 +114,7 @@ This document provides the complete epic and story breakdown for WalkTracker iOS
 - **UX-DR5**: Arquitectura de información — 9 superficies (Home, Session, Motivational Overlay, Summary, Settings, History, Achievements, Motion Denied); navegación iconos top-right (⚙📋🏆) sin tab bar; screen replacements no modales; overlay transitorio; estados: cold open, active, paused, background→foreground (wall-clock + estimated banner), finished (Summary forward-only), goal completed, achievement unlocked, wake lock failed, no network, motion denied, empty history/achievements, backup overdue, recovery from purge.
   - > ⛔ **PARCIAL el 2026-09-12** → heredero: **AD-14**. La navegación con **iconos arriba a la derecha y sin tab bar** queda derogada: `TabView` de cuatro pestañas con la sesión como `fullScreenCover`. Lo que sobrevive es el inventario de superficies y la lista de estados (cold open, motion denied, empty history, recuperación…), que sigue siendo vinculante. [`DEROGACIONES.md §4`]
 - **UX-DR6**: Accesibilidad WCAG AA — VoiceOver completo (distance "3.2 kilómetros", steps con estimated, aria-labels en nav icons, overlay `role=dialog aria-modal`, toast `role=status aria-live=polite`, achievement locked aria-label); Dynamic Type con clamp; Reduce Motion (overlay sin fade, toast sin animación, ring instant); contraste verificado (accent-dark 15.4:1, estimated 7.2:1/4.6:1, muted 4.9:1/5.0:1); focus ring accent 2px; Escape dismiss; Tab order visual.
-  - > ⚠️ **TRADUCIDO el 2026-09-12** → la *intención* sigue vinculante (WCAG AA, VoiceOver completo, Dynamic Type sin recortes, Reduce Motion, contraste verificado), pero **sus mecanismos son de la web y no aplican**: `aria-label` → `.accessibilityLabel`, `role=dialog aria-modal` → presentación modal nativa, `role=status aria-live` → `.accessibilityAddTraits(.updatesFrequently)`, `focus ring`/`Tab order`/`Escape` → foco y descarte del sistema, `clamp()` → Dynamic Type. Los ratios de contraste se recalculan contra colores del sistema, no contra los tokens Volt de UX-DR1, que está derogado. Las tres piezas dibujadas de AD-13 necesitan etiqueta explícita: un `Canvas` no la trae. [`DEROGACIONES.md §4`]
+  - > ⚠️ **TRADUCIDO el 2026-09-12** → la *intención* sigue vinculante (WCAG AA, VoiceOver completo, Dynamic Type sin recortes, Reduce Motion, contraste verificado), pero **sus mecanismos son de la web y no aplican**: `aria-label` → `.accessibilityLabel`, `role=dialog aria-modal` → presentación modal nativa, `role=status aria-live` → `.accessibilityAddTraits(.updatesFrequently)`, `focus ring`/`Tab order`/`Escape` → foco y descarte del sistema, `clamp()` → Dynamic Type. Los ratios de contraste se recalculan contra colores del sistema —salvo los **tres** colorsets propios que `DEROGACIONES.md §4` declara como excepción (`AccentColor`, `EstimatedSteps`, `ErrorMessage`), medidos en los **dos** temas contra sus fondos reales por `WalkTrackerTests/UI/DesignTokensTests.swift`; **los números están en §4 y solo en §4**—, no contra los tokens Volt de UX-DR1, que está derogado. Las tres piezas dibujadas de AD-13 necesitan etiqueta explícita: un `Canvas` no la trae. [`DEROGACIONES.md §4`]
 - **UX-DR7**: Interacciones — tap-to-act (sin long-press/swipe); "Iniciar caminata" primary grande; beep feedback primario (inicio, km, meta, logro) volumen respetuoso; goal ring anchor 300 px; prohibidos: carousels, hero animations, badge counts, streaks, pull-to-refresh, swipe-to-delete; nuevos: overlay tap-skip, estimated banner dismissable, celebration toast non-blocking.
   - > ⛔ **PARCIAL el 2026-09-12** → heredero: **AD-20**. La **prohibición de swipe-to-delete queda derogada**: en iOS el swipe *es* el gesto de borrado y el icono en la fila es el antipatrón (B-11 de la validación). Sobrevive todo lo demás: tap-to-act, beep primario a volumen respetuoso, y las prohibiciones de carousels, hero animations, badge counts y pull-to-refresh. [`DEROGACIONES.md §4`]
 - **UX-DR8**: Flujos clave — 6 flows documentados (walk+progreso, meta cumplida, tendencia historial, logros, recalibración, motion denied).
@@ -261,9 +278,16 @@ So that mi caminata quede completa y correcta aunque la app no estuviera en prim
 **When** vuelvo a foreground (o finalizo la sesión)
 **Then** se consulta el sistema (`queryPedometerData` por rango) por los pasos de ese intervalo y se suman a `stepsMeasured`, con `stepsEstimated` permaneciendo en 0 [fuente: capabilities.md#CAP-3]
 
-**Given** que el sistema NO puede proveer el dato del intervalo en background
+**Given** que el sistema **no da respuesta** del intervalo en background (`nil`, error o timeout agotado)
 **When** se intenta reconstruir el gap
-**Then** se usa el `GapEstimator` como **degradación excepcional**: estimación por cadencia `stepsEstimated += cadenceSpm × (gapS/60)`, solo si la sesión está activa y hay muestra previa ≥ 120 s [fuente: domain-model.md#49, domain-model.md#73]
+**Then** se usa el `GapEstimator` como **degradación excepcional**: estimación por cadencia `stepsEstimated += cadenceSpm × (gapS/60)`, y solo si pasan, en este orden, las cuatro guardas de `GapEstimator.outcome`:
+
+1. **precondición** — la sesión está `active` (`notActive` en otro caso);
+2. el stream **no ha avanzado ya** sobre el gap (`stepsMeasured ≤` los medidos al empezar el gap), porque entonces esos pasos ya están contados;
+3. hay **cadencia representable**: la cadencia se toma **en el inicio del gap**, nunca con los pasos de ahora, y con menos de **120 s** de sesión en ese instante no hay muestra previa que la sostenga;
+4. el gap **cabe en `maxEstimableGapS`** de `formulas.json` (20 min hoy).
+
+Las tres últimas son **"las tres defensas"**, que es como las nombra el código. **R1** (2026-09-17) puso la 2, la 4 y la mitad de la 3 —que la cadencia se tome **en el inicio del gap** y no con los pasos de ahora—. **El mínimo de 120 s no es de R1**: es anterior, y el propio `GapEstimator` lo atribuye a `domain-model.md §4`. Si alguna guarda corta, no se estima nada y el registro dice **qué defensa actuó** — un 0 no distingue "el tope cortó" de "estimó y salió 0" [fuente: domain-model.md#49, domain-model.md#73; `Domain/Session/GapEstimator.swift:18-20`, `:95-102`; spec-r1]
 
 **Given** una estimación por cadencia aplicada a un intervalo
 **When** se muestra en la UI
@@ -271,15 +295,17 @@ So that mi caminata quede completa y correcta aunque la app no estuviera en prim
 
 **Given** una estimación por cadencia marcada "~"
 **When** el usuario elige descartarla
-**Then** `stepsEstimated` vuelve a 0 para ese gap y la distancia/ritmo se recomputan sin ella
+**Then** `stepsEstimated` vuelve a **0 entero** —el descarte es **global**, no "de ese gap": hay un único contador de estimados por sesión— y la distancia y el ritmo se recomputan sin ellos [fuente: `Domain/Session/Session.swift:205-218`; retro del Epic 1, S2]
 
 **Given** una sesión en estado `paused` (o finalizada) con un gap
 **When** se intenta estimar pasos por cadencia
 **Then** no se estima nada: gap = 0 — la estimación solo opera sobre sesiones activas [fuente: domain-model.md#49]
 
-**And** la consulta al sistema pasa por el `MotionPort` (`query→{steps, distanceM}|null`); el `GapEstimator` vive en el dominio puro y solo se invoca cuando el puerto devuelve `null` o vacío [fuente: ARCHITECTURE-SPINE.md AR-3, AR-10]
+**And** **estimar** solo opera sobre sesiones `active`, pero **descartar** se permite en `active` **y en `paused`** —el Estimated Banner también se ve en pausa—, y diverge a propósito de la v3, cuyo `addEstimatedSteps(-n)` lanzaba en pausa; solo una sesión `finished` lo rechaza. Las dos reglas son distintas y conviene no leer una por la otra [fuente: `Domain/Session/Session.swift:195-218`; retro del Epic 1, S2]
 
-**And** la consulta al sistema está acotada por el **timeout de reconciliación** de AD-8, leído de `formulas.json`: esta historia lo introduce con un **valor provisional marcado como tal** en el fichero, y la historia **8.4** lo reemplaza por el valor medido en el iPhone 14 [AD-8, reubicación del 2026-09-13]
+**And** la consulta al sistema pasa por el `MotionPort` (`query→{steps, distanceM}|null`); el `GapEstimator` vive en el dominio puro y solo se invoca cuando el puerto **no da respuesta** — `null`, error o timeout. **Cualquier respuesta no nula es dato y corta la estimación**, aunque traiga menos pasos de los ya vistos: el sistema consolida su histórico con retraso y la consulta va unos pasos por detrás del stream, y `record` nunca resta, así que un acumulado menor no baja nada. "Vacío" no es un caso aparte de "sin dato" (R1, zanjado midiendo en el iPhone 14 el 2026-09-17). **Y un quinto caso de "sin respuesta" es un tramo de más de 7 días**, que **no se consulta** y pasa directo al estimador: ojo a que la condición de los 7 días mira el **tramo** (`[segmentStart, end]`) y la estimación se hace sobre el **gap** (`[backgroundedAt, end]`), así que un tramo viejo con un gap corto **sí estima** — decide `maxEstimableGapS`, no la antigüedad del tramo [fuente: `WalkTracker/Application/SessionStore+Reconciliation.swift:23-26`, `:46`, `:60-95`; spec-r1; **AD-8**, **AD-10** — AR-3 y AR-10 están derogados, `DEROGACIONES.md §5`]
+
+**And** la consulta al sistema está acotada por el **timeout de reconciliación** de AD-8, leído de `formulas.json`. *(Al día 2026-09-20: **ya no es provisional**. Esta historia lo introdujo con valor provisional marcado y la **8.4 lo midió**; con la regla de Paul del 2026-09-14 quedó fijado en **1 s**, y `formulas.json` tiene hoy `"provisional": []`. Lo que esta línea describía como trabajo futuro está hecho.)* [AD-8, reubicación del 2026-09-13; `WalkTracker/Resources/formulas.json`; `8-4-medicion-referencia.md:104`, `:189`]
 
 ### Story 1.6: Recuperación foreground — wall-clock + Estimated Banner
 
@@ -289,9 +315,13 @@ So que nunca me sienta engañado sobre el estado de mi caminata.
 
 **Acceptance Criteria:**
 
-**Given** una sesión activa y la app fue forzada a cerrarse o estuvo en background
-**When** la reabro
-**Then** la sesión se recupera silenciosamente con `elapsedS` recomputado desde `startedAt` (el tiempo cerrado cuenta) y se muestra el indicador "Sesión recuperada" durante 3 s [fuente: capabilities.md#CAP-1, domain-model.md#38]
+**Given** una sesión activa y la app fue **forzada a cerrarse** (force-quit) o el sistema la mató
+**When** **relanzo** la app
+**Then** la sesión se recupera silenciosamente desde el snapshot, con `elapsedS` recomputado desde `startedAt` (el tiempo cerrado cuenta), y se muestra el indicador "Sesión recuperada" durante 3 s [fuente: capabilities.md#CAP-1, domain-model.md#38]
+
+**Given** una sesión activa que solo estuvo **en background**, con el proceso vivo
+**When** vuelvo a foreground
+**Then** **no** se muestra el indicador "Sesión recuperada": no hubo nada que recuperar —la sesión nunca dejó de existir en memoria— y lo único que ocurre es la reconstrucción del gap de la historia 1.5. El indicador es **exclusivo del relanzamiento** [fuente: `WalkTracker/Application/SessionStore.swift:138-141`, `SessionStore+Recovery.swift:110`; spec-1-6, Boundaries congeladas, `EXPERIENCE.md` #95 frente a #84]
 
 **Given** que la sesión recuperada incluye pasos estimados ("~")
 **When** se muestra la UI en foreground
@@ -299,7 +329,7 @@ So que nunca me sienta engañado sobre el estado de mi caminata.
 
 **Given** el Estimated Banner visible con pasos estimados
 **When** el usuario toca "Descartar"
-**Then** `stepsEstimated` se descarta para ese gap (vuelve a 0) y las métricas se recomputan sin ella [fuente: capabilities.md#CAP-3]
+**Then** `stepsEstimated` vuelve a **0 entero** —el descarte es **global**: un solo contador para toda la sesión, no uno por gap— y las métricas se recomputan sin ellos. Se permite en `active` y en `paused`; solo una sesión `finished` lo rechaza [fuente: capabilities.md#CAP-3, `Domain/Session/Session.swift:205-218`; retro del Epic 1, S2]
 
 **Given** una sesión activa que estuvo en background
 **When** vuelvo a foreground
@@ -307,7 +337,7 @@ So que nunca me sienta engañado sobre el estado de mi caminata.
 
 **And** la recuperación usa el snapshot `activeSession` persistido `{startedAtMs, stepsMeasured, stepsEstimated, ...}` y es silenciosa (sin bloqueos ni pantallas de carga) [fuente: domain-model.md#98]
 
-**And** si la app arranca con una sesión activa más antigua que el **umbral de sesión huérfana** de AD-18, se cierra recortada al último dato real, marcada `recovered: true` y sin logros ni celebración; el umbral vive en `formulas.json` con un **valor provisional**, y la **8.4** lo reemplaza por el medido [AD-18, reubicación del 2026-09-13]
+**And** si la app arranca con una sesión activa más antigua que el **umbral de sesión huérfana** de AD-18, se cierra recortada al último dato real, marcada `recovered: true` y sin logros ni celebración; el umbral vive en `formulas.json`. *(Al día 2026-09-20: **ya no es provisional, y no lo fijó una medición**. La 8.4 no pudo medirlo —no es observable en una caminata de 30 min— y se quedó en las **6 h** (`orphanSessionThresholdS: 21600`) como **valor decidido**. Salió de `provisional` igual: `formulas.json` tiene hoy `"provisional": []`.)* [AD-18, reubicación del 2026-09-13; `WalkTracker/Resources/formulas.json`; `8-4-medicion-referencia.md:105`, `:189`]
 
 ### Epic 2: Clima, motivación y calibración
 Paul inicia cada sesión con un snapshot del clima y una frase motivacional, y puede recalibrar su zancada sin alterar el historial cerrado.
@@ -382,7 +412,7 @@ So que mis métricas de distancia sean más precisas sin alterar el historial ya
 
 **Given** que abro la pantalla de Ajustes y veo el campo de zancada
 **When** edito el valor de `strideM`
-**Then** se guarda con validación en la frontera: debe ser > 0 y finito; valores ≤ 0 o no numéricos se rechazan con mensaje [fuente: capabilities.md#CAP-13, domain-model.md#51]
+**Then** se guarda con validación en la frontera, que son **tres reglas distintas y no una**: **(a) rechazo duro** — debe ser > 0 y finita, y un campo vacío, no numérico, cero o negativo se rechaza con mensaje y no se persiste; **(b) tope derivado, también rechazo duro** — debe **caber en la fórmula de la distancia** (`MetricsCalculator.maxRepresentableStrideM`, derivado factor a factor del tope de pasos del agregado, **no** un máximo "razonable" de producto), porque comprobar que es finita no bastaba: `1e307` es finita, entraba, y hacía que `pasos × zancada` dejara de ser un número en cada caminata posterior, y su mensaje dice "no cabe" y no "tiene que ser mayor que cero"; **(c) aviso de rango humano, que no bloquea** — fuera de 0,3–1,2 m (rango **cerrado**: en el borde exacto no hay aviso) **se guarda igual**, con un aviso, porque es una regla de **producto** y no del dominio: cubre el dedazo real (0,067 por 0,67) sin quitarle a Paul el control de su app, y una zancada absurda pero representable —50 m— se sigue guardando [fuente: capabilities.md#CAP-13, domain-model.md#51, `Domain/Ports/AppSettings.swift:95-130`; spec-2-3, spec-b3 (hallazgo D3 de la retro del Epic 2); decisión de Paul, 2026-09-19]
 
 **Given** que el campo de zancada está vacío o con un valor inválido (≤0, NaN, no numérico)
 **When** intento guardar
@@ -396,7 +426,7 @@ So que mis métricas de distancia sean más precisas sin alterar el historial ya
 **When** inicia la siguiente sesión
 **Then** la nueva zancada se usa para los cálculos de distancia de esa sesión [fuente: capabilities.md#CAP-13]
 
-**And** el campo de Ajustes sigue UX-DR4 (Settings Field) y el flujo de recalibración sigue UX-DR8 flow 5; sin valor configurado el default es 0,655 m [fuente: capabilities.md#CAP-13]
+**And** el campo de Ajustes sigue UX-DR4 (Settings Field) y el flujo de recalibración sigue UX-DR8 flow 5. La zancada es un **override opcional**, no un campo con valor: `AppSettings.strideM` es `nil` mientras Paul nunca la toque, y entonces la sesión nace con `formulas.defaultStrideM` —**el único sitio donde vive el 0,655**—. "Usar el valor por defecto" vuelve a `nil`, no escribe 0,655. Diverge a propósito de `domain-model.md:95`, que mete el default dentro de la config: duplicarlo en dos ficheros los deja divergir sin que nadie lo note [fuente: capabilities.md#CAP-13, `Domain/Ports/AppSettings.swift:37-52`; spec-2-3]
 
 ### Epic 3: Metas, logros y motivación
 Paul persigue su meta semanal de km con un anillo de progreso y desbloquea logros al cerrar sesiones, con celebraciones que no interrumpen su caminata ni su música.
@@ -424,7 +454,7 @@ So que sepa cómo voy hacia mi objetivo cada semana.
 
 **Given** que tengo sesiones en distintos días de la semana actual
 **When** se calcula el progreso
-**Then** el anillo suma la distancia de las sesiones de la **semana ISO** (lunes 00:00 UTC → domingo) y muestra el porcentaje de cumplimiento [fuente: capabilities.md#CAP-7, domain-model.md#60]
+**Then** el anillo suma la distancia de las sesiones de la **semana ISO** (de lunes a domingo) calculada en **hora local del dispositivo**, y muestra el porcentaje de cumplimiento. El cálculo usa el **`AppCalendar` único** —`identifier = .iso8601`, `firstWeekday = 2`, `timeZone` = la del dispositivo—; nadie construye su propio `Calendar` y `Calendar.current` está prohibido [fuente: capabilities.md#CAP-7, domain-model.md#60; **AD-19** — resuelve la contradicción entre `domain-model.md §5` (UTC) y `§9` (hora local) **a favor de §9**, y es una de las divergencias declaradas de AD-6]
 
 **Given** que el anillo muestra mi progreso
 **When** la suma de la semana alcanza o supera la meta
@@ -464,7 +494,7 @@ So que vaya desbloqueando reconocimientos a medida que progreso.
 **When** se evalúan los logros climáticos (`rain_walker`, `hot_walker`, `cold_walker`)
 **Then** no se evalúan como cumplidos [fuente: achievements.md#25]
 
-**And** los logros temporales (`early_bird` entre 05:00–07:00, `night_walker` entre 21:00–23:00) y las rachas se evalúan en **hora local** del dispositivo, no UTC [fuente: achievements.md#27]
+**And** los logros temporales (`early_bird` entre **05:00 y 07:59**, `night_walker` entre **21:00 y 23:59**) y las rachas se evalúan en **hora local** del dispositivo, no UTC. Las dos franjas son `comparison: "between"` sobre `startHourLocal`, con `threshold: [5, 7]` y `[21, 23]`, y **`between` es inclusiva en los dos extremos**: la franja es de horas locales enteras, así que incluye toda la hora del extremo superior [fuente: achievements.md#27, `Resources/achievements.json`; **AD-5**, enmienda del esquema del 2026-09-12; **AD-19**]
 
 **And** los logros acumulados (`marathon_42km` Σ ≥ 42000 m, `consistency_30` ≥ 30 sesiones) cuentan todas las sesiones `source: "ios"` [fuente: achievements.md#24]
 
@@ -615,9 +645,11 @@ So que mi historial sobreviva a reinicios sin que yo tenga que hacer respaldos m
 **When** se guarda
 **Then** queda como registro **inmutable** en el store `sessions` (`{id, startedAt, endedAt, stepsMeasured, stepsEstimated, strideM, ...}`) [fuente: domain-model.md#101, capabilities.md#CAP-9]
 
-**And** el storage se accede por el `StoragePort`. La forma concreta la fija **AD-9**: ficheros JSON `Codable` en Application Support con **escritura atómica** (temp + rename), uno por preocupación —`sessions.json`, `achievements.json`, `settings.json`, `activeSession.json`— cada uno con `schemaVersion`. **AD-16**: cada fichero tiene exactamente un tipo que lo escribe; los demás lo leen a través de su dueño, nunca del disco. `activeSession.json` se autoguarda cada 10 s y es lo que hace posible la recuperación tras force-quit; `domain-model.md §8` lo define en milisegundos y la conversión a segundos ocurre en el adapter, nunca dentro del dominio [AD-9, AD-16]
+**And** el storage se accede por el `StoragePort`. La forma concreta la fija **AD-9**: ficheros JSON `Codable` en Application Support con **escritura atómica** (temp + rename), uno por preocupación —`sessions.json`, `achievements.json`, `settings.json`, `activeSession.json`— cada uno con `schemaVersion`. **AD-16**: cada fichero tiene exactamente un tipo que lo escribe; los demás lo leen a través de su dueño, nunca del disco. `domain-model.md §8` define el snapshot en milisegundos y la conversión a segundos ocurre en el adapter, nunca dentro del dominio [AD-9, AD-16]
 
-**And** la sesión activa se autoguarda al cambiar de estado (inicio, pausa, reanudación) para que el force-quit siempre tenga un snapshot fresco [fuente: AR-12 (AD-8)]
+**And** **esta historia no parte de cero: `StoragePort` ya existe y cubre 2 de los 4 ficheros.** Al cerrar el Epic 2 el puerto tiene **seis métodos** —`loadActiveSession` / `saveActiveSession` / `clearActiveSession` / `setAsideActiveSession` para `activeSession.json` (dueño `SessionStore`), y `loadSettings` / `saveSettings` para `settings.json` (dueño `SettingsStore`)—, y hay **sustrato reutilizable**: `JSONFileStore` absorbió la escritura atómica, el apartado de ficheros corruptos y los nombres de fichero, y lo usan los dos adapters a través de un compositor puro. Lo que la 5.1 añade son `sessions.json` y `achievements.json` con sus dueños, **no el mecanismo**; y hereda dos reglas ya vigentes: un fichero ilegible **se aparta, no se destruye**, y `nil` ("no hay nada") no es lo mismo que un error de lectura ("hay algo que no se pudo leer"), que **no deja escribir** (B-1) [fuente: `Domain/Ports/StoragePort.swift:32-65`, `WalkTracker/Adapters/Persistence/JSONFileStore.swift`; retro del Epic 1, S8]
+
+**And** **el snapshot de la sesión activa se guarda por evento y por muestras, nunca con un temporizador** (AD-21): al iniciar, al pausar, al reanudar, al pasar a background y al reconciliar, más con la muestra del podómetro que llegue al menos `autosaveIntervalS` (10 s) después del último guardado. **Los 10 s son el espaciado mínimo entre escrituras por muestra, no una cadencia**: quieto no hay muestras y no hay escrituras, y por eso no hay un "cada 10 s" que gastar batería contra el presupuesto de AD-21. Se borra al finalizar [fuente: `WalkTracker/Application/SessionStore.swift:29-32`, `SessionStore+StepCounting.swift:90`; **AD-9**, **AD-21**; retro del Epic 1, S4]
 
 ### Story 5.2: Historial — lista descendente + totales semana/mes + tendencia
 
@@ -735,7 +767,7 @@ So que mis datos estén en el ecosistema Apple sin hacer nada manual (adiós CSV
 **When** finaliza una sesión
 **Then** la sesión se guarda **localmente igual** y la app sigue funcionando completa — sin bloqueo ni pantallas de error [fuente: capabilities.md#CAP-11]
 
-**And** el write pasa por el `HealthKitPort` (`writeWorkout` una vez), con un adapter `CapacitorHealthKitAdapter` que es el único punto que conoce HKWorkout — el dominio solo expone el puerto [fuente: AR-2, AR-10]
+**And** el write pasa por el **`HealthPort`** —así se llama en el conjunto cerrado de 11 puertos de AD-10— con un **`HealthAdapter`** en `Adapters/Health/` que es el único punto del código que conoce `HKWorkoutBuilder`; el dominio solo expone el puerto [**AD-10**; AR-2 y AR-10 están **derogados**: no hay plugin `walktracker-kit` ni adapters `Capacitor*`, `DEROGACIONES.md §5`]
 
 **And** la app **solo escribe** en Salud; no lee datos de Salud (non-goal explícito) [fuente: capabilities.md#CAP-11]
 
@@ -749,7 +781,7 @@ So que sepa cuánto me falta sin abrir la app.
 
 **Given** que el permiso de notificaciones está concedido
 **When** se programa el recordatorio
-**Then** se agenda una notificación local semanal con el estado de la meta (p. ej. domingo por la tarde: "Te faltan 2 km esta semana") vía `@capacitor/local-notifications` [fuente: capabilities.md#CAP-17]
+**Then** se agenda una notificación local semanal con el estado de la meta (p. ej. domingo por la tarde: "Te faltan 2 km esta semana") a través del **`NotificationPort`**, implementado por un adapter sobre `UserNotifications` del SDK [fuente: capabilities.md#CAP-17; **AD-10** — `@capacitor/local-notifications` desaparece con AR-8, y el proyecto no tiene dependencias de terceros, `DEROGACIONES.md §5`]
 
 **Given** que el recordatorio ya está programado (p. ej. de la última sesión)
 **When** se reprograma al finalizar una sesión o al abrir la app
@@ -887,13 +919,26 @@ producción. Sin esto, cada epic posterior improvisa su propia versión de la ve
 
 `8.5 → 8.6 → 8.7 → 8.3`, y después **Epic 1 (1.1–1.6) → 8.4**, antes de los epics 2–7. Los números ya no son el orden: es el precio de no reciclar IDs.
 
-**Por qué 8.4 va detrás del Epic 1** (2026-09-13): sus criterios miden una sesión con conteo continuo, `stepsEstimated = 0` y reconstrucción del background, que no existen hasta 1.1–1.6. Y hay una dependencia circular: 8.4 **fija** el timeout de reconciliación y el umbral de sesión huérfana que 1.5 y 1.6 **usan**. Se rompe así: el Epic 1 arranca con valores provisionales en `formulas.json` y 8.4 los reemplaza por los medidos. [`sprint-change-proposal-2026-09-13.md`]
+**Por qué 8.4 va detrás del Epic 1** (2026-09-13): sus criterios miden una sesión con conteo continuo, `stepsEstimated = 0` y reconstrucción del background, que no existen hasta 1.1–1.6. Y hay una dependencia circular: 8.4 **fija** el timeout de reconciliación y el umbral de sesión huérfana que 1.5 y 1.6 **usan**. Se rompe así: el Epic 1 arranca con valores provisionales en `formulas.json` y 8.4 los fija. *(Al día 2026-09-20: **ejecutado y cerrado**, y no "por los medidos" en plural — el timeout se **midió** (1 s) y el umbral de huérfana se **decidió** (6 h), porque no es medible en una caminata de 30 min. `formulas.json` tiene hoy `"provisional": []` y sus cuatro constantes fijadas.)* [`sprint-change-proposal-2026-09-13.md`; `WalkTracker/Resources/formulas.json`; `8-4-medicion-referencia.md:104-105`, `:189`]
 #### Historias anuladas — fuera del tracking
 
 | ID | Título | Por qué |
 |---|---|---|
 | ~~8.1~~ | Montaje Capacitor — web v3 en WebView + plugin scaffold | Figuraba como `done` sobre un sustrato que **AD-1 derogó**. El trabajo equivalente vive en 8.5, 8.6 y 8.7 |
-| ~~8.2~~ | Build local en dispositivo + keep-awake | Su mecanismo (`pnpm cap run ios`) desaparece con Capacitor. El wake lock sobrevive como `WakeLockPort` (AD-10) en Epic 1; el build local a dispositivo es la envoltura operativa del spine |
+| ~~8.2~~ | Build local en dispositivo + keep-awake | Su mecanismo (`pnpm cap run ios`) desaparece con Capacitor. El build local a dispositivo es la envoltura operativa del spine. **El wake lock, en cambio, no tiene destino: ver la nota de abajo** |
+
+> ⚠️ **El wake lock está abierto, y esta tabla decía lo contrario.** Hasta el 2026-09-20 la fila de
+> la 8.2 afirmaba que *"el wake lock sobrevive como `WakeLockPort` (AD-10) en Epic 1"*. **Es falso:**
+> el Epic 1 cerró con sus seis historias en `done` y **sin `WakeLockPort`** —ninguna lo asumió y la
+> 1.6 lo excluye explícitamente en sus Boundaries—, y de los 11 puertos del conjunto cerrado de
+> AD-10 **existen 9**: faltan `WakeLockPort` y `NotificationPort` (este último tiene dueño, la
+> historia 6.2).
+>
+> **Qué hacer con él no se decide aquí.** Es la **pregunta abierta Q-3** de la retrospectiva del
+> Epic 1: *¿`WakeLockPort` sigue siendo necesario, ahora que el conteo funciona con la pantalla
+> bloqueada? Si lo es, ¿en qué epic?* Hasta que Paul la responda, el puerto **no tiene historia
+> dueña** y AD-10 mantiene su conjunto cerrado de 11 con dos sin implementar.
+> [`epic-1-retro-2026-09-14.md`, hallazgo S5 y Q-3; `Domain/Ports/`]
 
 **Los IDs 8.1 y 8.2 no se reutilizan.** No aparecen en `sprint-status.yaml`: el vocabulario del
 generador es `backlog · ready-for-dev · in-progress · review · done` y ninguno significa "anulada",
@@ -1033,7 +1078,7 @@ So that el criterio de éxito del SPEC quede demostrado en hardware antes de con
 
 **Given** las cadencias de AD-21 que existen al terminar el Epic 1 (**conteo continuo y UI a 1 Hz**)
 **When** se mide la sesión
-**Then** el resultado se registra como medición de referencia y **reemplaza los valores provisionales** de `formulas.json` del timeout de reconciliación y del umbral de sesión huérfana [AD-8, AD-18]
+**Then** el resultado se registra como medición de referencia y los dos valores provisionales de `formulas.json` quedan fijados, **pero no de la misma forma**: el **timeout de reconciliación** se reemplaza por el **medido** —la regla de Paul (2026-09-14) sobre la duración máxima real de la consulta lo dejó en **1 s**—, mientras que el **umbral de sesión huérfana no es medible en una caminata de 30 min** y se queda en las **6 h** como **valor decidido, no medido**. Los dos salen de `provisional`; la diferencia entre "medido" y "decidido" queda escrita [AD-8, AD-18; `8-4-medicion-referencia.md:104-105, :189`]
 
 **And** la cadencia de la Live Activity por evento **no** se mide aquí: no existe hasta la 7.2, que recomprueba la batería con ella activa
 

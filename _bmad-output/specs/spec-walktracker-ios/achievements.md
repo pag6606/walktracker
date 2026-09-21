@@ -2,6 +2,8 @@
 
 Companion de `SPEC.md` (CAP-8). Catálogo íntegro reutilizado sin cambios de contenido desde la PWA v3 (A-3), con las reglas de evaluación implementadas y validadas en producción. El AchievementEngine evalúa al cierre de cada sesión; los logros desbloqueados no se re-disparan ni se revocan (incluido si se elimina la sesión que los originó, ver CAP-15).
 
+El catálogo vive además **como dato** en `WalkTracker/Resources/achievements.json`: una entrada por logro con `metric` (enum cerrado), `threshold` y `comparison`, que la app carga y valida al arrancar —14 entradas, claves únicas, todas las de esta tabla, `metric` conocida— y falla ruidosamente si no cuadra. Esta tabla es la especificación de la que ese fichero es la forma ejecutable (`ARCHITECTURE-SPINE.md` AD-5 y su enmienda del 2026-09-12).
+
 | # | key | Nombre | Descripción (UI) | Regla de evaluación | Icono |
 |---|---|---|---|---|---|
 | 1 | `first_km` | Tu primer kilómetro | Completa 1 km en una sesión | `session.distanceM ≥ 1000` | 🏅 |
@@ -13,8 +15,8 @@ Companion de `SPEC.md` (CAP-8). Catálogo íntegro reutilizado sin cambios de co
 | 7 | `7_days_streak` | 7 días consecutivos | Camina 7 días seguidos | ≥ 1 sesión por día durante 7 días consecutivos (fechas sin duplicar, ordenadas desc) | 🔥 |
 | 8 | `marathon_42km` | Maratonista | Acumula 42 km en total | `Σ distanceM de todas las sesiones ≥ 42000` | 🏃 |
 | 9 | `speed_walker` | Caminante rápido | Ritmo menor a 8:00 /km | `session.paceSecPerKm > 0 y < 480` | ⚡ |
-| 10 | `early_bird` | Madrugador | Camina antes de las 7:00 | `startedAt` entre 05:00 y 07:00 (hora local, ver nota) | 🌅 |
-| 11 | `night_walker` | Caminante nocturno | Camina después de las 21:00 | `startedAt` entre 21:00 y 23:00 (hora local, ver nota) | 🌙 |
+| 10 | `early_bird` | Madrugador | Camina antes de las 7:00 | `startedAt` entre **05:00 y 07:59** (hora local; franja inclusiva, ver nota) | 🌅 |
+| 11 | `night_walker` | Caminante nocturno | Camina después de las 21:00 | `startedAt` entre **21:00 y 23:59** (hora local; franja inclusiva, ver nota) | 🌙 |
 | 12 | `hot_walker` | Caminante del sol | Camina con temperatura >30 °C | `session.weather.tempC > 30` | ☀️ |
 | 13 | `cold_walker` | Caminante del frío | Camina con temperatura <5 °C | `session.weather.tempC < 5` | ❄️ |
 | 14 | `consistency_30` | Constancia | Acumula 30 sesiones en total | `total de sesiones ≥ 30` | 💪 |
@@ -24,6 +26,7 @@ Companion de `SPEC.md` (CAP-8). Catálogo íntegro reutilizado sin cambios de co
 - **Acumulados:** con arranque limpio (OQ-3) todas las sesiones son `source: "ios"` y cuentan para `marathon_42km`, `consistency_30`, rachas y primeras marcas. Si CAP-16 se reactiva a futuro, las importadas (`"v3" | "migrated"`) también cuentan (su distancia es correcta — decisión D1 heredada).
 - **Clima ausente:** si `session.weather` es `null`, los logros climáticos (`rain_walker`, `hot_walker`, `cold_walker`) no se evalúan como cumplidos.
 - **Nota de mapeo lluvia:** en la PWA la detección era regex sobre string localizado (`/lluv|llovi|torment/i`). En iOS se mapea la condición del proveedor (enum WeatherKit, o código WMO si se usa fallback Open-Meteo: 51–67, 80–82, 95–99) a una categoría interna `rain`. No depender de strings localizados (ver `domain-model.md` §9).
-- **Nota de zona horaria:** la PWA evaluaba `early_bird`/`night_walker` y rachas en UTC por detalle de implementación. En iOS se evalúan en hora local del dispositivo (la intención del logro es local).
+- **Nota de zona horaria y franja:** la PWA evaluaba `early_bird`/`night_walker` y rachas en UTC por detalle de implementación. En iOS se evalúan en **hora local del dispositivo** (la intención del logro es local) y con el **único** `AppCalendar` que expone `ClockPort` —`identifier = .iso8601`, `firstWeekday = 2`, `timeZone` el del dispositivo—; `Calendar.current` está prohibido (AD-19). La franja se compara sobre la **hora entera local** (`startHourLocal`) y `between` es **inclusiva en los dos extremos**: `[5, 7]` es **05:00–07:59** y `[21, 23]` es **21:00–23:59**, la misma conducta de la v3.
+  > ⚠️ **ENMENDADO el 2026-09-20.** Las dos filas decían *"entre 05:00 y 07:00"* y *"entre 21:00 y 23:00"*, que recorta una hora de cada franja. El catálogo usa `"comparison": "between"` con `threshold: [5, 7]` y `[21, 23]`, y `between` es inclusiva. [`WalkTracker/Resources/achievements.json:13-14`; `ARCHITECTURE-SPINE.md` AD-5, enmienda del 2026-09-12, y AD-19]
 - **Almacenamiento:** `achievements` store → `{ key, unlockedAt: ISO8601|null, progress: 0.0..1.0 }`. El grid de UI muestra locked/unlocked con progreso.
 - **Celebración:** visual + sonora + háptica (CAP-12); en la PWA era solo visual + sonora (sin háptica, R5).
