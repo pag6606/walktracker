@@ -125,13 +125,19 @@ enum Typography {
     static let metricValue: Font = .system(.title, design: .rounded, weight: .bold)
 }
 
-/// Los dos colores que el producto decide. El resto de la paleta es del sistema y se
-/// referencia por su nombre (`.secondary`, `.fill.quaternary`): AD-13.
+/// Los tres colores que el producto decide. El resto de la paleta es del sistema y se
+/// referencia por su nombre (`.primary`, `.secondary`, `.tint`, `.fill.quaternary`):
+/// AD-13, y son roles cuyo contraste garantiza el sistema.
 ///
-/// Los dos viven como colorset en `Resources/Assets.xcassets/`, con variante clara y
+/// Los tres viven como colorset en `Resources/Assets.xcassets/`, con variante clara y
 /// oscura, y su contraste está **medido** contra el fondo real sobre el que se pintan,
 /// no supuesto. `DesignTokensTests` recalcula esos ratios en cada ejecución: si alguien
 /// retoca un colorset y cae por debajo de 4,5:1, la suite lo dice.
+///
+/// **Ningún color cromático del sistema se nombra fuera de aquí.** La sección 12 del gate
+/// lo impide en `WalkTracker/UI/`: un `.red`, un `.yellow` o un `.mint` escrito en una
+/// vista es un color sin medir, y esa es exactamente la puerta por la que entró el
+/// incumplimiento AA que este vocabulario existe para cerrar — dos veces.
 enum Colors {
 
     /// Acento del producto: verde lima `#CCFF00` en oscuro —el espíritu Volt de UX-DR1,
@@ -174,4 +180,33 @@ enum Colors {
     /// El 12 % de ese fondo es `Surface.noticeTintOpacity`, y lo leen tanto la vista como
     /// el test de contraste: el caso más apretado del vocabulario depende de ese número.
     static let estimated = Color("EstimatedSteps")
+
+    /// **Un error**: algo que Paul pidió y no se hizo, y que solo él puede resolver. Hoy
+    /// lo usa el mensaje de rechazo de Ajustes (campo vacío, no numérico, cero o negativo,
+    /// desbordado); mañana, cualquier otro rechazo del mismo tipo.
+    ///
+    /// **Entra aquí por normativo, no por repetido** (segunda vía de la regla de admisión
+    /// de la cabecera): hoy tiene un solo uso, y el 4,5:1 de WCAG AA para texto normal es
+    /// una norma, no una preferencia. Con un uso y sin token, el color volvería a elegirse
+    /// a ojo en la siguiente pantalla — que es literalmente lo que pasó: el chore de tokens
+    /// sustituyó `.orange` por incumplir AA y la primera pantalla posterior eligió
+    /// `Color.red`, que en claro da **3,55:1** sobre blanco y **3,18:1** sobre el gris
+    /// agrupado. Lo que faltaba no era el color: era el **rol** medido.
+    ///
+    /// **Lo que NO es.** No es "el color de todo lo que avisa". El aviso de rango humano
+    /// (*"guardada, aunque lo normal es entre 0,3 y 1,2 m"*) **no es un error** —se guardó—
+    /// y se distingue por jerarquía (`.primary` / `.secondary`), que fue una decisión
+    /// deliberada de la 2.3. Pintarlo de rojo diría que algo falló.
+    ///
+    /// **El valor no se inventa.** En claro es el rojo accesible que Apple publica para
+    /// este uso, `#D70015`; en oscuro, el rojo del sistema, `#FF453A`, que ya cumple sobre
+    /// los dos fondos y por eso no se toca. Medido contra los **dos fondos reales** sobre
+    /// los que puede caer el mensaje —el de una lista agrupada y el de su fila—:
+    /// **5,38:1** sobre blanco y **4,83:1** sobre el gris agrupado claro (`#F2F2F7`);
+    /// **6,16:1** sobre negro y **4,99:1** sobre el gris agrupado oscuro (`#1C1C1E`).
+    ///
+    /// Y no se confunde con los otros dos cromáticos: su tono está a ≥ 30° del acento y
+    /// del estimado en los dos temas, así que el eje que los separa es el **tono** y no
+    /// solo la luminancia. `DesignTokensTests` lo mide, como mide todo lo de arriba.
+    static let error = Color("ErrorMessage")
 }

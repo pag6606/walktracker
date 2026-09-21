@@ -220,9 +220,11 @@ struct SettingsView: View {
         case .saved, .clearedToDefault: AnyShapeStyle(.secondary)
         // El rango no es un error: se distingue por jerarquía, no por color.
         case .savedOutsideHumanRange, .notPersisted: AnyShapeStyle(.primary)
-        // `Color.red` sí: lo que este vocabulario sustituye es `.orange`, que incumplía AA.
-        // El rojo del sistema tiene variante clara y oscura propias.
-        case .rejected: AnyShapeStyle(Color.red)
+        // Un rechazo SÍ es un error, y "color de un error" es un rol del producto: vive
+        // en `Colors`, con variante clara y oscura y contraste medido contra los dos
+        // fondos sobre los que cae este mensaje. No se nombra aquí un color del sistema:
+        // `Color.red` en claro da 3,55:1 y 3,18:1, por debajo del 4,5:1 de WCAG AA.
+        case .rejected: AnyShapeStyle(Colors.error)
         }
     }
 
