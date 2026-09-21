@@ -19,10 +19,14 @@ extension SessionStore {
     ///
     /// - **Ilegible o inválido:** no se restaura; el snapshot se aparta (nunca se borra), se
     ///   registra un `fault` e Inicio queda normal.
+    /// - **Ya guardada** (5.1): el snapshot es de una caminata que ya está en el historial —la
+    ///   app murió entre guardarla y borrar su snapshot—. No se restaura ni se archiva otra vez:
+    ///   se termina de borrar el snapshot y se sigue.
     /// - **Huérfana** (`now − startedAt` > `orphanSessionThresholdS`): se cierra en el último
     ///   dato real (`lastSampleAt`, o `startedAt` sin ninguno), nunca antes de la última
-    ///   reanudación (`segmentStart`), marcada `recovered`, sin
-    ///   consultar ni estimar. Queda en `session` para su resumen y el snapshot se borra.
+    ///   reanudación (`segmentStart`), marcada `recovered`, sin consultar ni estimar. Queda en
+    ///   `session` para su resumen, **entra en el historial con su marca** y el snapshot se borra
+    ///   si el guardado fue bien.
     /// - **Pausada:** vuelve pausada, con el tiempo congelado en `pausedAt`, sin consulta.
     /// - **Activa:** reabre el tramo y reconcilia `[segmentStart, now]` con el gap pendiente
     ///   desde `savedAt`, como la vuelta de background de la 1.5.
@@ -49,6 +53,16 @@ extension SessionStore {
             return
         } catch {
             log.fault("Snapshot de la sesión ilegible, apartado: \(String(describing: error), privacy: .public)")
+            return
+        }
+
+        // La ventana de duplicado del cierre (5.1): entre guardar la caminata y borrar su
+        // snapshot hay un instante en que existe en los dos ficheros. Si la app murió ahí, esto
+        // es lo que impide archivarla por segunda vez —o presentarla como viva—: ya está a salvo,
+        // así que lo único que queda es terminar de borrar el snapshot.
+        if history.contains(startedAt: snapshot.startedAt) {
+            log.info("El snapshot es de una caminata que YA está en el historial: se borra en vez de restaurarla o archivarla otra vez")
+            clearSnapshot()
             return
         }
 
@@ -112,8 +126,16 @@ extension SessionStore {
         persist()
     }
 
-    /// Cierra la huérfana en `end` y la deja en `session` para su resumen. El snapshot se
-    /// borra: como la finalizada, se descarta al salir del resumen.
+    /// Cierra la huérfana en `end`, **la guarda en el historial** y la deja en `session` para su
+    /// resumen.
+    ///
+    /// **El segundo sitio que cierra una sesión, y el fácil de olvidar** (5.1). Entra en el
+    /// historial con su marca `recovered`: sus pasos son reales —los contó el coprocesador— así
+    /// que suma distancia y anillo, pero **no dispara logros** (AD-18), y eso lo dice el propio
+    /// registro con `countsForAchievements`.
+    ///
+    /// El snapshot se borra **solo si el guardado fue bien**, igual que al finalizar: si falla,
+    /// sigue en disco y la huérfana vuelve a intentarse al relanzar.
     private func closeOrphan(_ orphan: Session, at end: Date) {
         var closed = orphan
         do {
@@ -125,10 +147,13 @@ extension SessionStore {
         }
         log.info("Sesión huérfana cerrada en su último dato real")
         session = closed
-        metrics = closed.metrics(at: end)
+        let closedMetrics = closed.metrics(at: end)
+        metrics = closedMetrics
         measureTransition(.orphan, closed, at: end)
         hasSession = true
-        clearSnapshot()
+        if saveFinishedWalk(closed, metrics: closedMetrics) {
+            clearSnapshot()
+        }
     }
 
     /// Guarda el snapshot de la sesión viva. Nunca a mitad de una reconciliación, que aún no

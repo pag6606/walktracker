@@ -21,6 +21,7 @@ struct WalkTrackerApp: App {
         RootView(
             store: root.sessionStore,
             settingsStore: root.settingsStore,
+            historyStore: root.historyStore,
             defaultStrideM: root.formulas.defaultStrideM
         ) {
             NativeLayerDiagnosticsView(
@@ -35,6 +36,7 @@ struct WalkTrackerApp: App {
         RootView(
             store: root.sessionStore,
             settingsStore: root.settingsStore,
+            historyStore: root.historyStore,
             defaultStrideM: root.formulas.defaultStrideM
         )
         #endif

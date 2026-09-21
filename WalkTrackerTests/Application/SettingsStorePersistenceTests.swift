@@ -81,6 +81,7 @@ struct SettingsStorePersistenceTests {
             location: LocationStub(status: .denied),
             weather: WeatherStub(),
             settings: settings,
+            history: HistoryStore(storage: storage),
             quotes: SessionStoreFixture.bank(5),
             random: RandomStub(.fixed(0)),
             weatherStepTimeoutS: 5,

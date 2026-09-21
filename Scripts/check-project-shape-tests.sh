@@ -692,9 +692,92 @@ for line in '    settings.save()' '    settings.settings = AppSettings()' '    s
     printf 'import Domain\nfunc f() {\n%s\n}\n' "$line" \
         > "$ROOT/WalkTracker/Application/SessionStore+Motivation.swift"
     assert_gate "\`${line#    }\` en Application/SessionStore+Motivation.swift falla" "$ROOT" 1 \
-        "SessionStore+Motivation.swift:3: error: AD-16: \`settings\` es el store de ajustes"
+        "SessionStore+Motivation.swift:3: error: AD-16: \`settings\` es el store de otro dueño"
     rm -rf "$ROOT"
 done
+
+# ── 4f''''. Rojo: lo mismo con el historial (5.1) ──────────────────────────
+# `history` es el store que `SessionStore` tiene inyectado desde la 5.1, y su `records` y su
+# `save(applying:)` tienen acceso de módulo por la misma razón que los de los ajustes. La
+# regla 9b existía porque YA pasó con `settings`; esto es su equivalente, que la spec de la
+# 5.1 exige antes de inyectar un dueño nuevo.
+for line in '    history.save { _ in }' '    history.records = []' '    self.history.readOutcome = .absent'; do
+    ROOT="$(make_fixture)"
+    printf 'import Domain\nfunc f() {\n%s\n}\n' "$line" \
+        > "$ROOT/WalkTracker/Application/SessionStore+History.swift"
+    assert_gate "\`${line#    }\` en Application/SessionStore+History.swift falla" "$ROOT" 1 \
+        "SessionStore+History.swift:3: error: AD-16: \`history\` es el store de otro dueño"
+    rm -rf "$ROOT"
+done
+
+# Y con el estado de los logros, cuyo dueño estrena la 5.1 aunque lo escriba la 3.2.
+ROOT="$(make_fixture)"
+printf 'import Domain\nfunc f() {\n    achievements.save { _ in }\n}\n' \
+    > "$ROOT/WalkTracker/Application/SessionStore+History.swift"
+assert_gate "\`achievements.save { }\` en Application/SessionStore+History.swift falla" "$ROOT" 1 \
+    "SessionStore+History.swift:3: error: AD-16: \`achievements\` es el store de otro dueño"
+rm -rf "$ROOT"
+
+# Verde: pedirle intenciones al historial, que es lo que hace `SessionStore` al cerrar.
+ROOT="$(make_fixture)"
+cat > "$ROOT/WalkTracker/Application/SessionStore+History.swift" <<'SWIFT'
+import Domain
+
+extension SessionStore {
+    func guardar(_ record: SessionRecord) -> Bool {
+        guard !history.contains(startedAt: record.startedAt) else { return true }
+        return history.append(record)
+    }
+}
+SWIFT
+assert_gate "pedirle intenciones al historial desde Application/ pasa" "$ROOT" 0 "forma del proyecto correcta"
+rm -rf "$ROOT"
+
+# Verde: y su propio dueño sí escribe su estado y su fichero, que es su trabajo.
+ROOT="$(make_fixture)"
+printf 'import Domain\n\nfinal class HistoryStore {\n    let storage: StoragePort\n    var records: [SessionRecord] = []\n    init(storage: StoragePort) { self.storage = storage }\n    func load() { records = (try? storage.loadSessions()) ?? [] }\n    func save() { try? storage.saveSessions(records) }\n}\n' \
+    > "$ROOT/WalkTracker/Application/HistoryStore.swift"
+printf 'import Domain\n\nfinal class AchievementsStore {\n    let storage: StoragePort\n    init(storage: StoragePort) { self.storage = storage }\n    func load() { _ = try? storage.loadAchievements() }\n    func save(_ u: [AchievementUnlock]) { try? storage.saveAchievements(u) }\n}\n' \
+    > "$ROOT/WalkTracker/Application/AchievementsStore.swift"
+printf 'import Domain\n\nstruct SessionHistoryFileAdapter {\n    func loadSessions() throws -> [SessionRecord]? { nil }\n    func saveSessions(_ s: [SessionRecord]) throws {}\n}\nstruct AchievementsFileAdapter {\n    func loadAchievements() throws -> [AchievementUnlock]? { nil }\n    func saveAchievements(_ a: [AchievementUnlock]) throws {}\n}\n' \
+    > "$ROOT/WalkTracker/Adapters/Persistence/HistoryFileAdapters.swift"
+assert_gate "HistoryStore y AchievementsStore con sus ficheros y su adapter pasan" "$ROOT" 0 "forma del proyecto correcta"
+rm -rf "$ROOT"
+
+# Rojo: y el historial fuera de su dueño, en los sitios donde el compilador no dice nada.
+for target in UI/SessionView.swift App/WalkTrackerApp.swift Application/SessionStore+Recovery.swift; do
+    ROOT="$(make_fixture)"
+    printf 'import Domain\nfunc f(_ s: StoragePort) {\n    _ = try? s.loadSessions()\n}\n' \
+        > "$ROOT/WalkTracker/$target"
+    assert_gate "\`loadSessions\` en WalkTracker/$target falla" "$ROOT" 1 \
+        "$target:3: error: AD-16: solo .HistoryStore. usa el historial"
+    rm -rf "$ROOT"
+done
+
+ROOT="$(make_fixture)"
+printf 'import Domain\nfunc f(_ s: StoragePort) {\n    _ = try? s.loadAchievements()\n}\n' \
+    > "$ROOT/WalkTracker/Application/SessionStore+History.swift"
+assert_gate "\`loadAchievements\` en Application/SessionStore+History.swift falla" "$ROOT" 1 \
+    "SessionStore+History.swift:3: error: AD-16: solo .AchievementsStore. usa el estado de los logros"
+rm -rf "$ROOT"
+
+# Y el dueño del historial no puede tocar ni el snapshot ni los ajustes: la separación va en
+# los cuatro sentidos, no solo hacia fuera.
+ROOT="$(make_fixture)"
+printf 'import Domain\nfunc f(_ s: StoragePort) {\n    _ = try? s.loadActiveSession()\n}\n' \
+    > "$ROOT/WalkTracker/Application/HistoryStore.swift"
+assert_gate "\`loadActiveSession\` en HistoryStore.swift falla" "$ROOT" 1 \
+    "Application/HistoryStore.swift:3: error: AD-16: solo .SessionStore. usa el snapshot"
+rm -rf "$ROOT"
+
+# Un subdirectorio que empiece igual que el dueño del historial no queda exento.
+ROOT="$(make_fixture)"
+mkdir -p "$ROOT/WalkTracker/Application/HistoryStoreKit"
+printf 'import Domain\nfunc f(_ s: StoragePort) {\n    _ = try? s.loadSessions()\n}\n' \
+    > "$ROOT/WalkTracker/Application/HistoryStoreKit/Historial.swift"
+assert_gate "\`loadSessions\` en Application/HistoryStoreKit/ falla" "$ROOT" 1 \
+    "HistoryStoreKit/Historial.swift:3: error: AD-16: solo .HistoryStore. usa el historial"
+rm -rf "$ROOT"
 
 # Verde: pedirle intenciones y leerle el estado, que es lo que hace hoy `SessionStore`.
 ROOT="$(make_fixture)"

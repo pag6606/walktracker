@@ -20,8 +20,9 @@ struct CompositionRoot {
     let health: any HealthPort
     /// Live Activity de la sesión (CAP-18).
     let liveActivity: any LiveActivityPort
-    /// Ficheros JSON en Application Support (AD-9): el snapshot de la sesión viva, que solo
-    /// escribe `SessionStore`, y los ajustes, que solo escribe `SettingsStore` (AD-16).
+    /// Ficheros JSON en Application Support (AD-9), cada uno con su dueño (AD-16): el snapshot de
+    /// la sesión viva (`SessionStore`), los ajustes (`SettingsStore`), el historial de caminatas
+    /// cerradas (`HistoryStore`, 5.1) y el estado de los logros (`AchievementsStore`, 5.1).
     let storage: any StoragePort
     /// Azar del sistema para elegir la frase del arranque (CAP-6, AD-10).
     let random: any RandomPort
@@ -38,6 +39,11 @@ struct CompositionRoot {
     let quotes: QuoteBank
     /// Único dueño de `settings.json` (AD-16, 2.2).
     let settingsStore: SettingsStore
+    /// Único dueño de `sessions.json` (AD-16, 5.1): el historial de caminatas cerradas.
+    let historyStore: HistoryStore
+    /// Único dueño de `achievements.json` **del sandbox** (AD-16, 5.1). No es el catálogo del
+    /// bundle, que es `achievementCatalog` y es contenido congelado (AD-5).
+    let achievementsStore: AchievementsStore
     /// Único escritor de la sesión (AD-7). Las vistas solo llaman a sus intenciones.
     let sessionStore: SessionStore
 
@@ -73,6 +79,11 @@ struct CompositionRoot {
         // Antes del store de sesión: la primera caminata ya necesita la ventana de recientes.
         let settingsStore = SettingsStore(storage: storage)
         self.settingsStore = settingsStore
+        // Y antes también el historial: `restoreOnLaunch()` lo consulta para no archivar dos
+        // veces una caminata que ya se guardó (5.1).
+        let historyStore = HistoryStore(storage: storage)
+        self.historyStore = historyStore
+        self.achievementsStore = AchievementsStore(storage: storage)
         self.sessionStore = SessionStore(
             clock: clock,
             motion: motion,
@@ -84,6 +95,7 @@ struct CompositionRoot {
             location: location,
             weather: weather,
             settings: settingsStore,
+            history: historyStore,
             quotes: quotes,
             random: random
         )
