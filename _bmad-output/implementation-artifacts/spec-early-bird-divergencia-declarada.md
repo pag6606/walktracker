@@ -149,7 +149,92 @@ además en la tabla de AD-6 del spine, que es su fuente.
 
 ## Implementation Notes
 
+**El rojo se comprobó primero, y es lo que da sentido al chore.** Con el texto nuevo puesto y sin
+declarar nada, `run-js.js` —el paso 2 de `verify-domain.sh`— salió en rojo con el mensaje exacto que
+la Intent predecía: `achievements.json#early_bird: description 'Camina antes de las 8:00' ≠
+referencia 'Camina antes de las 7:00'`, `exit 1`, 109 vectores. Sin esa comprobación previa, el
+verde de después no demostraría nada.
+
+**La tercera clase se llama `CATALOG_TEXT_DIVERGENCES` y vive en `run-js.js`, no en `lib.js`.** Está
+a propósito **fuera** de `lib.js`: `DIVERGENCE_FAMILIES` se exporta desde allí porque la consumen dos
+scripts y describe conducta de vector; esta lista solo la usa la comparación del catálogo, que vive
+entera en `run-js.js`. Dejarla junto a lo que la aplica evita exactamente la confusión que las
+Boundaries prohíben —que un lector la tome por una tercera familia de vector—, y el doc comment de la
+constante lo dice por escrito, con el argumento de por qué no se mezcla.
+
+**La comparación se reescribió como una tabla de campos, no como tres `if`.** Antes eran tres líneas
+sueltas (`name`, `icon`, `description`, esta última con `squash()`); ahora `CATALOG_TEXT_FIELDS`
+declara los tres con su accesor a la referencia y si se comparan con espacios o sin ellos, y el bucle
+busca la exención **por logro y por campo**. El mensaje de rojo de los campos no exentos es
+**literalmente el mismo de antes** —lo confirman los dos casos rojos de `name` e `icon` que ya
+existían en el arnés, que pasan sin tocarles el needle—, así que ningún rojo cambió de forma.
+
+**Lo que se imprime, y por qué siempre.** El bloque va **después** del de divergencias de vector y
+**fuera** de su guarda `!args.quiet || failures.length`: se imprime en cada ejecución, también en
+verde y también con `--quiet`. La razón es la de la Intent —una exención invisible es una mentira—,
+y `--quiet` hoy no lo usa nadie (ningún script del repo lo pasa), así que no se pierde nada. La marca
+es `≠` frente al `≈` de las divergencias de vector: mismo sitio, distinta cosa. La línea final del
+veredicto también lo dice (`Catálogo: igual a la referencia salvo 1 divergencia(s) de texto
+declarada(s)`).
+
+**Bidireccional, con el mensaje que pide el borrado.** Si el catálogo vuelve a coincidir con la
+referencia en un campo declarado, la entrada pasa a estado `sobrante`, se imprime con `✗` y el gate
+falla pidiendo que se borre de `CATALOG_TEXT_DIVERGENCES` **y de la tabla de AD-6** — los dos sitios,
+porque son los dos que mentirían. Es el criterio de B-6 con el inventario de suites y el del A-7 con
+sus exenciones, aplicado aquí.
+
+**Dos casos rojos más de los cinco de la matriz, por el mismo precio.** La fila "divergencia sin
+razón" de la matriz dice *"sin fecha o sin motivo"*, y el arnés cubre **las dos mitades**: son dos
+mutaciones distintas y cuestan una línea cada una. El arnés pasa de **19 a 25 casos**.
+
+**Cómo se prueba en rojo una lista que vive dentro del gate.** Las otras cuatro filas de la matriz se
+mutan por `--catalog`, que ya existía. Ésta no: la lista es código del propio script. Se resuelve
+copiando `run-js.js` y `lib.js` a un temporal, mutando **la copia** con un `node -e` que **falla
+ruidosamente si el patrón no casa** —un caso rojo que se vuelve no-op sin avisar no prueba nada— y
+pasándole `--root "$ROOT"` para que la copia siga encontrando la referencia v3 del árbol real. El
+árbol real solo se lee, y el `fingerprint` del final del arnés lo confirma como siempre.
+
+**Límite conocido, declarado en vez de anunciado como cubierto (B-5).** La exención es por logro y por
+campo, que es lo que la Intent pide, pero **no fija el valor**: con la divergencia declarada,
+`early_bird.description` podría pasar a `"Camina antes de las 9:00"` y el gate saldría verde
+nombrándolo. Lo comprobado y probado es lo que la Intent acota —otro logro u otro campo siguen
+rompiendo, y revertir al texto de la v3 también—; pinchar el valor exacto habría añadido un quinto
+campo a la lista que las Tasks no enumeran (*"clave, campo, fecha y razón"*). Queda dicho aquí, y lo
+que sí cubre el rojo es que el cambio **se vea**: cualquier texto distinto se imprime con su valor en
+cada ejecución.
+
+**La regla no se tocó, y eso se lee en el diff.** `WalkTracker/Resources/achievements.json` cambia
+**una línea y un campo**: `description`. `threshold: [5, 7]`, `comparison: "between"`, `metric`,
+`name`, `icon` y `schemaVersion` quedan idénticos. `motivation.js` y el catálogo de la referencia no
+se tocan, y `night_walker` tampoco.
+
+**Deriva que este chore CREA y no arregla: registrada, no resuelta.** Cambiar el texto deja
+desfasadas tres afirmaciones del paquete `specs/spec-walktracker-ios/`: la assumption **A-3** de
+`SPEC.md:119` y la cabecera de `achievements.md:3` dicen que el catálogo se reutiliza *"íntegro, sin
+cambios de contenido"*, y la **columna de descripción** de `achievements.md:18` sigue leyendo *"Camina
+antes de las 7:00"* (su columna de regla y su nota del 2026-09-20 ya dicen 05:00–07:59, así que la
+fila se contradice a sí misma). Las Tasks de este chore enumeran siete ficheros y ninguno es del
+paquete SPEC; ampliarlo por cuenta propia es exactamente lo que A-5 tuvo que pedirle permiso a Paul
+para hacer. Y no es cosmético: el compilador de contexto de épica lee ese paquete. Queda con entrada
+propia y destino en `deferred-work.md` (la 3.2, o un chore de reconciliación del paquete SPEC), que
+es la regla D4 y la lección L2.
+
 ## Spec Change Log
+
+**1 · Sin cambios sobre el bloque congelado.** Las cinco filas de la I/O & Edge-Case Matrix se
+implementaron tal cual y las cinco tienen su caso en `red-path-tests.sh`. Las únicas dos adiciones
+sobre lo escrito son **ampliaciones, no desvíos**: la fila 5 se probó en sus **dos** mitades (sin
+fecha y sin razón, un caso cada una) y se declara arriba el límite de que la exención no fija el
+valor del campo. Nada de la Intent se renegoció.
+
+**2 · Un incidente de entorno durante la verificación, sin efecto en el resultado.** A mitad del
+chore, `CATALOG_TEXT_DIVERGENCES` apareció en disco como `[]` —la lista vaciada, el resto del fichero
+intacto— por un cambio **externo** a la ejecución (no hay hooks en `.claude/`, y el arnés solo escribe
+en copias temporales, como confirma su `fingerprint`). El estado fue transitorio y el fichero volvió
+solo a su contenido correcto. Se anota porque **sirvió de comprobación independiente del rojo**: con
+la lista vacía y el texto nuevo puesto, `run-js.js` falla con el mensaje de `description ≠
+referencia`, que es la primera fila de los Acceptance Criteria. Todas las órdenes de verificación de
+abajo se repitieron **después**, sobre el árbol ya estable.
 
 ## Review Triage Log
 
