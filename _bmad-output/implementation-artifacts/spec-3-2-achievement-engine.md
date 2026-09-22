@@ -2,7 +2,7 @@
 title: '3.2 — Evaluación de logros al cierre de sesión (AchievementEngine)'
 type: 'feature'
 created: '2026-09-21'
-status: 'in-progress'
+status: 'done'
 route: 'dispatch'
 review_loop_iteration: 0
 baseline_commit: '3b30d94ba57ee84606b260607c26302cafe3c01e'

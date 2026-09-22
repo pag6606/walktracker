@@ -2,7 +2,7 @@
 title: '3.1 — Meta semanal configurable con anillo de progreso'
 type: 'feature'
 created: '2026-09-21'
-status: 'in-review'
+status: 'done'
 route: 'dispatch'
 review_loop_iteration: 0
 baseline_commit: '8492df94ed0c1b7309639be6363c73a3a40d3f9e'

@@ -103,10 +103,15 @@ development_status:
   epic-4-retrospective: optional
 
   epic-5: in-progress
-  # 2026-09-21 · ADELANTADA antes del Epic 3 por decisión de Paul: la 3.1 suma las caminatas
-  # de la semana para el anillo y hoy no se persiste ninguna. confirmFinish() borra el
-  # snapshot y no guarda nada. spec-5-1-persistencia-sesiones.md
+  # 2026-09-21 · ADELANTADA antes del Epic 3 por decisión de Paul. La razón, EN PASADO porque
+  # ya no describe el presente: entonces no se persistía ninguna caminata —confirmFinish()
+  # borraba el snapshot sin guardar nada— y la 3.1 necesitaba sumarlas para el anillo.
+  # Implementada y mergeada el 2026-09-21 (PR #41). spec-5-1-persistencia-sesiones.md
   # El resto del epic (5.2–5.4) NO se adelanta: sigue después del Epic 3 y del 4.
+  #
+  # 5-1 sigue en review: sus checks manuales en el iPhone (caminar, terminar, MATAR la app del
+  # todo y reabrir para ver que la caminata sigue ahí) nunca se ejecutaron. Deliberado, no
+  # deriva: 2026-09-22. Build donde probarlo: 115 o posterior.
   5-1-persistencia-garantizada-en-sandbox-storageport: review
   5-2-historial-lista-descendente-totales-semana-mes-tendencia: backlog
   5-3-export-csv-json-re-import-share-sheet: backlog
