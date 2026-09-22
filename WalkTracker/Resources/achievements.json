@@ -10,7 +10,7 @@
     { "key": "7_days_streak", "name": "7 días consecutivos", "description": "Camina 7 días seguidos", "icon": "🔥", "metric": "consecutiveDays", "threshold": 7, "comparison": "gte" },
     { "key": "marathon_42km", "name": "Maratonista", "description": "Acumula 42 km en total", "icon": "🏃", "metric": "totalDistanceM", "threshold": 42000, "comparison": "gte" },
     { "key": "speed_walker", "name": "Caminante rápido", "description": "Ritmo menor a 8:00 /km", "icon": "⚡", "metric": "paceSecPerKm", "threshold": 480, "comparison": "lt" },
-    { "key": "early_bird", "name": "Madrugador", "description": "Camina antes de las 7:00", "icon": "🌅", "metric": "startHourLocal", "threshold": [5, 7], "comparison": "between" },
+    { "key": "early_bird", "name": "Madrugador", "description": "Camina antes de las 8:00", "icon": "🌅", "metric": "startHourLocal", "threshold": [5, 7], "comparison": "between" },
     { "key": "night_walker", "name": "Caminante nocturno", "description": "Camina después de las 21:00", "icon": "🌙", "metric": "startHourLocal", "threshold": [21, 23], "comparison": "between" },
     { "key": "hot_walker", "name": "Caminante del sol", "description": "Camina con temperatura >30 °C", "icon": "☀️", "metric": "tempC", "threshold": 30, "comparison": "gt" },
     { "key": "cold_walker", "name": "Caminante del frío", "description": "Camina con temperatura <5 °C", "icon": "❄️", "metric": "tempC", "threshold": 5, "comparison": "lt" },

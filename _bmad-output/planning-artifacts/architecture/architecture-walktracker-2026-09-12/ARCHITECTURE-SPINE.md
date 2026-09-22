@@ -131,6 +131,30 @@ Las dos primeras siguen siendo divergencias reales: son decisiones de plataforma
 eran **defectos**, y se arreglaron en la referencia antes de portar (decisión de Paul) — lo que además
 permite **validar el arnés de vectores contra un runtime que ya existe**, antes de apostarle el port.
 
+**Divergencias declaradas del TEXTO del catálogo — una tercera clase, y no una fila más de la tabla
+de arriba (2026-09-20).** La tabla anterior responde a *"¿qué vector falla en `domain.js` a
+propósito?"*: cada fila tiene funciones y logros afectados, y su vector divergente **debe** fallar en
+la referencia. Hay una segunda pregunta, que es otra: *"¿en qué se aparta el **contenido** de
+`WalkTracker/Resources/achievements.json` del catálogo de la referencia?"*. No tiene vector, no tiene
+función y `domain.js` no falla por ella, así que **no entra** en las dos familias de arriba ni en
+`DIVERGENCE_FAMILIES` — si entrara, `early_bird` figuraría con dos divergencias cuando su **conducta**
+solo diverge en una (la hora local), y un lector encontraría dos razones siendo una falsa.
+
+| Logro · campo | Fecha | Qué dice el catálogo | Qué dice la v3 | Razón |
+| --- | --- | --- | --- | --- |
+| `early_bird` · `description` | 2026-09-20 | *"Camina antes de las 8:00"* | *"Camina antes de las 7:00"* | La regla es `threshold: [5, 7]` con `between`, **inclusiva en los dos extremos**: la franja llega a las **07:59**, así que el texto de la referencia miente al usuario — quien camine a las 07:30 desbloquea el logro creyendo que no debía. Decisión de Paul: se corrige **el texto, no la regla**. Cambiar el umbral de un logro cuyos desbloqueos son irrevocables por un problema de redacción es desproporcionado; el logro se desbloquea exactamente igual y solo deja de mentir |
+
+La declaración **vive en el gate**, que es quien la hace cumplir: `CATALOG_TEXT_DIVERGENCES` en
+`Scripts/vectors/run-js.js`, con clave, campo, fecha y razón, **impresa en cada ejecución** y
+distinguida del bloque de divergencias de vector. Tres propiedades, y ninguna es decorativa:
+la exención es **por logro y por campo** (no cubre `description` de los otros trece ni
+`name`/`icon` de `early_bird`); el criterio es **bidireccional**, como el inventario de suites de
+B-6 — si el catálogo vuelve a coincidir con la referencia en ese campo, la divergencia **sobra** y el
+gate se pone rojo pidiendo que se borre de aquí y de allí; y una entrada **sin fecha o sin razón**
+también deja el gate en rojo. Los cinco casos están en `Scripts/vectors/red-path-tests.sh`,
+incluido el **verde**. `motivation.js` y el catálogo de la referencia **no se tocan**: la referencia
+es la referencia, y lo que se declara es que nos apartamos de ella a propósito.
+
 **Cumplimiento sin CI.** No hay servidor de integración (`SPEC` no-backend, AR-11). La ejecución de vectores y escenarios es un **script local** (`Scripts/verify-domain.sh`) que corre ambos runtimes, y su paso en verde es **Definition of Done de cada historia que toca `Domain/`**. Decir "bloquea el merge" sin mecanismo sería una aspiración, no una regla.
 
 ### AD-7 — Escritor único, y la frontera cruza con un DTO propio

@@ -77,6 +77,9 @@ development_status:
   # semana para el anillo y la 3.2 necesita acumulados y rachas, y hasta la 5.1 no había ningún
   # registro persistido que sumar. La 5.1 deja además `achievements.json` con su dueño y su
   # esquema (el de la 3.2) y el punto de escritura donde AD-17 la enchufa.
+  # 3-1 sigue en review: sus checks manuales en el iPhone (fijar meta 15 y reabrir la app, "0" y
+  # "abc" rechazados sin tocar el fichero, VoiceOver sobre el anillo, y el anillo con Dynamic Type
+  # al máximo y con Reduce Motion) nunca se ejecutaron. Deliberado, no deriva: 2026-09-21.
   3-1-meta-semanal-configurable-con-anillo-de-progreso: review
   3-2-evaluación-de-logros-al-cierre-de-sesión-achievementengine: backlog
   3-3-pantalla-de-logros-grid-locked-unlocked-con-progreso: backlog

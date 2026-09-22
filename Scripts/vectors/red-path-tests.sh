@@ -173,6 +173,77 @@ mutate "$dir/catalog.json" 'd.achievements.find(a => a.key === "hot_walker").ico
 assert_run "achievements.json con un icon cambiado rompe" nonzero "achievements.json#hot_walker: icon '🔆'" \
     -- "$RUN_JS" --vectors "$VECTORS" --catalog "$dir/catalog.json"
 
+# ── Catálogo: la divergencia de texto declarada (early_bird · description) ───
+# Los cinco casos de la matriz del chore de `early_bird`. El primero es el único caso
+# VERDE que este arnés tiene para el catálogo: hasta aquí solo había rojos, y una
+# excepción que nadie ve pasar en verde no está probada.
+
+# (a) Con la divergencia declarada, el texto decidido pasa Y se imprime.
+assert_run "la divergencia declarada de early_bird·description pasa y se imprime" 0 \
+    "≠ early_bird · description — declarada el 2026-09-20" \
+    -- "$RUN_JS" --vectors "$VECTORS"
+
+# (b) La excepción es por LOGRO: el mismo campo en otro logro sigue rompiendo.
+dir="$(fresh_copy catalog-divergence)"
+cp "$ROOT/WalkTracker/Resources/achievements.json" "$dir/catalog.json"
+mutate "$dir/catalog.json" 'd.achievements.find(a => a.key === "first_5km").description = "Completa 5 km de golpe";'
+assert_run "description cambiada en OTRO logro rompe: la excepción es por logro" nonzero \
+    "achievements.json#first_5km: description 'Completa 5 km de golpe' ≠ referencia 'Completa 5 km en una sesión'" \
+    -- "$RUN_JS" --vectors "$VECTORS" --catalog "$dir/catalog.json"
+
+# (b) Y por CAMPO: `name` de early_bird no está exento.
+cp "$ROOT/WalkTracker/Resources/achievements.json" "$dir/catalog.json"
+mutate "$dir/catalog.json" 'd.achievements.find(a => a.key === "early_bird").name = "Madrugadora";'
+assert_run "name cambiado en early_bird rompe: la excepción es por campo" nonzero \
+    "achievements.json#early_bird: name 'Madrugadora' ≠ referencia 'Madrugador'" \
+    -- "$RUN_JS" --vectors "$VECTORS" --catalog "$dir/catalog.json"
+
+# Bidireccional, como el inventario de suites de B-6: revertido al texto viejo, la
+# divergencia declarada ya no se cumple y el gate pide que se borre.
+cp "$ROOT/WalkTracker/Resources/achievements.json" "$dir/catalog.json"
+mutate "$dir/catalog.json" 'd.achievements.find(a => a.key === "early_bird").description = "Camina antes de las 7:00";'
+assert_run "revertir el texto deja la divergencia declarada sobrante y rompe" nonzero \
+    "achievements.json#early_bird: description vuelve a coincidir con la referencia" \
+    -- "$RUN_JS" --vectors "$VECTORS" --catalog "$dir/catalog.json"
+
+# Una entrada sin fecha o sin razón no es una decisión declarada. Es lo único que no se
+# puede mutar por `--catalog`: la lista vive DENTRO del gate. Así que se muta una COPIA
+# del script y se le pasa `--root` para que siga encontrando la referencia v3 del árbol
+# real. La mutación falla ruidosamente si no encuentra el campo: un caso rojo que se
+# vuelve no-op sin avisar no prueba nada.
+mutate_run_js() {
+    local dest="$1" pattern="$2" replacement="$3"
+    mkdir -p "$dest"
+    cp "$RUN_JS" "$SCRIPT_DIR/lib.js" "$dest/"
+    node -e '
+        const fs = require("fs");
+        const file = process.argv[1];
+        const before = fs.readFileSync(file, "utf8");
+        const after = before.replace(new RegExp(process.argv[2]), process.argv[3]);
+        if (after === before) {
+            console.error(`mutate_run_js: el patrón ${process.argv[2]} no casó con nada en ${file}`);
+            process.exit(1);
+        }
+        fs.writeFileSync(file, after);
+    ' "$dest/run-js.js" "$pattern" "$replacement"
+}
+
+sdir="$WORK/divergence-no-reason"
+if mutate_run_js "$sdir" "reason: 'La v3[\\s\\S]*?'," "reason: '',"; then
+    assert_run "divergencia declarada sin razón rompe" nonzero "sin razón escrita" \
+        -- "$sdir/run-js.js" --root "$ROOT" --vectors "$VECTORS"
+else
+    report_fail "divergencia declarada sin razón — no se pudo mutar la lista de run-js.js"
+fi
+
+sdir="$WORK/divergence-no-date"
+if mutate_run_js "$sdir" "date: '2026-09-20'," "date: ''," ; then
+    assert_run "divergencia declarada sin fecha rompe" nonzero "sin fecha (AAAA-MM-DD)" \
+        -- "$sdir/run-js.js" --root "$ROOT" --vectors "$VECTORS"
+else
+    report_fail "divergencia declarada sin fecha — no se pudo mutar la lista de run-js.js"
+fi
+
 # ── Divergente fuera de logros con expectedJs que no casa ────────────────────
 dir="$(fresh_copy expected-js)"
 mutate "$dir/weeklyProgress.json" 'd.vectors.find(v => v.id === "ahora-lunes-00-00-local").expectedJs.goalKm = 12;'
