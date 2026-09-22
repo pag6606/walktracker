@@ -119,6 +119,53 @@ enum GoalRing {
     static let minimumValueScale: CGFloat = 0.5
 }
 
+/// La insignia de logro (3.3), que es la **segunda** de las tres piezas dibujadas a mano que
+/// AD-13 autoriza. Entra aquí lo que su vista no puede reteclear: el tope del medallón, el
+/// grosor de su reborde, el ancho mínimo de una columna del grid, el alto de la barra de
+/// progreso, cuánto se atenúa lo que aún no se ha conseguido y la duración del llenado.
+///
+/// **Ningún tamaño fijo, igual que el anillo.** AD-13 dice "nada de diámetros ni tamaños
+/// fijos": `maxDiameter` y `columnMinimum` son **topes y suelos**, no medidas, y los tres
+/// valores de longitud se usan como punto de partida de `@ScaledMetric`, así que con Dynamic
+/// Type grande el medallón engorda con su emoji y el grid se queda en **una** columna en vez de
+/// recortar los nombres.
+///
+/// **Ningún color nuevo.** El reborde conseguido es `Colors.accent` —el mismo del arco del
+/// anillo— y el bloqueado es `.secondary`; la pista de la barra es `.quaternary`, que es un rol
+/// del sistema. La excepción de UX-DR1 son exactamente tres colorsets y no se amplía (AD-13).
+enum AchievementBadge {
+
+    /// Tope del diámetro del medallón. La insignia ocupa el ancho de su celda hasta aquí; no es
+    /// su tamaño.
+    static let maxDiameter: CGFloat = 88
+
+    /// Grosor del reborde del medallón, en puntos, como punto de partida de `@ScaledMetric`.
+    static let rimWidth: CGFloat = 3
+
+    /// Ancho mínimo de una columna del grid, como punto de partida de `@ScaledMetric`. Con el
+    /// tamaño de texto por omisión caben **dos** columnas en un iPhone, que es la rejilla que
+    /// pide UX-DR5; con Dynamic Type de accesibilidad el mínimo crece y la rejilla se queda en
+    /// una sola columna sola, sin ninguna condición escrita a mano.
+    static let columnMinimum: CGFloat = 150
+
+    /// Alto de la barra de progreso de un logro bloqueado, como punto de partida de
+    /// `@ScaledMetric`: la barra engorda con el texto que la acompaña.
+    static let barHeight: CGFloat = 6
+
+    /// Cuánto se atenúa un logro que aún no se ha conseguido.
+    ///
+    /// Es un token porque de él depende que un bloqueado se **distinga** del conseguido sin
+    /// desaparecer: los 14 están siempre presentes (UX-DR5) y lo que falta por ganar se enseña,
+    /// no se esconde. No es texto —es el emoji del catálogo en escala de grises— así que no le
+    /// aplica el 4,5:1 de WCAG AA; el estado lo dice además la etiqueta de VoiceOver, que no
+    /// depende del color.
+    static let lockedOpacity: Double = 0.45
+
+    /// Cuánto tarda la barra en llegar a su sitio, en segundos. **Con Reduce Motion no se usa**:
+    /// la barra aparece ya pintada, sin animación más corta ni fundido, igual que el anillo.
+    static let fillDuration: Double = 0.6
+}
+
 /// Radios de esquina. Uno solo: dos radios sin razón declarada eran una de las
 /// incoherencias que este vocabulario existe para cerrar.
 enum Radius {

@@ -1,3 +1,4 @@
+import Domain
 import SwiftUI
 
 /// Navegación de AD-14: un `TabView` de cuatro pestañas (Inicio · Historial · Logros ·
@@ -30,6 +31,20 @@ struct RootView<Diagnostics: View>: View {
     /// prohíbe alcanzarlos por dentro del store de sesión. Hoy solo se le lee el aviso de
     /// historial ilegible; la lista y los totales son de la 5.2.
     let historyStore: HistoryStore
+    /// Dueño de `achievements.json` **del sandbox** (AD-16, 5.1). Llega cableado desde
+    /// `WalkTrackerApp` por la misma razón que los otros dos, y además por una propia: la
+    /// sección 6 del gate prohíbe a `UI/` alcanzar los logros por dentro del store de sesión,
+    /// que es justo el atajo que la 3.2 cerró al añadirlo a esa regla. Hoy lo lee la pestaña
+    /// Logros (3.3).
+    let achievementsStore: AchievementsStore
+    /// El catálogo congelado de los 14 logros (AD-5), del bundle. **No es el fichero del
+    /// sandbox**: es contenido, y viaja igual de aparte del store de sesión — el catálogo
+    /// también está en la lista de pasos internos que la sección 6 prohíbe en `UI/`.
+    let achievementCatalog: AchievementCatalog
+    /// El `AppCalendar` de AD-19, de `ClockPort.calendar`: el único calendario de la app. La
+    /// pestaña Logros lo necesita para la racha de los progresos y para fechar un desbloqueo en
+    /// hora local. Llega como valor, no como puerto: la UI no lee el reloj, solo el calendario.
+    let calendar: Calendar
     /// La zancada por omisión de `formulas.json`, para el marcador de posición de Ajustes.
     let defaultStrideM: Double
     private let diagnostics: Diagnostics?
@@ -40,12 +55,18 @@ struct RootView<Diagnostics: View>: View {
         store: SessionStore,
         settingsStore: SettingsStore,
         historyStore: HistoryStore,
+        achievementsStore: AchievementsStore,
+        achievementCatalog: AchievementCatalog,
+        calendar: Calendar,
         defaultStrideM: Double,
         @ViewBuilder diagnostics: () -> Diagnostics
     ) {
         self.store = store
         self.settingsStore = settingsStore
         self.historyStore = historyStore
+        self.achievementsStore = achievementsStore
+        self.achievementCatalog = achievementCatalog
+        self.calendar = calendar
         self.defaultStrideM = defaultStrideM
         self.diagnostics = diagnostics()
     }
@@ -69,11 +90,11 @@ struct RootView<Diagnostics: View>: View {
                 )
             }
             Tab("Logros", systemImage: "trophy") {
-                EmptyTabView(
-                    title: "Logros",
-                    unavailableTitle: "Sin logros",
-                    systemImage: "trophy",
-                    description: "Los logros que desbloquees aparecerán aquí."
+                AchievementsView(
+                    catalog: achievementCatalog,
+                    achievementsStore: achievementsStore,
+                    historyStore: historyStore,
+                    calendar: calendar
                 )
             }
             Tab("Ajustes", systemImage: "gearshape") {
@@ -106,11 +127,17 @@ extension RootView where Diagnostics == Never {
         store: SessionStore,
         settingsStore: SettingsStore,
         historyStore: HistoryStore,
+        achievementsStore: AchievementsStore,
+        achievementCatalog: AchievementCatalog,
+        calendar: Calendar,
         defaultStrideM: Double
     ) {
         self.store = store
         self.settingsStore = settingsStore
         self.historyStore = historyStore
+        self.achievementsStore = achievementsStore
+        self.achievementCatalog = achievementCatalog
+        self.calendar = calendar
         self.defaultStrideM = defaultStrideM
         self.diagnostics = nil
     }
@@ -133,8 +160,10 @@ extension SessionStore.ScenePhase {
     }
 }
 
-/// Pestaña sin datos de dominio todavía. No se inventa contenido (AD-22). Historial (5.2) y
-/// Logros (3.3) siguen aquí; Ajustes salió de este molde con la 2.3.
+/// Pestaña sin datos de dominio todavía. No se inventa contenido (AD-22). Solo queda
+/// **Historial**, que la llena la 5.2; Ajustes salió de este molde con la 2.3 y Logros con la
+/// 3.3 — y esa salió por la puerta contraria: su grid enseña los 14 desde el primer día, así que
+/// nunca tiene estado vacío que pintar.
 private struct EmptyTabView: View {
 
     let title: LocalizedStringKey

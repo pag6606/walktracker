@@ -64,6 +64,7 @@ SUITE_DIRS=(Domain Vectors Scenarios)
 DOMAIN_SUITES=(
     AchievementCatalogTests
     AchievementEngineTests
+    AchievementProgressTests
     AchievementUnlockTests
     AppSettingsTests
     ChronometerTests

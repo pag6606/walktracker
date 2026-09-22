@@ -131,24 +131,15 @@ struct HomeView<Diagnostics: View>: View {
     ///
     /// Sin botón: no hay nada que Paul pueda hacer desde aquí, y un "Aceptar" solo serviría para
     /// que el aviso dejara de estar sin que el problema deje de estar.
+    ///
+    /// El tratamiento visual lo pone `UnreadableFileNotice`, compartido con el aviso de logros
+    /// de la 3.3: es el mismo aviso con dos textos, y dos copias serían dos sitios donde se
+    /// puede arreglar solo uno.
     private var unreadableHistoryNotice: some View {
-        Label {
-            VStack(alignment: .leading, spacing: Spacing.xs) {
-                Text("No se pudo leer tu historial")
-                    .font(.subheadline.weight(.semibold))
-                Text("No se ha borrado nada. Puedes seguir caminando: las caminatas nuevas no se escriben encima de lo que no se pudo leer.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-        } icon: {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(Colors.error)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, Surface.cardPaddingHorizontal)
-        .padding(.vertical, Surface.cardPaddingVertical)
-        .background(Colors.error.opacity(Surface.noticeTintOpacity), in: .rect(cornerRadius: Radius.card))
-        .accessibilityElement(children: .combine)
+        UnreadableFileNotice(
+            title: Text("No se pudo leer tu historial"),
+            message: Text("No se ha borrado nada. Puedes seguir caminando: las caminatas nuevas no se escriben encima de lo que no se pudo leer.")
+        )
     }
 
     /// Solo lectura más la intención de reconocerlo: la vista no escribe el estado.

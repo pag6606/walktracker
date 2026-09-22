@@ -1,3 +1,4 @@
+import Domain
 import SwiftUI
 
 @main
@@ -22,6 +23,13 @@ struct WalkTrackerApp: App {
             store: root.sessionStore,
             settingsStore: root.settingsStore,
             historyStore: root.historyStore,
+            // Los logros llegan por su propio camino —el store del sandbox y el catálogo
+            // congelado del bundle—, no a través de `SessionStore`: son dos dueños distintos y
+            // la sección 6 del gate prohíbe el atajo. El calendario es el `AppCalendar` de
+            // AD-19, el mismo que usan el anillo y el cierre de sesión.
+            achievementsStore: root.achievementsStore,
+            achievementCatalog: root.achievementCatalog,
+            calendar: root.clock.calendar,
             defaultStrideM: root.formulas.defaultStrideM
         ) {
             NativeLayerDiagnosticsView(
@@ -37,6 +45,13 @@ struct WalkTrackerApp: App {
             store: root.sessionStore,
             settingsStore: root.settingsStore,
             historyStore: root.historyStore,
+            // Los logros llegan por su propio camino —el store del sandbox y el catálogo
+            // congelado del bundle—, no a través de `SessionStore`: son dos dueños distintos y
+            // la sección 6 del gate prohíbe el atajo. El calendario es el `AppCalendar` de
+            // AD-19, el mismo que usan el anillo y el cierre de sesión.
+            achievementsStore: root.achievementsStore,
+            achievementCatalog: root.achievementCatalog,
+            calendar: root.clock.calendar,
             defaultStrideM: root.formulas.defaultStrideM
         )
         #endif

@@ -1,8 +1,17 @@
 {
   "sourceLanguage": "es",
   "strings": {
+    "%@ de %@ días": {
+      "comment": "Progreso de un logro de racha en el grid de Logros: los días seguidos con caminata frente a los que pide el logro."
+    },
     "%@ de %@ kilómetros, %@ por ciento": {
       "comment": "Valor de VoiceOver del anillo de meta de Inicio: los kilómetros de la semana, la meta y el porcentaje. Ejemplo: \"7,5 de 10 kilómetros, 75 por ciento\"."
+    },
+    "%@ de %@ km": {
+      "comment": "Progreso de un logro de distancia en el grid de Logros: los kilómetros acumulados frente a los que pide el logro. Los dos marcadores son cifras ya formateadas, por ejemplo \"19,88\" y \"42,00\"."
+    },
+    "%@ de %@ sesiones": {
+      "comment": "Progreso de un logro de número de caminatas en el grid de Logros: las sesiones hechas frente a las que pide el logro."
     },
     "%@ por kilómetro": {
       "comment": "Lectura de VoiceOver del ritmo: una duración (\"19 minutos y 5 segundos\") por kilómetro."
@@ -120,6 +129,12 @@
     "Ajustes": {
       "comment": "Pestaña Ajustes del TabView (AD-14) y título de su pantalla."
     },
+    "Bloqueado": {
+      "comment": "Valor de VoiceOver de una insignia que aún no se ha conseguido y no tiene barra que leer, en el grid de Logros."
+    },
+    "Bloqueado. %@": {
+      "comment": "Valor de VoiceOver de una insignia bloqueada con avance, en el grid de Logros: dice que está bloqueada y lee su progreso. El marcador es el progreso ya formateado, por ejemplo \"19,88 de 42,00 km\"."
+    },
     "Buscando el clima…": {
       "comment": "Tarjeta de clima de la sesión mientras la captura del clima está en curso (hasta 3 s). Nunca muestra ceros."
     },
@@ -158,6 +173,9 @@
     },
     "Condición desconocida": {
       "comment": "Condición del clima para un código WMO sin texto propio, en la tarjeta de clima de la sesión."
+    },
+    "Conseguido el %@": {
+      "comment": "Pie de una insignia conseguida en el grid de Logros: cuándo se ganó. El marcador es la fecha ya formateada en hora local, por ejemplo \"21 sept 2026\"."
     },
     "Continuar": {
       "comment": "Botón de la pre-pantalla: pide el permiso de Movimiento y forma física al sistema."
@@ -309,9 +327,6 @@
     "Longitud de zancada, en metros": {
       "comment": "Etiqueta del campo de Ajustes donde Paul recalibra su zancada. Lleva la unidad porque es también lo que lee VoiceOver."
     },
-    "Los logros que desbloquees aparecerán aquí.": {
-      "comment": "Descripción de la pestaña de logros vacía."
-    },
     "Mayormente despejado": {
       "comment": "Condición del clima, código WMO 1, en la tarjeta de clima de la sesión."
     },
@@ -342,8 +357,17 @@
     "No podrás reanudarla.": {
       "comment": "Mensaje del diálogo de confirmación de Finalizar: terminar la caminata es irreversible."
     },
+    "No se ha borrado nada. Mientras tanto no sabemos cuáles has conseguido, y no se escribirá encima de lo que no se pudo leer.": {
+      "comment": "Cuerpo del aviso de la pantalla de Logros cuando el fichero de logros no se pudo leer: dice que no se ha perdido nada y por qué las insignias no dicen si están conseguidas."
+    },
+    "No se pudieron leer tus logros": {
+      "comment": "Título del aviso de la pantalla de Logros cuando `achievements.json` existe y no se ha podido leer."
+    },
     "No se pudo iniciar la caminata": {
       "comment": "Alerta si no se abre la sesión: el dominio la rechaza o el permiso de Movimiento y forma física queda sin decidir tras pedirlo."
+    },
+    "No se pudo leer si lo has conseguido": {
+      "comment": "Valor de VoiceOver de una insignia cuando el fichero de logros no se pudo leer. No se dice \"bloqueado\": no se sabe si está conseguido."
     },
     "Nublado": {
       "comment": "Condición del clima, código WMO 3, en la tarjeta de clima de la sesión."
@@ -386,9 +410,6 @@
     },
     "Sin clima": {
       "comment": "Tarjeta de clima de la sesión cuando no hay clima: sin red, sin permiso de ubicación o con timeout. Sin tono de error."
-    },
-    "Sin logros": {
-      "comment": "Logros vacío: aún no hay logros desbloqueados."
     },
     "Sin progreso: no se pudo leer tu historial": {
       "comment": "Valor de VoiceOver del anillo de meta cuando el historial no se pudo leer. No se lee 0 %: el progreso es desconocido, no cero."
