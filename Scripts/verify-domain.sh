@@ -69,6 +69,7 @@ DOMAIN_SUITES=(
     DomainVectorTests
     FormulasTests
     GapReconstructionScenarios
+    GoalEngineTests
     MetricsScenarios
     MotivationEngineTests
     QuoteBankTests

@@ -1,11 +1,12 @@
 import Domain
 import SwiftUI
 
-/// Pestaña Ajustes (AD-14). Nació en la 2.3 con **un solo** ajuste —la longitud de zancada— y
-/// desde B-9 (2026-09-21) tiene **dos secciones**: "Zancada" y "Acerca de".
+/// Pestaña Ajustes (AD-14). Nació en la 2.3 con **un solo** ajuste —la longitud de zancada—,
+/// desde B-9 (2026-09-21) tiene "Acerca de" y desde la 3.1 son **tres secciones**: "Zancada",
+/// "Meta semanal" y "Acerca de", en ese orden.
 ///
-/// La meta semanal (Epic 3), el sonido (4.2) y exportar y borrar datos (Epic 5) llegan con sus
-/// historias; aquí no se adelanta ninguno.
+/// El sonido (4.2) y exportar y borrar datos (Epic 5) llegan con sus historias; aquí no se
+/// adelanta ninguno.
 ///
 /// **"Acerca de" no es opcional y tiene dueño.** Hasta B-9 este comentario decía que llegaría
 /// "con su historia", y esa historia no existía: `epics.md` no nombraba el "Acerca de" ni una
@@ -14,12 +15,13 @@ import SwiftUI
 /// invisible para quien nunca capturara clima. Quien reorganice esta pantalla: la sección de
 /// abajo **se queda**, y `NOTICE` (raíz del repo) dice por qué, con la cláusula citada.
 ///
-/// **La vista no decide nada** (sección 6 del gate). Entrega el texto crudo del campo a
-/// `SettingsStore.saveStride(fromText:)` y pinta `strideOutcome`: qué es un número, qué se
-/// rechaza y qué merece aviso vive en `SettingsStore+Stride.swift`, que es lo que se prueba.
+/// **La vista no decide nada** (sección 6 del gate). Entrega el texto crudo de cada campo a
+/// `SettingsStore.saveStride(fromText:)` o `saveGoal(fromText:)` y pinta `strideOutcome` y
+/// `goalOutcome`: qué es un número, qué se rechaza y qué merece aviso vive en
+/// `SettingsStore+Stride.swift` y `SettingsStore+Goal.swift`, que es lo que se prueba.
 ///
-/// **Primer campo de texto del producto.** No había ni un `TextField` en todo el árbol, así que
-/// esto fija el patrón: teclado decimal (que en español da coma) **con su "Listo"**, valor
+/// **El patrón de campo de texto, estrenado en la 2.3 y repetido tal cual en la 3.1.** La
+/// pantalla trajo el primer `TextField` del producto y fija el patrón que la meta semanal copia: teclado decimal (que en español da coma) **con su "Listo"**, valor
 /// alineado a la derecha con su unidad al lado, botón Guardar explícito, mensaje en línea debajo
 /// —anunciado también por VoiceOver— y una salida de vuelta al valor por defecto. El botón
 /// explícito es decisión de Paul: hace inequívoco qué significa "no se persiste el valor
@@ -45,7 +47,11 @@ struct SettingsView: View {
     /// valida aquí: se entrega entero al store al pulsar Guardar.
     @State private var text: String
 
+    /// Lo mismo para la meta semanal (3.1): el texto crudo del campo, que decide el store.
+    @State private var goalText: String
+
     @FocusState private var isEditing: Bool
+    @FocusState private var isEditingGoal: Bool
 
     init(settingsStore: SettingsStore, defaultStrideM: Double) {
         self.settingsStore = settingsStore
@@ -53,6 +59,7 @@ struct SettingsView: View {
         // Sin configurar el campo nace vacío, y el marcador de posición enseña el valor que
         // se está usando: un campo precargado con el default haría pensar que ya se eligió.
         _text = State(initialValue: settingsStore.strideM.map { Self.decimalText($0) } ?? "")
+        _goalText = State(initialValue: settingsStore.weeklyGoalKm.map { Self.decimalText($0) } ?? "")
     }
 
     var body: some View {
@@ -73,6 +80,8 @@ struct SettingsView: View {
                     Text("La distancia y el ritmo salen de multiplicar tus pasos por este valor. Se aplica a la siguiente caminata: las que ya hiciste no cambian.", comment: "Pie de la sección de zancada en Ajustes: qué hace el ajuste y desde cuándo.")
                 }
 
+                goalSection
+
                 aboutSection
             }
             // El `.decimalPad` no tiene tecla de retorno: sin estas dos, la única forma de
@@ -82,7 +91,7 @@ struct SettingsView: View {
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
-                    Button { isEditing = false } label: {
+                    Button { isEditing = false; isEditingGoal = false } label: {
                         Text("Listo", comment: "Botón de la barra sobre el teclado decimal de Ajustes: cierra el teclado sin guardar. El teclado decimal no trae tecla de retorno.")
                     }
                 }
@@ -91,10 +100,17 @@ struct SettingsView: View {
         }
         // El mensaje era de aquella pulsación: salir de Ajustes lo apaga. Si no, volver a la
         // pestaña enseñaba otra vez el "Zancada guardada" de hace diez minutos.
-        .onDisappear { settingsStore.strideScreenDidDisappear() }
+        .onDisappear {
+            settingsStore.strideScreenDidDisappear()
+            settingsStore.goalScreenDidDisappear()
+        }
         // VoiceOver no se entera de un texto que aparece debajo: el foco se queda en Guardar.
         // Mismo recurso que el "Sesión recuperada" de la pantalla de sesión (1.6).
         .onChange(of: settingsStore.strideOutcome) { _, outcome in
+            guard let outcome else { return }
+            AccessibilityNotification.Announcement(Self.message(for: outcome)).post()
+        }
+        .onChange(of: settingsStore.goalOutcome) { _, outcome in
             guard let outcome else { return }
             AccessibilityNotification.Announcement(Self.message(for: outcome)).post()
         }
@@ -177,6 +193,98 @@ struct SettingsView: View {
         .listRowBackground(Color.clear)
     }
 
+    // MARK: - Meta semanal (3.1)
+
+    /// La segunda sección, **entre** Zancada y "Acerca de".
+    ///
+    /// Es el molde de la zancada con un campo distinto, y eso es deliberado: dos entradas de
+    /// texto que se comporten distinto en la misma pantalla serían dos patrones que aprender.
+    /// Lo único que no tiene la meta es el aviso de rango — 3 km y 80 km son igual de suyos, y
+    /// no hay un "rango humano" que avisar.
+    ///
+    /// **"Acerca de" sigue siendo la última y entera**: esta sección se inserta antes, no
+    /// reorganiza la pantalla. La obligación de licencia de AD-24 no se toca.
+    private var goalSection: some View {
+        Section {
+            goalField
+            if let outcome = settingsStore.goalOutcome {
+                outcomeMessage(Self.message(for: outcome), symbol: Self.symbol(for: outcome), style: Self.style(for: outcome))
+            }
+            goalSaveButton
+            if settingsStore.weeklyGoalKm != nil {
+                goalDefaultButton
+            }
+        } header: {
+            // Misma clave que la etiqueta de VoiceOver del anillo de Inicio: un solo `comment:`
+            // para las dos, o el catálogo se queda con uno y pierde el otro.
+            Text("Meta semanal", comment: "Rótulo de la meta semanal, en sus dos sitios: la etiqueta de VoiceOver del anillo de progreso de Inicio —cuyo valor dice el completado, la meta y el porcentaje— y el encabezado de la sección de Ajustes donde se fija. El String Catalog guarda un comentario por clave: si se acorta para el encabezado, se acorta también lo que VoiceOver lee del anillo.")
+        } footer: {
+            Text(verbatim: Self.goalFooter)
+        }
+    }
+
+    private var goalField: some View {
+        LabeledContent {
+            HStack(spacing: Spacing.s) {
+                TextField(Self.decimalText(AppSettings.defaultWeeklyGoalKm), text: editedGoalText)
+                    .keyboardType(.decimalPad)
+                    .multilineTextAlignment(.trailing)
+                    .focused($isEditingGoal)
+                    .frame(maxWidth: .infinity, minHeight: LayoutMetrics.touchTargetMin)
+                    .contentShape(Rectangle())
+                // Misma clave que la unidad de la pantalla de sesión, y por eso el mismo
+                // `comment:`: el String Catalog guarda UNO por clave, y dos textos distintos
+                // dejarían al traductor leyendo el del otro sitio (hallazgo 14 de la 2.3).
+                Text("km", comment: "Unidad de los kilómetros: la distancia en la pantalla de sesión y el valor del campo de meta semanal en Ajustes.")
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+            }
+        } label: {
+            Text("Meta de la semana, en kilómetros", comment: "Etiqueta del campo de Ajustes donde Paul fija su meta semanal. Lleva la unidad porque es también lo que lee VoiceOver.")
+        }
+    }
+
+    /// Lo tecleado en la meta, con la señal de "esto lo está escribiendo Paul" en el binding,
+    /// por la misma razón que en la zancada: el botón de volver al valor por defecto también
+    /// vacía el campo, y no debe apagar el mensaje que él mismo acaba de encender.
+    private var editedGoalText: Binding<String> {
+        Binding(
+            get: { goalText },
+            set: { typed in
+                goalText = typed
+                settingsStore.goalEditingDidChange()
+            }
+        )
+    }
+
+    private var goalSaveButton: some View {
+        Button {
+            isEditingGoal = false
+            settingsStore.saveGoal(fromText: goalText)
+        } label: {
+            Text("Guardar meta", comment: "Botón explícito de Ajustes que persiste la meta semanal. Dice \"meta\" para distinguirse del Guardar de la zancada, que está en la misma pantalla.")
+                .font(Typography.buttonLabel)
+                .frame(maxWidth: .infinity, minHeight: LayoutMetrics.touchTargetMin)
+        }
+        .buttonStyle(.glassProminent)
+        .listRowBackground(Color.clear)
+    }
+
+    private var goalDefaultButton: some View {
+        Button {
+            isEditingGoal = false
+            // Directo al `@State`, no por `editedGoalText`: este vaciado no debe apagar el
+            // mensaje que la intención va a encender.
+            goalText = ""
+            settingsStore.clearGoal()
+        } label: {
+            Text("Usar los 10 km por defecto", comment: "Botón de Ajustes que borra la meta semanal fijada y devuelve la de fábrica. Es la única vuelta atrás: vaciar el campo se rechaza.")
+                .frame(maxWidth: .infinity, minHeight: LayoutMetrics.touchTargetMin)
+        }
+        .buttonStyle(.glass)
+        .listRowBackground(Color.clear)
+    }
+
     // MARK: - Acerca de
 
     /// La sección que cumple AD-24 sin depender del clima (B-9).
@@ -234,15 +342,22 @@ struct SettingsView: View {
     /// El resultado del último Guardar, debajo del campo (estructura de UX-DR4: etiqueta ·
     /// campo · mensaje en línea). Nunca culpa: dice qué pasó y qué hacer.
     private func outcomeMessage(_ outcome: SettingsStore.StrideOutcome) -> some View {
+        outcomeMessage(Self.message(for: outcome), symbol: Self.symbol(for: outcome), style: Self.style(for: outcome))
+    }
+
+    /// La fila del mensaje, **una sola para los dos ajustes** (3.1). El texto, el símbolo y el
+    /// estilo los decide cada resultado; la forma de la fila es la misma, y duplicarla habría
+    /// sido dejar que las dos derivaran.
+    private func outcomeMessage(_ text: String, symbol: String, style: AnyShapeStyle) -> some View {
         Label {
-            Text(verbatim: Self.message(for: outcome))
+            Text(verbatim: text)
                 .font(.footnote)
                 .fixedSize(horizontal: false, vertical: true)
         } icon: {
-            Image(systemName: Self.symbol(for: outcome))
+            Image(systemName: symbol)
                 .accessibilityHidden(true)
         }
-        .foregroundStyle(Self.style(for: outcome))
+        .foregroundStyle(style)
         .labelStyle(.titleAndIcon)
     }
 
@@ -267,6 +382,55 @@ struct SettingsView: View {
             return String(localized: "Ese número es demasiado grande para una zancada. Escribe la longitud de un paso, en metros.", comment: "Mensaje de error en línea de Ajustes cuando el número tecleado desborda (cientos de dígitos). Nada se ha guardado.")
         case .rejected(.notPositive):
             return String(localized: "La zancada tiene que ser mayor que cero.", comment: "Mensaje de error en línea de Ajustes cuando el número es cero o negativo. Nada se ha guardado.")
+        }
+    }
+
+    /// El texto de cada resultado de la meta semanal, **una sola vez**: lo pinta la fila y lo
+    /// anuncia VoiceOver, igual que en la zancada.
+    ///
+    /// Los tres rechazos dicen cosas distintas a propósito: "eso no es un número", "eso no cabe"
+    /// y "una meta tiene que ser mayor que cero" no se corrigen igual.
+    static func message(for outcome: SettingsStore.GoalOutcome) -> String {
+        switch outcome {
+        case .saved:
+            return String(localized: "Meta guardada. El anillo de Inicio ya la usa.", comment: "Mensaje en línea de Ajustes tras guardar una meta semanal válida.")
+        case .clearedToDefault:
+            return String(localized: "Listo: vuelve a usarse la meta de 10 km.", comment: "Mensaje en línea de Ajustes tras pulsar \"Usar los 10 km por defecto\": se borró la meta fijada.")
+        case .notPersisted:
+            return String(localized: "El anillo ya la usa, pero no se pudo guardar: al cerrar la app volverá a la meta anterior.", comment: "Mensaje en línea de Ajustes cuando la meta se aplicó en memoria pero falló la escritura en disco. No dice \"guardada\", porque no lo está.")
+        case .rejected(.notANumber):
+            return String(localized: "Escribe la meta en kilómetros, por ejemplo 15.", comment: "Mensaje de error en línea de Ajustes cuando el campo de la meta está vacío o no contiene un número. Nada se ha guardado.")
+        case .rejected(.notFinite):
+            return String(localized: "Ese número es demasiado grande para una meta. Escribe los kilómetros de una semana.", comment: "Mensaje de error en línea de Ajustes cuando el número tecleado como meta desborda (cientos de dígitos). Nada se ha guardado.")
+        case .rejected(.notPositive):
+            return String(localized: "La meta tiene que ser mayor que cero.", comment: "Mensaje de error en línea de Ajustes cuando la meta es cero o negativa. Nada se ha guardado.")
+        case .rejected(.belowMinimum(let minimum)):
+            // El mínimo se interpola desde `AppSettings.minimumWeeklyGoalKm`, que es donde se
+            // decide: cambiarlo cambia el mensaje y los tests a la vez, como el rango humano de
+            // la zancada.
+            return String(localized: "La meta mínima es \(Self.decimalText(minimum)) km.", comment: "Mensaje de error en línea de Ajustes cuando la meta tecleada es positiva pero se queda por debajo del mínimo. El marcador es el mínimo ya formateado, hoy \"1\". Nada se ha guardado.")
+        }
+    }
+
+    /// El pie de la sección dice el mínimo, no solo el error: se ve antes de equivocarse.
+    private static var goalFooter: String {
+        String(localized: "El anillo de Inicio mide tus kilómetros de la semana contra esta meta. La semana empieza el lunes. El mínimo es \(decimalText(AppSettings.minimumWeeklyGoalKm)) km y, sin fijar ninguna, la meta son \(decimalText(AppSettings.defaultWeeklyGoalKm)) km.", comment: "Pie de la sección de meta semanal en Ajustes: qué hace el ajuste, cuándo empieza la semana, cuál es el mínimo y cuál el valor por omisión. Los dos marcadores son el mínimo y el valor por omisión, ya formateados: hoy 1 y 10.")
+    }
+
+    private static func symbol(for outcome: SettingsStore.GoalOutcome) -> String {
+        switch outcome {
+        case .saved, .clearedToDefault: "checkmark.circle.fill"
+        case .notPersisted: "exclamationmark.circle.fill"
+        case .rejected: "exclamationmark.triangle.fill"
+        }
+    }
+
+    private static func style(for outcome: SettingsStore.GoalOutcome) -> AnyShapeStyle {
+        switch outcome {
+        case .saved, .clearedToDefault: AnyShapeStyle(.secondary)
+        case .notPersisted: AnyShapeStyle(.primary)
+        // Un rechazo SÍ es un error, y el rol vive en `Colors` con su contraste medido.
+        case .rejected: AnyShapeStyle(Colors.error)
         }
     }
 

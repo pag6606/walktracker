@@ -348,7 +348,7 @@ struct DistanceHero: View {
                 .lineLimit(1)
                 // Hasta la mitad, nunca más (criterio único de la pantalla).
                 .minimumScaleFactor(0.5)
-            Text("km")
+            Text("km", comment: "Unidad de los kilómetros: la distancia en la pantalla de sesión y el valor del campo de meta semanal en Ajustes.")
                 .font(.title3)
                 .foregroundStyle(.secondary)
         }

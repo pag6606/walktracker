@@ -72,12 +72,12 @@ development_status:
   2-3-recalibración-de-zancada-en-ajustes: done
   epic-2-retrospective: done
 
-  epic-3: backlog
+  epic-3: in-progress
   # 2026-09-21 · El Epic 3 arranca DESPUÉS de la 5.1, no antes: la 3.1 suma las caminatas de la
   # semana para el anillo y la 3.2 necesita acumulados y rachas, y hasta la 5.1 no había ningún
   # registro persistido que sumar. La 5.1 deja además `achievements.json` con su dueño y su
   # esquema (el de la 3.2) y el punto de escritura donde AD-17 la enchufa.
-  3-1-meta-semanal-configurable-con-anillo-de-progreso: backlog
+  3-1-meta-semanal-configurable-con-anillo-de-progreso: review
   3-2-evaluación-de-logros-al-cierre-de-sesión-achievementengine: backlog
   3-3-pantalla-de-logros-grid-locked-unlocked-con-progreso: backlog
   3-4-celebración-de-meta-y-logros-no-bloqueante: backlog

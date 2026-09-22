@@ -87,10 +87,19 @@ struct SessionStoreFixture {
         self.weather = weather
         self.random = random
         self.measurements = measurements
-        let settings = SettingsStore(storage: storage)
-        self.settings = settings
+        // El historial primero: el store de ajustes lo recibe cableado, porque dos instancias
+        // del dueño de `sessions.json` son dos lectores, y leer un historial ilegible lo aparta
+        // (AD-16). El reloj es el mismo `ClockStub` que la sesión: el anillo de meta y la
+        // caminata no pueden estar en dos semanas distintas.
         let history = HistoryStore(storage: storage)
         self.history = history
+        let settings = SettingsStore(
+            storage: storage,
+            history: history,
+            achievements: AchievementsStore(storage: storage),
+            clock: clock
+        )
+        self.settings = settings
         store = SessionStore(
             clock: clock,
             motion: motion,

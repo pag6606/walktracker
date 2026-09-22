@@ -317,6 +317,14 @@ stateDiagram-v2
   >
   > ✅ **Y la segunda mitad de §3(a)(1)(C), cerrada también el 2026-09-21** (decisión de Paul, el mismo día y antes de que la 3.1 llegara). Esta nota decía hasta entonces que *la app nombra la licencia ("CC BY 4.0") pero **no enlaza al texto**: ese enlace vive solo en `NOTICE`, que no viaja dentro del `.app`*. Ya lo enlaza: "Acerca de" tiene una **segunda fila** a `https://creativecommons.org/licenses/by/4.0/` —la URL canónica que `NOTICE` §2 verificó descargándola—, declarada en `AboutSection.licenseTextURL` y fijada con su ruta por `AboutSectionTests`. Para hacerlo, Paul **renegoció** la línea del bloque congelado de B-9 que lo prohibía (*"Never: … ni otras licencias"*), anotada en la spec del chore y en su Spec Change Log. El rastro de cuando estuvo abierto **no se borra**: vive en `NOTICE` §5, que lo conserva con fecha. Siguen siendo **dos filas**: la versión de la app y los ajustes de otras épicas no se adelantan.
 
+### AD-25 — El logro de la meta y la celebración de la meta son dos cosas distintas
+
+- **Binds:** CAP-7, CAP-8, CAP-12, AD-5, AD-17
+- **Prevents:** que la primera semana que Paul cumple su meta se celebre **dos veces** —una por el logro `weekly_goal` y otra por el anillo— y que, a partir de la segunda, no se celebre **ninguna**, porque el logro ya está desbloqueado y es irrevocable
+- **Rule:** `weekly_goal` **sigue siendo un desbloqueo de por vida e irrevocable** —AD-5 congela el catálogo y AD-17 lo declara la excepción que evalúa `GoalEngine` al cumplirse la meta, no el cierre de sesión— y **no produce celebración propia**. Quien celebra es **siempre el anillo, una vez por semana**, con estado propio: `lastGoalCelebratedWeek` en `settings.json`, campo opcional cuyo dueño es `SettingsStore`, que guarda la semana ISO **local** (`GoalEngine.weekKey`, p. ej. `2026-W28`) y no sube el `schemaVersion`. Refrescar Inicio, volver de Ajustes o relanzar la app no vuelven a disparar nada. La regla la **heredan la 3.2** —el evaluador de logros no emite celebración para `weekly_goal`— y **la 3.4**, que engancha la celebración visible a la señal del anillo y no al desbloqueo.
+
+  > Cierra **H-08** de `reviews/review-adversario.md`, que decía: *"el estado 'meta ya celebrada esta semana' no existe en ninguna forma de almacenamiento y ningún AD dice quién lo posee; `achievements.md` dice que `weekly_goal` se evalúa externamente vía GoalEngine — externamente **a qué store**, no lo dice nadie"*. Decisión de Paul del 2026-09-21 (D1 de `spec-3-1-meta-semanal-anillo.md`), registrada aquí y no solo en la spec porque es una decisión que **heredan dos historias posteriores**. Implementado en `WalkTracker/Application/SettingsStore+Goal.swift` (`goalRingDidUpdate()`) y `AchievementsStore+Goal.swift` (`unlockWeeklyGoal(at:)`, idempotente).
+
 ## Consistency Conventions
 
 | Concern | Convention |

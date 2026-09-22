@@ -1,6 +1,9 @@
 {
   "sourceLanguage": "es",
   "strings": {
+    "%@ de %@ kilómetros, %@ por ciento": {
+      "comment": "Valor de VoiceOver del anillo de meta de Inicio: los kilómetros de la semana, la meta y el porcentaje. Ejemplo: \"7,5 de 10 kilómetros, 75 por ciento\"."
+    },
     "%@ por kilómetro": {
       "comment": "Lectura de VoiceOver del ritmo: una duración (\"19 minutos y 5 segundos\") por kilómetro."
     },
@@ -183,6 +186,12 @@
     "Distancia": {
       "comment": "Etiqueta de VoiceOver de la distancia recorrida, la métrica principal de la pantalla de sesión."
     },
+    "El anillo de Inicio mide tus kilómetros de la semana contra esta meta. La semana empieza el lunes. El mínimo es %@ km y, sin fijar ninguna, la meta son %@ km.": {
+      "comment": "Pie de la sección de meta semanal en Ajustes: qué hace el ajuste, cuándo empieza la semana, cuál es el mínimo y cuál el valor por omisión. Los dos marcadores son el mínimo y el valor por omisión, ya formateados: hoy 1 y 10."
+    },
+    "El anillo ya la usa, pero no se pudo guardar: al cerrar la app volverá a la meta anterior.": {
+      "comment": "Mensaje en línea de Ajustes cuando la meta se aplicó en memoria pero falló la escritura en disco. No dice \"guardada\", porque no lo está."
+    },
     "El clima lo proporciona Open-Meteo bajo licencia CC BY 4.0.": {
       "comment": "Pie de la sección \"Acerca de\" en Ajustes: nombra la licencia de los datos de clima. \"Open-Meteo\" y \"CC BY 4.0\" son nombres propios: no se traducen."
     },
@@ -191,6 +200,12 @@
     },
     "Escribe la longitud en metros, por ejemplo 0,67.": {
       "comment": "Mensaje de error en línea de Ajustes cuando el campo está vacío o no contiene un número. Nada se ha guardado."
+    },
+    "Escribe la meta en kilómetros, por ejemplo 15.": {
+      "comment": "Mensaje de error en línea de Ajustes cuando el campo de la meta está vacío o no contiene un número. Nada se ha guardado."
+    },
+    "Ese número es demasiado grande para una meta. Escribe los kilómetros de una semana.": {
+      "comment": "Mensaje de error en línea de Ajustes cuando el número tecleado como meta desborda (cientos de dígitos). Nada se ha guardado."
     },
     "Ese número es demasiado grande para una zancada. Escribe la longitud de un paso, en metros.": {
       "comment": "Mensaje de error en línea de Ajustes cuando el número tecleado desborda (cientos de dígitos). Nada se ha guardado."
@@ -216,6 +231,9 @@
     "Guardar": {
       "comment": "Botón explícito de la pantalla de Ajustes que persiste la zancada recalibrada."
     },
+    "Guardar meta": {
+      "comment": "Botón explícito de Ajustes que persiste la meta semanal. Dice \"meta\" para distinguirse del Guardar de la zancada, que está en la misma pantalla."
+    },
     "Historial": {
       "comment": "Pestaña Historial del TabView (AD-14) y título de su pantalla."
     },
@@ -231,6 +249,12 @@
     "La distancia y el ritmo se recalcularán sin ellos. No se puede deshacer.": {
       "comment": "Mensaje del diálogo de confirmación de Descartar: descartar los pasos estimados es irreversible."
     },
+    "La meta mínima es %@ km.": {
+      "comment": "Mensaje de error en línea de Ajustes cuando la meta tecleada es positiva pero se queda por debajo del mínimo. El marcador es el mínimo ya formateado, hoy \"1\". Nada se ha guardado."
+    },
+    "La meta tiene que ser mayor que cero.": {
+      "comment": "Mensaje de error en línea de Ajustes cuando la meta es cero o negativa. Nada se ha guardado."
+    },
     "La siguiente caminata la usará, pero no se pudo guardar: al cerrar la app volverá al valor anterior.": {
       "comment": "Mensaje en línea de Ajustes cuando el cambio se aplicó en memoria pero falló la escritura en disco. No dice \"guardada\", porque no lo está."
     },
@@ -239,6 +263,15 @@
     },
     "Las caminatas que termines aparecerán aquí.": {
       "comment": "Descripción del historial vacío."
+    },
+    "Listo": {
+      "comment": "Botón de la barra sobre el teclado decimal de Ajustes: cierra el teclado sin guardar. El teclado decimal no trae tecla de retorno."
+    },
+    "Listo: vuelve a usarse el valor por defecto.": {
+      "comment": "Mensaje en línea de Ajustes tras pulsar \"Usar el valor por defecto\": se borró la zancada recalibrada."
+    },
+    "Listo: vuelve a usarse la meta de 10 km.": {
+      "comment": "Mensaje en línea de Ajustes tras pulsar \"Usar los 10 km por defecto\": se borró la meta fijada."
     },
     "Llovizna densa": {
       "comment": "Condición del clima, código WMO 55, en la tarjeta de clima de la sesión."
@@ -270,12 +303,6 @@
     "Lluvia moderada": {
       "comment": "Condición del clima, código WMO 63, en la tarjeta de clima de la sesión."
     },
-    "Listo": {
-      "comment": "Botón de la barra sobre el teclado decimal de Ajustes: cierra el teclado sin guardar. El teclado decimal no trae tecla de retorno."
-    },
-    "Listo: vuelve a usarse el valor por defecto.": {
-      "comment": "Mensaje en línea de Ajustes tras pulsar \"Usar el valor por defecto\": se borró la zancada recalibrada."
-    },
     "Logros": {
       "comment": "Pestaña Logros del TabView (AD-14) y título de su pantalla."
     },
@@ -287,6 +314,15 @@
     },
     "Mayormente despejado": {
       "comment": "Condición del clima, código WMO 1, en la tarjeta de clima de la sesión."
+    },
+    "Meta de la semana, en kilómetros": {
+      "comment": "Etiqueta del campo de Ajustes donde Paul fija su meta semanal. Lleva la unidad porque es también lo que lee VoiceOver."
+    },
+    "Meta guardada. El anillo de Inicio ya la usa.": {
+      "comment": "Mensaje en línea de Ajustes tras guardar una meta semanal válida."
+    },
+    "Meta semanal": {
+      "comment": "Rótulo de la meta semanal, en sus dos sitios: la etiqueta de VoiceOver del anillo de progreso de Inicio —cuyo valor dice el completado, la meta y el porcentaje— y el encabezado de la sección de Ajustes donde se fija. El String Catalog guarda un comentario por clave: si se acorta para el encabezado, se acorta también lo que VoiceOver lee del anillo."
     },
     "Nevada intensa": {
       "comment": "Condición del clima, código WMO 75, en la tarjeta de clima de la sesión."
@@ -354,6 +390,9 @@
     "Sin logros": {
       "comment": "Logros vacío: aún no hay logros desbloqueados."
     },
+    "Sin progreso: no se pudo leer tu historial": {
+      "comment": "Valor de VoiceOver del anillo de meta cuando el historial no se pudo leer. No se lee 0 %: el progreso es desconocido, no cero."
+    },
     "Sin ritmo hasta los 100 metros": {
       "comment": "Lectura de VoiceOver del ritmo cuando aún no existe: por debajo de 100 m."
     },
@@ -378,6 +417,12 @@
     "Tormenta con granizo ligero": {
       "comment": "Condición del clima, código WMO 96, en la tarjeta de clima de la sesión."
     },
+    "Usar el valor por defecto": {
+      "comment": "Botón de Ajustes que borra la zancada recalibrada y devuelve la de fábrica. Es la única vuelta atrás: vaciar el campo se rechaza."
+    },
+    "Usar los 10 km por defecto": {
+      "comment": "Botón de Ajustes que borra la meta semanal fijada y devuelve la de fábrica. Es la única vuelta atrás: vaciar el campo se rechaza."
+    },
     "Volver al inicio": {
       "comment": "Botón que vuelve a Inicio sin sesión: en la pantalla bloqueante y, como único botón, en el resumen de la caminata finalizada."
     },
@@ -386,9 +431,6 @@
     },
     "WalkTracker usa el sensor de movimiento del iPhone para contar tus pasos, también con la pantalla bloqueada y el teléfono en el bolsillo. A continuación, iOS te pedirá acceso a Movimiento y forma física.": {
       "comment": "Explicación de la pre-pantalla del permiso de Movimiento y forma física."
-    },
-    "Usar el valor por defecto": {
-      "comment": "Botón de Ajustes que borra la zancada recalibrada y devuelve la de fábrica. Es la única vuelta atrás: vaciar el campo se rechaza."
     },
     "WalkTracker usa tu ubicación aproximada al empezar para guardar el clima. La caminata ya está contando.": {
       "comment": "Explicación de la pre-pantalla de ubicación, que aparece sobre la sesión ya abierta antes de pedir el permiso del sistema."
@@ -399,8 +441,11 @@
     "Zancada guardada. La siguiente caminata la usará.": {
       "comment": "Mensaje en línea de Ajustes tras guardar una zancada válida y dentro de lo normal."
     },
+    "de %@ km": {
+      "comment": "Pie del anillo de meta de Inicio, debajo de los kilómetros ya caminados esta semana: dice cuál es la meta. El marcador es la meta ya formateada, por ejemplo \"10\"."
+    },
     "km": {
-      "comment": "Unidad visible de la distancia en la pantalla de sesión (kilómetros)."
+      "comment": "Unidad de los kilómetros: la distancia en la pantalla de sesión y el valor del campo de meta semanal en Ajustes."
     },
     "m": {
       "comment": "Unidad del campo de zancada en Ajustes: metros, junto al valor."

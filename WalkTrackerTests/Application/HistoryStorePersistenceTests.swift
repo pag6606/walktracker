@@ -50,8 +50,17 @@ struct HistoryStorePersistenceTests {
         let storage = FileStorageAdapter(directory: directory)
         let clock = ClockStub(now: instant)
         let motion = MotionStub(status: .granted)
-        let settings = SettingsStore(storage: storage)
+        // El historial primero, y cableado al store de ajustes: dos instancias del dueño de
+        // `sessions.json` son dos lectores, y el primero que lea uno ilegible lo **aparta**, así
+        // que el segundo encontraría "no hay fichero" y el aviso de la 5.1 no saldría. Con las
+        // dos líneas al revés, el test de historial ilegible de este mismo fichero se cae.
         let history = HistoryStore(storage: storage)
+        let settings = SettingsStore(
+            storage: storage,
+            history: history,
+            achievements: AchievementsStore(storage: storage),
+            clock: clock
+        )
         let store = SessionStore(
             clock: clock,
             motion: motion,

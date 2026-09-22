@@ -200,6 +200,50 @@ struct VectorHarnessTests {
         try Self.expectPorted("updateRecentIds")
     }
 
+    @Test("weeklyProgress está portado: sus vectores reales pasan y no quedan pendientes")
+    func weeklyProgressIsPorted() throws {
+        try Self.expectPorted("weeklyProgress")
+    }
+
+    @Test("Los tres divergentes de weeklyProgress fallan contra su expectedJs")
+    func weeklyProgressDivergencesAreRealDivergences() throws {
+        // **La divergencia es declarada, no una tolerancia.** Los tres vectores de hora local
+        // traen `expected` (el valor de Swift) y `expectedJs` (el que da `domain.js`, que calcula
+        // la semana en UTC). Si Swift pasara también contra `expectedJs`, la divergencia habría
+        // dejado de existir y AD-19 estaría sin efecto sin que nada lo dijera — que es
+        // exactamente lo que el runner JS comprueba en su lado con la regla "un divergente que
+        // PASA es un fallo".
+        let file = try JSONSerialization.jsonObject(with: try VectorBundle.data(for: "weeklyProgress"))
+        let vectors = try #require((file as? [String: Any])?["vectors"] as? [[String: Any]])
+        let divergent = vectors.filter { $0["divergence"] as? String == "localTime" }
+        #expect(divergent.count == 3, "los tres de `America/Guayaquil`; si cambian, este test tiene que verlo")
+
+        for var vector in divergent {
+            let id = vector["id"] as? String ?? "?"
+            let expectedJs = try #require(vector["expectedJs"], "\(id): un divergente fuera de evaluateAchievements lleva expectedJs")
+            #expect(!Self.equalJSON(expectedJs, vector["expected"]), "\(id): si los dos valores coinciden no hay divergencia que declarar")
+
+            // El mismo vector, con lo que espera la v3 en el sitio de lo que espera Swift.
+            vector["expected"] = expectedJs
+            vector["expectedJs"] = nil
+            let asJs = try JSONDecoder().decode(
+                DomainVector.self,
+                from: try JSONSerialization.data(withJSONObject: vector)
+            )
+
+            #expect(
+                VectorHarness.swiftDomain.verdict(for: asJs, of: "weeklyProgress") != .passed,
+                "\(id): Swift pasa el valor de domain.js, así que la divergencia de hora local ya no existe"
+            )
+        }
+    }
+
+    private static func equalJSON(_ lhs: Any?, _ rhs: Any?) -> Bool {
+        guard let lhs, let rhs else { return lhs == nil && rhs == nil }
+        return NSDictionary(dictionary: lhs as? [String: Any] ?? [:])
+            .isEqual(to: rhs as? [String: Any] ?? [:])
+    }
+
     @Test("updateRecentIds: el tope de 20 se recorta por el final, no por el principio")
     func updateRecentIdsKeepsTheNewest() throws {
         // Sin el `suffix(20)` de la v3 —quedándose con los 20 primeros— la ventana dejaría de

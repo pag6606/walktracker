@@ -9,20 +9,22 @@ import OSLog
 /// milisegundos que convertir: los ajustes son valores del producto, no instantes.
 ///
 /// **Campos que aún no existen.** Todo campo se decodifica como opcional y cae a su valor por
-/// omisión: la 2.3 añadió `strideM`, el Epic 3 traerá la meta semanal y la 4.2 el sonido, y un
-/// `settings.json` escrito hoy tiene que seguir leyéndose entonces sin apartarse.
+/// omisión: la 2.3 añadió `strideM`, la 3.1 la meta semanal (`weeklyGoalKm`) con la semana en
+/// que el anillo celebró por última vez (`lastGoalCelebratedWeek`) y la 4.2 traerá el sonido, y
+/// un `settings.json` escrito hoy tiene que seguir leyéndose entonces sin apartarse.
 ///
-/// **`schemaVersion` sigue en 1 con la zancada dentro, y es deliberado** (2.3). Un campo
-/// opcional nuevo es compatible en las dos direcciones: un fichero de la 2.2 se lee entero y
-/// admite la zancada, y un fichero con zancada sigue siendo legible por un build de la 2.2, que
-/// ignora el campo desconocido. Subirlo a 2 habría hecho que un build de la 2.2 ya instalado
-/// leyera los ajustes como "del futuro" y perdiera la ventana de frases.
+/// **`schemaVersion` sigue en 1 con la zancada y la meta dentro, y es deliberado** (2.3, 3.1).
+/// Un campo opcional nuevo es compatible en las dos direcciones: un fichero de la 2.2 se lee
+/// entero y admite los campos nuevos, y un fichero con ellos sigue siendo legible por un build
+/// anterior, que ignora lo que no conoce. Subirlo a 2 habría hecho que un build de la 2.2 ya
+/// instalado leyera los ajustes como "del futuro" y perdiera la ventana de frases — y hoy
+/// además la zancada.
 ///
 /// **La ventana se sanea al leer.** Lo hace `AppSettings`, que normaliza en su `init`: sin
 /// repetidos y como mucho `MotivationEngine.recentWindow`, quedándose con los **últimos**. Ni
 /// un fichero manipulado con 500 ids deja al motor excluyendo medio banco, ni uno con 20 ids
-/// repetidos deja la exclusión real en una sola frase. La zancada pasa por la misma puerta, la
-/// tolerante: `-1` o `0` se leen como "sin configurar".
+/// repetidos deja la exclusión real en una sola frase. La zancada y la meta semanal pasan por la
+/// misma puerta, la tolerante: `-1` o `0` se leen como "sin configurar".
 ///
 /// **Un fichero del futuro no es un fichero corrupto.** Con un `schemaVersion` **mayor** que
 /// el que esta versión escribe —alguien instaló un build anterior— el fichero **se deja donde
@@ -98,35 +100,50 @@ struct SettingsFileAdapter {
     // MARK: - Formato (puro)
 
     /// El JSON de `schemaVersion` 1. `recentQuoteIds` ausente o `null` es la ventana vacía;
-    /// `strideM` ausente o `null` es "sin configurar" (2.3).
+    /// `strideM` ausente o `null` es "sin configurar" (2.3), y lo mismo `weeklyGoalKm` (3.1).
+    /// `lastGoalCelebratedWeek` ausente es "el anillo no ha celebrado nunca".
     private struct File: Codable {
 
         var schemaVersion: Int
         var recentQuoteIds: [Int]?
         var strideM: Double?
+        var weeklyGoalKm: Double?
+        var lastGoalCelebratedWeek: String?
 
         // `CodingKeys` no se escribe: Swift lo sintetiza igual aunque `init(from:)` sea a mano
         // —lo que la suprime es declararla—, y tenerla a mano obliga a acordarse de ella cada
         // vez que una épica futura añada un campo. El init por miembros sí hay que restaurarlo:
         // ese lo suprime declarar cualquier init propio.
-        init(schemaVersion: Int, recentQuoteIds: [Int]?, strideM: Double?) {
+        init(
+            schemaVersion: Int,
+            recentQuoteIds: [Int]?,
+            strideM: Double?,
+            weeklyGoalKm: Double?,
+            lastGoalCelebratedWeek: String?
+        ) {
             self.schemaVersion = schemaVersion
             self.recentQuoteIds = recentQuoteIds
             self.strideM = strideM
+            self.weeklyGoalKm = weeklyGoalKm
+            self.lastGoalCelebratedWeek = lastGoalCelebratedWeek
         }
 
-        /// Decodificación a mano por **un solo campo**: `strideM`.
+        /// Decodificación a mano por **los campos que Paul teclea**: `strideM` (2.3) y, desde
+        /// la 3.1, `weeklyGoalKm` y `lastGoalCelebratedWeek`.
         ///
-        /// Los demás mantienen la regla de la 2.2 —un campo de otro tipo hace ilegible el
-        /// fichero, que se aparta—, pero la zancada no puede costar la ventana de frases: la
-        /// matriz de la 2.3 exige que unos ajustes con `strideM: "abc"` se lean como "sin
-        /// configurar" y que el resto siga en pie. Con la síntesis de `Codable` un
-        /// `typeMismatch` en la zancada tiraba el fichero entero.
+        /// `schemaVersion` y `recentQuoteIds` mantienen la regla de la 2.2 —un campo de otro
+        /// tipo hace ilegible el fichero, que se aparta—, pero un ajuste editable no puede
+        /// costar el resto: la matriz de la 2.3 exige que unos ajustes con `strideM: "abc"` se
+        /// lean como "sin configurar" y que la ventana de frases siga en pie, y la de la 3.1
+        /// dice lo mismo de la meta. Con la síntesis de `Codable` un `typeMismatch` en
+        /// cualquiera de ellos tiraba el fichero entero.
         init(from decoder: any Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             schemaVersion = try container.decode(Int.self, forKey: .schemaVersion)
             recentQuoteIds = try container.decodeIfPresent([Int].self, forKey: .recentQuoteIds)
             strideM = try? container.decodeIfPresent(Double.self, forKey: .strideM)
+            weeklyGoalKm = try? container.decodeIfPresent(Double.self, forKey: .weeklyGoalKm)
+            lastGoalCelebratedWeek = try? container.decodeIfPresent(String.self, forKey: .lastGoalCelebratedWeek)
         }
     }
 
@@ -154,7 +171,23 @@ struct SettingsFileAdapter {
         } catch {
             throw .malformed(String(describing: error))
         }
-        let settings = AppSettings(recentQuoteIds: file.recentQuoteIds ?? [], strideM: file.strideM)
+        // Lo que la decodificación tolerante se comió **por el tipo**: se pierde el valor, y sin
+        // esto se perdía en silencio. No es lo mismo que el valor fuera de rango de abajo —ahí el
+        // número se leyó y lo rechazó el dominio—, y los dos avisos dicen cosas distintas.
+        for key in unreadableEditableKeys(in: data) {
+            log.info("settings.json trae \(key, privacy: .public) con un tipo que no se puede leer; se lee como ausente y el resto del fichero sigue en pie")
+        }
+        let settings = AppSettings(
+            recentQuoteIds: file.recentQuoteIds ?? [],
+            strideM: file.strideM,
+            weeklyGoalKm: file.weeklyGoalKm,
+            lastGoalCelebratedWeek: file.lastGoalCelebratedWeek
+        )
+        if file.weeklyGoalKm != nil, settings.weeklyGoalKm == nil {
+            // Misma puerta tolerante que la zancada: `0`, `-3` o `NaN` en la meta se leen como
+            // "sin configurar" y el anillo usa los 10 km. El fichero NO se aparta.
+            log.info("settings.json trae una meta semanal que no pasa la frontera del dominio; se lee como sin configurar y manda el default de 10 km")
+        }
         if file.strideM != nil, settings.strideM == nil {
             // La puerta tolerante se comió el campo: `-1`, `0`, `NaN` o —desde B-3— una zancada
             // que no cabe en la fórmula de la distancia y que un build anterior sí guardaba.
@@ -165,16 +198,50 @@ struct SettingsFileAdapter {
         return settings
     }
 
+    /// Las claves **editables** que el fichero trae con un tipo equivocado: presentes, no `null`,
+    /// y de un tipo que su campo no sabe leer.
+    ///
+    /// **Pura y estática para que se pueda probar sin disco**, como `decode` y `encode`. Existe
+    /// porque la tolerancia de `File.init(from:)` es un `try?`: un `weeklyGoalKm: "abc"` se lee
+    /// como ausente y, sin esto, el valor desaparecía sin que nada lo dijera — el aviso de abajo
+    /// solo salta cuando el número SÍ se pudo leer y lo rechazó el dominio.
+    ///
+    /// `null` **no** cuenta: es la forma legítima de decir "sin configurar".
+    static func unreadableEditableKeys(in data: Data) -> [String] {
+        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [] }
+        var unreadable: [String] = []
+        for key in ["strideM", "weeklyGoalKm"] where object[key].map({ !isNumber($0) }) == true {
+            unreadable.append(key)
+        }
+        if object["lastGoalCelebratedWeek"].map({ !($0 is String) && !($0 is NSNull) }) == true {
+            unreadable.append("lastGoalCelebratedWeek")
+        }
+        return unreadable
+    }
+
+    /// El valor es un número que `Double` sabe leer. `null` cuenta como legible —es "sin
+    /// configurar"— y **un booleano NO**: `JSONSerialization` lo devuelve como `NSNumber`, así
+    /// que sin mirar su tipo real un `weeklyGoalKm: true` se habría dado por bueno aquí mientras
+    /// `JSONDecoder` lo tira.
+    private static func isNumber(_ value: Any) -> Bool {
+        if value is NSNull { return true }
+        guard let number = value as? NSNumber else { return false }
+        return CFGetTypeID(number) != CFBooleanGetTypeID()
+    }
+
     /// Ajustes → JSON, con las claves ordenadas.
     ///
     /// - Throws: `failed(operation: "encode")`.
     static func encode(_ settings: AppSettings) throws(StorageError) -> Data {
-        // `AppSettings` ya garantiza la ventana normalizada y una zancada válida o ausente:
-        // aquí no se vuelve a recortar ni a validar. Sin configurar, la clave no se escribe.
+        // `AppSettings` ya garantiza la ventana normalizada y una zancada y una meta válidas o
+        // ausentes: aquí no se vuelve a recortar ni a validar. Sin configurar, la clave no se
+        // escribe.
         let file = File(
             schemaVersion: supportedSchemaVersion,
             recentQuoteIds: settings.recentQuoteIds,
-            strideM: settings.strideM
+            strideM: settings.strideM,
+            weeklyGoalKm: settings.weeklyGoalKm,
+            lastGoalCelebratedWeek: settings.lastGoalCelebratedWeek
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]

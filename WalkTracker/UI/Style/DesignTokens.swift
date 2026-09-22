@@ -75,6 +75,50 @@ enum LayoutMetrics {
     static let heroSize: CGFloat = 88
 }
 
+/// El anillo de meta (3.1), que es la **primera** de las tres piezas dibujadas a mano que
+/// AD-13 autoriza. Lo que entra aquí es lo que una vista no puede reteclear: el grosor del
+/// trazo, el tope de tamaño, la opacidad de la pista y la duración de su animación.
+///
+/// **No hay diámetro fijo, y es deliberado.** AD-13 dice "nada de diámetros ni tamaños fijos",
+/// y UX-DR2 quedó derogado justo en su "anillo de 300 px". El anillo se ajusta al ancho que le
+/// den —`aspectRatio(1, contentMode: .fit)`— y `maxDiameter` es un **tope**, no una medida: sin
+/// él, en un iPad el anillo ocuparía la pantalla entera.
+///
+/// **Ningún color nuevo.** El arco es `Colors.accent`, que ya existe y está medido; la pista es
+/// `.primary` al `trackOpacity`, que es un **rol del sistema** y no un cuarto colorset — la
+/// excepción de UX-DR1 son exactamente tres y no se amplía (AD-13). El verde de "anillo
+/// completo" de los mockups habría sido ese cuarto: no se añade, y el 100 % se ve porque el
+/// arco se cierra.
+enum GoalRing {
+
+    /// Grosor del trazo, en puntos, como **punto de partida de `@ScaledMetric`**: con Dynamic
+    /// Type grande el anillo engorda con la cifra que lleva dentro, en vez de quedarse fino
+    /// alrededor de un número que ya no cabe.
+    static let lineWidth: CGFloat = 14
+
+    /// Tope del diámetro. El anillo ocupa el ancho disponible hasta aquí; no es su tamaño.
+    static let maxDiameter: CGFloat = 260
+
+    /// Opacidad de la pista: el recorrido que **falta**, pintado del color del contenido.
+    ///
+    /// Es un token porque de él depende que la pista se distinga del fondo sin competir con el
+    /// arco. Es decoración, no texto: no le aplica el 4,5:1 de WCAG AA que sí miden los tres
+    /// colorsets de `Colors`.
+    static let trackOpacity: Double = 0.15
+
+    /// Cuánto tarda el arco en llegar a su sitio, en segundos. **Con Reduce Motion no se usa**:
+    /// el anillo aparece ya pintado, sin animación más corta ni fundido.
+    static let fillDuration: Double = 0.6
+
+    /// Cuánto puede encoger la cifra de dentro antes de recortarse.
+    ///
+    /// Entra aquí por **normativo**, que es la segunda vía de la regla de admisión de la cabecera,
+    /// y no por repetido: con Dynamic Type al máximo, "10,00" dentro de un anillo necesita
+    /// margen, y **recortar un número es peor que encogerlo** — un `1` recortado de un `10` no se
+    /// lee como un número a medias, se lee como otro número.
+    static let minimumValueScale: CGFloat = 0.5
+}
+
 /// Radios de esquina. Uno solo: dos radios sin razón declarada eran una de las
 /// incoherencias que este vocabulario existe para cerrar.
 enum Radius {

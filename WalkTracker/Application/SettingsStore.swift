@@ -6,9 +6,20 @@ import OSLog
 /// los necesita se los pide a este store, como quien necesita la sesión se la pide a
 /// `SessionStore`.
 ///
-/// Lo estrenó la 2.2 con la ventana de frases recientes (`recentQuoteIds`) y la 2.3 le añade
-/// la zancada configurada (`SettingsStore+Stride.swift`); la meta semanal llega con el Epic 3
-/// y el sonido con la 4.2. Cada una añade su campo a `AppSettings` y su intención aquí.
+/// Lo estrenó la 2.2 con la ventana de frases recientes (`recentQuoteIds`), la 2.3 le añadió
+/// la zancada configurada (`SettingsStore+Stride.swift`) y la 3.1 la meta semanal
+/// (`SettingsStore+Goal.swift`); el sonido llega con la 4.2. Cada una añade su campo a
+/// `AppSettings` y su intención aquí.
+///
+/// **Y desde la 3.1 tiene tres colaboradores, que no son suyos.** El historial, el estado de
+/// los logros y el reloj entran por el init porque la meta semanal no se puede responder solo
+/// con `settings.json`: el anillo suma las caminatas de la semana (`HistoryStore`), la semana la
+/// define el `AppCalendar` de AD-19 (`ClockPort`) y cumplir la meta desbloquea `weekly_goal`
+/// (`AchievementsStore`). Lo que este store aporta es **la decisión**: leer la meta, leer el
+/// historial y decidir si toca celebrar — el cálculo es puro y vive en `GoalEngine` (AD-3), y
+/// cada fichero lo sigue escribiendo su único dueño por sus intenciones (AD-16, sección 9b del
+/// gate). La celebración semanal (`lastGoalCelebratedWeek`) es estado de ESTE fichero, y por eso
+/// la decisión vive donde vive (AD-25).
 ///
 /// **Se lee una vez, al construirlo.** Los ajustes hacen falta en el primer arranque de
 /// sesión, así que no hay un `load()` que alguien pueda olvidarse de llamar. El fichero
@@ -55,6 +66,21 @@ final class SettingsStore {
     /// `SessionStore`: quien lo hace cumplir fuera de `Application/` es la sección 6 del gate.
     var strideOutcome: StrideOutcome?
 
+    /// Cómo fue el último "Guardar" de la meta semanal, o `nil` si no hay nada que decir (3.1).
+    ///
+    /// Vive aquí por la misma razón que `strideOutcome` —una extensión de Swift no puede
+    /// almacenar— y lo escriben solo las intenciones de `SettingsStore+Goal.swift`.
+    var goalOutcome: GoalOutcome?
+
+    /// Cambia cada vez que la semana **puede** haber cambiado debajo (3.1).
+    ///
+    /// **Existe porque `ClockPort.now` no es estado observable.** `weeklyProgress` se recalcula
+    /// cuando cambian los ajustes o el historial, pero no cuando cambia la hora: con la app
+    /// abierta o en segundo plano cruzando el lunes a las 00:00 locales, el anillo seguiría
+    /// pintando la semana pasada y la celebración de la nueva no se dispararía nunca. Quien lo
+    /// lee obliga a repintar; quien lo mueve es `weekMayHaveChanged()`.
+    var goalRefreshToken: Int = 0
+
     /// Cómo fue la última lectura de `settings.json`, y por tanto si hay algo en disco que una
     /// escritura destruiría (B-1, hallazgo D1 de la retro del Epic 2).
     ///
@@ -91,10 +117,36 @@ final class SettingsStore {
     private(set) var readOutcome: ReadOutcome = .absent
 
     @ObservationIgnored let storage: any StoragePort
+    /// Dueño de `sessions.json` (AD-16, 5.1). De él sale la suma del anillo, y se le piden
+    /// intenciones y lecturas: escribirlo es cosa suya (sección 9b del gate).
+    @ObservationIgnored let history: HistoryStore
+    /// Dueño de `achievements.json` del sandbox (AD-16, 5.1). Aquí solo se le pide desbloquear
+    /// `weekly_goal` cuando la meta se cumple (AD-25).
+    @ObservationIgnored let achievements: AchievementsStore
+    /// El reloj y el `AppCalendar` de AD-19: la semana del anillo no se calcula con otro.
+    @ObservationIgnored let clock: any ClockPort
     @ObservationIgnored let log = Logger(subsystem: "com.walktracker.app", category: "SettingsStore")
 
-    init(storage: any StoragePort) {
+    /// El historial y los logros **se inyectan, no se construyen aquí**, y eso no es estilo: un
+    /// dueño es un fichero **y una sola instancia**. Construirlos por omisión —que es como
+    /// nacieron mientras se escribía la 3.1— crea un segundo lector de `sessions.json`, y leer
+    /// tiene efecto: un historial ilegible lo **aparta** el primero que lo lea, así que el
+    /// segundo encuentra "no hay fichero" y el aviso de la 5.1 desaparece. Lo cazó
+    /// `HistoryStorePersistenceTests`, y por eso el compilador ya no deja repetirlo.
+    ///
+    /// **Un test que toque la meta semanal tiene que pasar su `ClockStub`.** Con el reloj por
+    /// omisión, la semana del anillo la fija el día en que se ejecute la suite, y un test así no
+    /// es un test: es un calendario.
+    init(
+        storage: any StoragePort,
+        history: HistoryStore,
+        achievements: AchievementsStore,
+        clock: any ClockPort = SystemClock()
+    ) {
         self.storage = storage
+        self.history = history
+        self.achievements = achievements
+        self.clock = clock
         self.settings = .defaults
         load()
     }
