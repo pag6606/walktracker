@@ -91,6 +91,10 @@ struct CompositionRoot {
             storage: storage,
             history: historyStore,
             achievements: achievementsStore,
+            // El canal de feedback (4.1): la meta cumplida vibra desde donde se **decide** que se
+            // celebra. Hasta la 4.1 el puerto solo llegaba a la pantalla de diagnóstico de DEBUG
+            // y ningún store lo recibía: el canal estaba construido y desconectado.
+            feedback: feedback,
             clock: clock
         )
         self.settingsStore = settingsStore
@@ -111,6 +115,11 @@ struct CompositionRoot {
             // mismo fichero serían dos lectores que no ven lo que escribe el otro.
             achievements: achievementsStore,
             achievementCatalog: self.achievementCatalog,
+            // **El mismo adapter** que recibe el store de ajustes, no otro (4.1): el motor de
+            // háptica es perezoso y se comparte, y dos instancias serían dos motores arrancando.
+            // Tres de los cuatro disparos nacen aquí —inicio, kilómetro y logro—; el cuarto, la
+            // meta, en el store de ajustes.
+            feedback: feedback,
             quotes: quotes,
             random: random
         )

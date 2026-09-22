@@ -72,6 +72,7 @@ DOMAIN_SUITES=(
     FormulasTests
     GapReconstructionScenarios
     GoalEngineTests
+    KilometerCrossingTests
     MetricsScenarios
     MotivationEngineTests
     QuoteBankTests

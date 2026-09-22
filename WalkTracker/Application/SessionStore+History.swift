@@ -142,6 +142,25 @@ extension SessionStore {
         // "por si los dos caminos evalúan la misma caminata": ese estado no existe, y el filtro
         // afirmaba una concurrencia inventada.
         unlockedAchievements = written
+
+        // **Un cierre, un evento** (D3, 4.1): una primera caminata de 1,2 km desbloquea
+        // `first_session` y `first_km` a la vez y vibra **una** sola vez, no dos. El disparo va
+        // detrás de `written`, no de `newlyUnlocked`: no se celebra lo que no se guardó, que es
+        // la fila "logros no persistidos" de la matriz. Y con `achievements.json` ilegible el
+        // `guard` de arriba ya sacó del método: no se evalúa, así que tampoco se vibra.
+        //
+        // **También por el camino del reintento, y eso es una DIVERGENCIA DELIBERADA entre los
+        // dos canales, no un descuido** (4.1). La 3.2 decidió dejar morir la señal **visible** de
+        // `retrySavingFinishedWalk()` —`unlockedAchievements` se llena y `leaveSummary()` lo
+        // vacía acto seguido— porque el resumen ya está saliendo de pantalla y no hay dónde
+        // pintar una celebración. La háptica **no necesita pantalla**, y el desbloqueo que la
+        // provoca es igual de real y queda escrito en `achievements.json`, así que aquí sí se
+        // dispara. Es la única diferencia entre los dos canales para el mismo suceso, y está
+        // escrita para que la 3.4 —que se va a cablear a la señal visible— no la descubra con
+        // extrañeza. Queda también en las Implementation Notes de la 4.1.
+        //
+        // `soundEnabled: false` es la decisión D1: la preferencia es de la 4.2.
+        feedback.fire(.achievement, soundEnabled: false)
     }
 
     /// El registro inmutable de `session`, con las derivadas ya materializadas.

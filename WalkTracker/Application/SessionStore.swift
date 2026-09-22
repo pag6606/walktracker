@@ -229,6 +229,17 @@ final class SessionStore {
     /// bundle y llega aquí para dárselo al motor: la evaluación es Swift, pero **qué** se evalúa
     /// es dato, y en este fichero no hay ni una clave de logro escrita.
     @ObservationIgnored let achievementCatalog: AchievementCatalog
+    /// Háptica y sonido de sistema (CAP-12, AD-10). Desde la 8.6 el puerto, sus cuatro eventos y
+    /// su adapter existen; la 4.1 es la que **los dispara**.
+    ///
+    /// **Nunca falla hacia fuera**, y el puerto lo promete: `fire` no lanza, no devuelve nada y
+    /// un feedback perdido no es un fallo de sesión. Por eso ninguna llamada de este store lleva
+    /// `try` ni condiciona nada de lo que viene detrás.
+    ///
+    /// **Obligatorio y sin valor por omisión**, por la lección de la 3.1: un colaborador con
+    /// defecto se puede olvidar en el composition root y el build sigue en verde. Aquí el olvido
+    /// sería una app sin una sola vibración, y ningún test se caería por ello.
+    @ObservationIgnored let feedback: any FeedbackPort
     @ObservationIgnored let log = Logger(subsystem: "com.walktracker.app", category: "SessionStore")
     /// Destino de las líneas de medición de la 8.4 (`MeasurementLog`). Solo observa: nada
     /// del comportamiento depende de él. Los tests lo sustituyen para leer las líneas.
@@ -276,6 +287,23 @@ final class SessionStore {
     /// Instante del último snapshot guardado, para espaciar el autosave por muestras. Solo lo
     /// escribe `persist()` cuando el guardado sale bien.
     @ObservationIgnored var lastSavedAt: Date?
+    /// Distancia con la que se evaluó por última vez el cruce de kilómetro (4.1), en metros.
+    /// `nil` mientras no se haya evaluado ninguna vez.
+    ///
+    /// **`nil` no es "cero metros", y esa diferencia es la que sostiene dos filas de la matriz.**
+    /// Sin distancia anterior no hay con qué comparar, así que la **primera** muestra de una
+    /// sesión solo siembra el campo y no dispara nada: una sesión restaurada al relanzar con 5 km
+    /// andados no vibra por kilómetros de hace media hora, ni lo hace su primera muestra en vivo.
+    /// Con un cero inicial, esa primera muestra habría cruzado cinco múltiplos de golpe.
+    ///
+    /// **Nunca baja** (`max`): una métrica degradada devuelve ceros (B-3), y sin el tope el
+    /// siguiente cálculo bueno volvería a cruzar los mismos kilómetros y vibraría dos veces.
+    ///
+    /// Lo escribe `record(_:fromQuery:)` —también desde la consulta de la reconciliación, que
+    /// **siembra sin disparar** (D2)— y el reset. Sin limpiarlo en `resetSessionState()`, el
+    /// primer kilómetro de la caminata siguiente no sonaría: la distancia arrancaría de cero
+    /// contra la marca de la anterior.
+    @ObservationIgnored var lastKilometerDistanceM: Double?
     /// El registro de la caminata cerrada que **no se pudo escribir** en el historial (5.1), para
     /// reintentarlo al salir del resumen. `nil` cuando no hay nada pendiente.
     ///
@@ -328,6 +356,7 @@ final class SessionStore {
         history: HistoryStore,
         achievements: AchievementsStore,
         achievementCatalog: AchievementCatalog,
+        feedback: any FeedbackPort,
         quotes: QuoteBank = .empty,
         random: any RandomPort = SystemRandom(),
         weatherStepTimeoutS: TimeInterval = SessionStore.weatherStepTimeoutS,
@@ -346,6 +375,7 @@ final class SessionStore {
         self.history = history
         self.achievements = achievements
         self.achievementCatalog = achievementCatalog
+        self.feedback = feedback
         self.quotes = quotes
         self.random = random
         self.weatherStepTimeoutS = weatherStepTimeoutS
@@ -550,6 +580,10 @@ final class SessionStore {
         lastSampleAt = nil
         lastSampleAtCap = nil
         lastSavedAt = nil
+        // La marca del cruce de kilómetro es de ESTA caminata (4.1). Sin limpiarla, la siguiente
+        // arrancaría en cero contra los kilómetros de la anterior y su primer kilómetro **no
+        // sonaría**.
+        lastKilometerDistanceM = nil
         quote = nil
         finishedWalkNotPersisted = false
         unsavedFinishedRecord = nil

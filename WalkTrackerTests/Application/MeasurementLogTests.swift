@@ -220,6 +220,7 @@ struct MeasurementLogTests {
                 history: history,
                 achievements: achievements,
                 achievementCatalog: AchievementCatalogFixture.bundled,
+                feedback: FeedbackSpy(),
                 measure: { sink.append($0) }
             )
         }

@@ -367,7 +367,7 @@ echo '        root.sessionStore.isReconciling = false' >> "$ROOT/WalkTracker/App
 assert_gate "asignar una propiedad del store en App/ falla" "$ROOT" 1 "AD-7/AD-16"
 rm -rf "$ROOT"
 
-for call in 'store.persist()' 'store.record(sample)' 'await store.reconcile(until: now)' 'store.countSteps(from: now)' \
+for call in 'store.persist()' 'store.record(sample)' 'store.noteKilometerCrossing(upTo: 1000, live: true)' 'await store.reconcile(until: now)' 'store.countSteps(from: now)' \
             'store.stopCountingSteps()' 'store.clearSnapshot()' 'store.capLastSampleAt(at: now)' \
             'try store.storage.clearActiveSession()' 'store.motion.status' 'store.clock.now' \
             'store.beginWeatherForNewSession()' 'store.cancelWeatherCapture()' 'store.location.status' \
@@ -376,7 +376,7 @@ for call in 'store.persist()' 'store.record(sample)' 'await store.reconcile(unti
             'try await store.weather.currentWeather(at: c)' 'store.locationPrompt = nil' \
             'store.weatherCapture?.cancel()' 'await store.stepCounting?.value' \
             'store.history.append(record)' 'store.achievements.unlock([], at: now)' \
-            'store.achievementCatalog.achievements.count'; do
+            'store.achievementCatalog.achievements.count' 'store.feedback.fire(.goal, soundEnabled: false)'; do
     ROOT="$(make_fixture)"
     echo "        $call" >> "$ROOT/WalkTracker/UI/SessionView.swift"
     assert_gate "\`$call\` en UI/ falla" "$ROOT" 1 "AD-7/AD-16"

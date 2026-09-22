@@ -241,6 +241,14 @@ extension SettingsStore {
         if !save(applying: { $0.setLastGoalCelebratedWeek(week) }) {
             log.error("La semana celebrada no quedó escrita: vale para esta ejecución y al relanzar se celebrará otra vez")
         }
+        // El canal de feedback de la meta (4.1, CAP-12). Va **donde se decide que se celebra**,
+        // no donde se pinta: la sección 10 del gate prohíbe `CoreHaptics` en `WalkTracker/UI/`, y
+        // los dos entrantes de esta función —`HomeView` al pintar el anillo y
+        // `weekMayHaveChanged()` al volver de background— comparten este único punto, así que la
+        // meta vibra una vez por semana y no una por repintado.
+        //
+        // `soundEnabled: false` es la decisión D1: la preferencia de sonido es de la 4.2.
+        feedback.fire(.goal, soundEnabled: false)
         log.info("Meta semanal cumplida por primera vez esta semana: el anillo celebra")
         return true
     }

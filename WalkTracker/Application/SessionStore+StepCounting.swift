@@ -7,8 +7,12 @@ import OSLog
 /// `lastSampleAt` tras un gap (R4).
 ///
 /// Escribe `segmentStart`, `highestCumulativeSteps`, `distanceBaseM`, `lastSampleAt`,
-/// `lastSampleAtCap`, `isCountingSteps` y `stepCounting`; con cada muestra, `session` y
-/// `metrics`. La consulta de la reconciliación también entra por `record(_:fromQuery:)`.
+/// `lastSampleAtCap`, `isCountingSteps`, `stepCounting` y `lastKilometerDistanceM`; con cada
+/// muestra, `session` y `metrics`. La consulta de la reconciliación también entra por
+/// `record(_:fromQuery:)`.
+///
+/// Aquí vive además **el único disparo de `.kilometer`** del producto (4.1): ver
+/// `noteKilometerCrossing(upTo:live:)`.
 extension SessionStore {
 
     /// Consume las muestras **acumuladas desde `start`** del coprocesador (AD-21): el
@@ -87,8 +91,51 @@ extension SessionStore {
             }
         }
         metrics = session?.metrics(at: clock.now)
+        noteKilometerCrossing(upTo: metrics?.distanceM ?? 0, live: !fromQuery)
         if let lastSavedAt, clock.now.timeIntervalSince(lastSavedAt) < Self.autosaveIntervalS { return }
         persist()
+    }
+
+    /// Dispara `.kilometer` si la distancia acaba de cruzar un múltiplo de 1.000 m, y deja la
+    /// marca puesta para la muestra siguiente (4.1, CAP-12).
+    ///
+    /// **Solo en vivo** (decisión D2). `live` es `!fromQuery`: la consulta de la reconciliación
+    /// reconstruye un hueco de background y puede sumar varios kilómetros andados hace media
+    /// hora; vibrar ahí sería un buzz al desbloquear el móvil. El evento de kilómetro es una
+    /// travesía en vivo, y una reconstrucción no lo es. Por eso este es **el único** de los doce
+    /// sitios que reasignan `metrics` donde el disparo está enganchado.
+    ///
+    /// **Pero la marca se mueve igual, se dispare o no**, y es lo que hace verdadera la fila
+    /// "la reconciliación suma 3 km → ningún evento": si la consulta no la moviera, la primera
+    /// muestra en vivo posterior compararía con la distancia de antes del hueco y vibraría por
+    /// los kilómetros que la reconciliación acaba de reconstruir.
+    ///
+    /// **Un evento por lote** (D3): `KilometerCrossing.didCross` responde `Bool`, así que saltar
+    /// de 800 a 4.200 m vibra una vez y no tres. La decisión no se vuelve a tomar aquí.
+    ///
+    /// La distancia es la de las métricas —la que Paul está viendo—, así que la vibración cae en
+    /// el mismo instante en que el cuentakilómetros de la pantalla marca el kilómetro.
+    ///
+    /// **Y la marca NUNCA baja** (`max`), que es lo que la protege de una métrica degradada.
+    /// `Session.metrics(at:)` devuelve `distanceM: 0` con `degraded: true` cuando un cálculo no
+    /// cuadra (B-3), y ese `catch` **no es inalcanzable**: `MetricsScenarios` lo alcanza, y darlo
+    /// por imposible ya costó un crash en cada caminata. Si la marca siguiera esa caída a cero,
+    /// el cálculo bueno siguiente volvería a cruzar **todos** los kilómetros ya cruzados y
+    /// vibraría una vez por cada uno: la ráfaga que D3 existe para impedir, justo en el momento
+    /// en que algo ya ha ido mal.
+    ///
+    /// Es un paso interno con acceso de módulo, como `record`, `countSteps` o `persist`: lo
+    /// llaman este fichero y los tests, y la sección 6 del gate impide que lo alcance una vista.
+    /// Sin esa costura, sustituir el `max` por una asignación directa deja la suite entera en
+    /// verde — comprobado.
+    func noteKilometerCrossing(upTo distanceM: Double, live: Bool) {
+        if live, let previousM = lastKilometerDistanceM, KilometerCrossing.didCross(from: previousM, to: distanceM) {
+            // Sin `try` y sin comprobar nada: el puerto promete que no falla hacia fuera, y un
+            // feedback perdido no puede costar una muestra. `soundEnabled: false` es la decisión
+            // D1 — la preferencia de sonido es de la 4.2 y todavía no existe.
+            feedback.fire(.kilometer, soundEnabled: false)
+        }
+        lastKilometerDistanceM = max(lastKilometerDistanceM ?? 0, distanceM)
     }
 
     /// `lastSampleAt` tras una muestra del stream que sumó pasos y terminó en `end`. Con un tope

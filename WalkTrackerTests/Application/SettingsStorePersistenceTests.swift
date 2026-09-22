@@ -94,6 +94,7 @@ struct SettingsStorePersistenceTests {
             // instancia por fichero (AD-16).
             achievements: settings.achievements,
             achievementCatalog: AchievementCatalogFixture.bundled,
+            feedback: FeedbackSpy(),
             quotes: SessionStoreFixture.bank(5),
             random: RandomStub(.fixed(0)),
             weatherStepTimeoutS: 5,
