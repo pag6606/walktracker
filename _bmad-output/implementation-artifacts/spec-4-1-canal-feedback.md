@@ -310,8 +310,12 @@ ese olvido en un error de compilación.
 - **Camino rojo del propio gate** en las dos, porque un caso que no rompe no demuestra nada:
   quitando `|feedback` el arnés baja a **224/225** y quitando `|noteKilometerCrossing` también, y
   en cada caso el único que cae es su propio caso nuevo.
-- `bash Scripts/check-spec-shape.sh` -> **verde**, con **64** entradas de `deferred-work.md` (63
-  antes) y 11 cerradas. La nueva es la de `soundEnabled` con destino a la 4.2 (D1).
+- `bash Scripts/check-spec-shape.sh` -> **verde**, con **65** entradas de `deferred-work.md` (63
+  antes). *Corregido el 2026-09-22: esta sección decía **64** y una sola entrada nueva. Son **dos**:
+  la de `soundEnabled` clavado en `false` (D1) y la de la **rama de estimación de la
+  reconciliación**, que puede disparar por un kilómetro cuyo último tercio nadie midió. La
+  segunda estaba escrita y el gate la aceptaba, pero no estaba contada ni nombrada aquí. Lo
+  encontró el agente de seguimiento al cuadrar las cifras del tablero.*
 - `xcodegen generate && xcodebuild test ... iPhone 16e CODE_SIGNING_ALLOWED=NO` -> **TEST
   SUCCEEDED**, **901 tests en 69 suites** (870 en 67 antes): **31 casos y 2 suites nuevos**,
   contados por nombre sobre el `.xcresult` y no por `TEST SUCCEEDED` — `Cruce de kilómetro` **8** y
