@@ -539,7 +539,7 @@ if [ -d "$ROOT/WalkTracker/Application" ]; then
     injected_owner_rule 'history' 'HistoryStore' \
         "\`append\`, \`contains\`"
     injected_owner_rule 'achievements' 'AchievementsStore' \
-        "las que estrene la 3.2"
+        "\`unlockWeeklyGoal\` (3.1) y las que estrene la 3.2"
 fi
 
 # ── 10. Ninguna vista importa un framework de sistema (AD-10) ───────────────

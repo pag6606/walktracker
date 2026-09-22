@@ -1,3 +1,4 @@
+import Domain
 import SwiftUI
 
 /// Pestaña Inicio. Su CTA principal es "Iniciar caminata" (AD-14).
@@ -8,6 +9,10 @@ import SwiftUI
 /// `RootView`, y al conceder el permiso tiene que aparecer sin competir con otra
 /// presentación que se esté cerrando (lo mismo para la alerta de inicio fallido).
 ///
+/// **El anillo de meta (3.1) es la pieza dominante de la pantalla.** Sustituye al
+/// `figure.walk` que ocupaba ese hueco —un icono decorativo que no decía nada— y el CTA no se
+/// mueve de sitio: sigue debajo, con su mismo tamaño y su mismo sitio en el orden de VoiceOver.
+///
 /// **El aviso de historial ilegible (5.1) sale aquí y no en la pestaña Historial**, que todavía
 /// es un marcador de posición. La decisión de Paul dice que Paul **se entera**, no que pueda
 /// enterarse si va a buscarlo: Inicio es la pantalla del arranque, y un aviso escondido detrás de
@@ -17,6 +22,11 @@ import SwiftUI
 struct HomeView<Diagnostics: View>: View {
 
     let store: SessionStore
+    /// Dueño de `settings.json` (AD-16, 2.2). Le llega cableado desde `WalkTrackerApp`, no a
+    /// través del store de sesión (sección 6 del gate). De él sale el progreso de la semana —la
+    /// meta, el historial y el calendario los junta él— y a él se le cuenta que el anillo se ha
+    /// pintado: la vista no calcula ni decide nada.
+    let settingsStore: SettingsStore
     /// Dueño de `sessions.json` (AD-16, 5.1). Solo se le lee el aviso; la vista no decide nada.
     let historyStore: HistoryStore
     let diagnostics: Diagnostics?
@@ -48,38 +58,62 @@ struct HomeView<Diagnostics: View>: View {
         }
     }
 
+    /// El progreso de la semana, leyendo además el testigo que obliga a repintarlo.
+    ///
+    /// **El `_ =` no es ruido: es la suscripción.** `weeklyProgress` mide contra `clock.now`, que
+    /// no es estado observable, así que sin leer `goalRefreshToken` aquí la vista no se entera de
+    /// que la semana ha cambiado al volver de segundo plano y seguiría pintando la pasada.
+    private var goalProgress: WeeklyProgress? {
+        _ = settingsStore.goalRefreshToken
+        return settingsStore.weeklyProgress
+    }
+
     private var home: some View {
-        VStack(spacing: Spacing.xl) {
-            if historyStore.showsUnreadableNotice {
-                unreadableHistoryNotice
-            }
-            Spacer()
-            Image(systemName: "figure.walk")
-                .font(.largeTitle)
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-                .accessibilityHidden(true)
-            Button {
-                Task { await store.start() }
-            } label: {
-                Text("Iniciar caminata")
-                    .font(Typography.buttonLabel)
-                    .frame(maxWidth: .infinity, minHeight: LayoutMetrics.touchTargetMin)
-            }
-            .buttonStyle(.glassProminent)
-            .controlSize(.extraLarge)
-            .disabled(store.hasSession)
-            Spacer()
-            if let diagnostics {
-                // Solo `DEBUG` y no es UI de producto: fuera del String Catalog.
-                NavigationLink {
-                    diagnostics
-                } label: {
-                    Text(verbatim: "Diagnóstico de la capa nativa")
+        // `ScrollView` dentro de un `GeometryReader`, el mismo patrón que la pantalla de sesión
+        // (1.4): con Dynamic Type al máximo, el aviso de historial ilegible encima y una pantalla
+        // pequeña, el anillo y el CTA no caben a la vez — y lo que se recortaría es el botón de
+        // **iniciar caminata**, que es lo único que esta pantalla tiene que dejar hacer siempre.
+        // El `minHeight` conserva los dos `Spacer`: cuando sobra sitio reparten el aire, y cuando
+        // falta toma el relevo el scroll.
+        GeometryReader { proxy in
+            ScrollView {
+                VStack(spacing: Spacing.xl) {
+                    if historyStore.showsUnreadableNotice {
+                        unreadableHistoryNotice
+                    }
+                    Spacer()
+                    // La meta va aparte del progreso: con el historial ilegible el progreso es
+                    // `nil` —ausente se pinta ausente (AD-22)— pero la meta SÍ se sabe, y el pie
+                    // tiene que decir la de Paul, no los 10 km por omisión.
+                    GoalRingView(progress: goalProgress, goalKm: settingsStore.resolvedWeeklyGoalKm)
+                        // La señal del 100 %, una vez por semana (AD-25). Es una intención del
+                        // store: la vista no sabe si esta semana ya se celebró, ni escribe nada.
+                        .task(id: goalProgress) { settingsStore.goalRingDidUpdate() }
+                    Button {
+                        Task { await store.start() }
+                    } label: {
+                        Text("Iniciar caminata")
+                            .font(Typography.buttonLabel)
+                            .frame(maxWidth: .infinity, minHeight: LayoutMetrics.touchTargetMin)
+                    }
+                    .buttonStyle(.glassProminent)
+                    .controlSize(.extraLarge)
+                    .disabled(store.hasSession)
+                    Spacer()
+                    if let diagnostics {
+                        // Solo `DEBUG` y no es UI de producto: fuera del String Catalog.
+                        NavigationLink {
+                            diagnostics
+                        } label: {
+                            Text(verbatim: "Diagnóstico de la capa nativa")
+                        }
+                    }
                 }
+                .padding(LayoutMetrics.margin)
+                .frame(maxWidth: .infinity, minHeight: proxy.size.height)
             }
+            .scrollBounceBehavior(.basedOnSize)
         }
-        .padding(LayoutMetrics.margin)
         .navigationTitle("Inicio")
         .alert("No se pudo iniciar la caminata", isPresented: startFailed) {
             Button("Aceptar", role: .cancel) {}

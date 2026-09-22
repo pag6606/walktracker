@@ -76,14 +76,24 @@ struct CompositionRoot {
         self.formulas = formulas
         let quotes = quotes ?? Self.bundledQuoteBankOrEmpty()
         self.quotes = quotes
-        // Antes del store de sesión: la primera caminata ya necesita la ventana de recientes.
-        let settingsStore = SettingsStore(storage: storage)
-        self.settingsStore = settingsStore
-        // Y antes también el historial: `restoreOnLaunch()` lo consulta para no archivar dos
-        // veces una caminata que ya se guardó (5.1).
+        // El historial y los logros van primero desde la 3.1: los ajustes necesitan los dos
+        // —el anillo suma las caminatas de la semana y cumplir la meta desbloquea
+        // `weekly_goal`— y cada fichero conserva **una sola** instancia de su dueño (AD-16).
+        // El orden entre los tres no tiene más misterio que ése: ninguno depende de los ajustes.
         let historyStore = HistoryStore(storage: storage)
         self.historyStore = historyStore
-        self.achievementsStore = AchievementsStore(storage: storage)
+        let achievementsStore = AchievementsStore(storage: storage)
+        self.achievementsStore = achievementsStore
+        // Y los tres antes del store de sesión: la primera caminata ya necesita la ventana de
+        // recientes, y `restoreOnLaunch()` consulta el historial para no archivar dos veces una
+        // caminata que ya se guardó (5.1).
+        let settingsStore = SettingsStore(
+            storage: storage,
+            history: historyStore,
+            achievements: achievementsStore,
+            clock: clock
+        )
+        self.settingsStore = settingsStore
         self.sessionStore = SessionStore(
             clock: clock,
             motion: motion,

@@ -69,7 +69,11 @@ struct SettingsStorePersistenceTests {
 
     /// Un `SessionStore` de verdad sobre el almacenamiento de ficheros: es quien dispara la
     /// escritura de la primera caminata, vía `openSession()` → `attachQuoteForNewSession()`.
-    private static func sessionStore(storage: FileStorageAdapter, settings: SettingsStore) -> SessionStore {
+    private static func sessionStore(
+        storage: FileStorageAdapter,
+        settings: SettingsStore,
+        history: HistoryStore? = nil
+    ) -> SessionStore {
         SessionStore(
             clock: ClockStub(now: SessionStoreFixture.t0),
             motion: MotionStub(status: .granted),
@@ -81,7 +85,11 @@ struct SettingsStorePersistenceTests {
             location: LocationStub(status: .denied),
             weather: WeatherStub(),
             settings: settings,
-            history: HistoryStore(storage: storage),
+            // **El historial del propio store de ajustes**, no uno nuevo: desde la 3.1 el store
+            // de ajustes recibe el suyo cableado, y construir aquí un segundo sería volver a
+            // tener dos lectores de `sessions.json` — el primero que lea uno ilegible lo aparta
+            // y el segundo encuentra "no hay fichero" (AD-16).
+            history: history ?? settings.history,
             quotes: SessionStoreFixture.bank(5),
             random: RandomStub(.fixed(0)),
             weatherStepTimeoutS: 5,
@@ -102,7 +110,7 @@ struct SettingsStorePersistenceTests {
             let url = Self.settingsURL(in: directory)
             try Self.denyReading(url)
 
-            let settings = SettingsStore(storage: storage)
+            let settings = SettingsStoreFixture.store(storage: storage)
             #expect(settings.settings == .defaults, "sin lectura se parte de los valores por omisión")
             let store = Self.sessionStore(storage: storage, settings: settings)
             await store.start()
@@ -126,7 +134,7 @@ struct SettingsStorePersistenceTests {
             let bytes = try Self.writePreviousSettings(to: storage)
             let url = Self.settingsURL(in: directory)
             try Self.denyReading(url)
-            let settings = SettingsStore(storage: storage)
+            let settings = SettingsStoreFixture.store(storage: storage)
 
             for id in 7...9 {
                 settings.recordShownQuote(id: id)
@@ -145,7 +153,7 @@ struct SettingsStorePersistenceTests {
             let bytes = try Self.writePreviousSettings(to: storage)
             let url = Self.settingsURL(in: directory)
             try Self.denyReading(url)
-            let settings = SettingsStore(storage: storage)
+            let settings = SettingsStoreFixture.store(storage: storage)
 
             settings.saveStride(fromText: "0,80")
 
@@ -166,7 +174,7 @@ struct SettingsStorePersistenceTests {
             _ = try Self.writePreviousSettings(to: storage)
             let url = Self.settingsURL(in: directory)
             try Self.denyReading(url)
-            let settings = SettingsStore(storage: storage)
+            let settings = SettingsStoreFixture.store(storage: storage)
             #expect(settings.recentQuoteIds.isEmpty, "al arrancar no se pudo leer nada")
 
             try Self.allowReading(url)
@@ -191,7 +199,7 @@ struct SettingsStorePersistenceTests {
             _ = try Self.writePreviousSettings(to: storage, window: [11, 12, 13])
             let url = Self.settingsURL(in: directory)
             try Self.denyReading(url)
-            let settings = SettingsStore(storage: storage)
+            let settings = SettingsStoreFixture.store(storage: storage)
             let store = Self.sessionStore(storage: storage, settings: settings)
 
             try Self.allowReading(url)
@@ -217,7 +225,7 @@ struct SettingsStorePersistenceTests {
             try future.write(to: url)
             let storage = FileStorageAdapter(directory: directory)
 
-            let settings = SettingsStore(storage: storage)
+            let settings = SettingsStoreFixture.store(storage: storage)
             let store = Self.sessionStore(storage: storage, settings: settings)
             await store.start()
 
@@ -234,7 +242,7 @@ struct SettingsStorePersistenceTests {
             let url = Self.settingsURL(in: directory)
             let future = Data(#"{ "schemaVersion": 9, "recentQuoteIds": [4, 5, 6] }"#.utf8)
             try future.write(to: url)
-            let settings = SettingsStore(storage: FileStorageAdapter(directory: directory))
+            let settings = SettingsStoreFixture.store(storage: FileStorageAdapter(directory: directory))
 
             settings.recordShownQuote(id: 7)
             settings.saveStride(fromText: "0,80")
@@ -252,7 +260,7 @@ struct SettingsStorePersistenceTests {
         // "No hay nada que perder" no puede quedar bloqueado, o no se guardaría nunca nada.
         try await Self.withDirectory { directory in
             let storage = FileStorageAdapter(directory: directory)
-            let settings = SettingsStore(storage: storage)
+            let settings = SettingsStoreFixture.store(storage: storage)
             let store = Self.sessionStore(storage: storage, settings: settings)
 
             await store.start()
@@ -273,7 +281,7 @@ struct SettingsStorePersistenceTests {
             try broken.write(to: url)
             let storage = FileStorageAdapter(directory: directory)
 
-            let settings = SettingsStore(storage: storage)
+            let settings = SettingsStoreFixture.store(storage: storage)
             settings.recordShownQuote(id: 7)
 
             #expect(try storage.loadSettings()?.recentQuoteIds == [7], "tras apartarlo no queda nada que perder")
@@ -291,7 +299,7 @@ struct SettingsStorePersistenceTests {
         try await Self.withDirectory { directory in
             let storage = FileStorageAdapter(directory: directory)
             _ = try Self.writePreviousSettings(to: storage)
-            let settings = SettingsStore(storage: storage)
+            let settings = SettingsStoreFixture.store(storage: storage)
             // Sin permiso de escritura en el directorio no hay temporal que renombrar.
             try FileManager.default.setAttributes(
                 [.posixPermissions: 0o500],

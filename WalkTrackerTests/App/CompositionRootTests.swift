@@ -104,4 +104,73 @@ struct CompositionRootTests {
         #expect(root.settingsStore.recentQuoteIds == [quote.id], "el dueño de los ajustes cableado es el que la registra")
         #expect(storage.settingsSaved.last?.recentQuoteIds == [quote.id], "y escribe por el mismo almacenamiento")
     }
+
+    // MARK: - El anillo de meta (3.1)
+
+    @Test("El store de ajustes recibe el RELOJ del root: el anillo mide la semana de ese reloj")
+    func settingsStoreGetsTheRootClock() throws {
+        // Comportamental, y hace falta porque `clock` tiene valor por omisión en el `init` de
+        // `SettingsStore`: dejar de cablearlo COMPILA y el anillo pasaría a medir contra
+        // `SystemClock`, es decir, contra el día en que se ejecute. La caminata del fixture cae en
+        // la semana del `ClockStub` (lunes 6 de julio de 2026) y en ninguna otra.
+        let now = ISO8601DateFormatter().date(from: "2026-07-08T12:00:00Z")!
+        let record = try SessionRecord(
+            id: UUID(), startedAt: ISO8601DateFormatter().date(from: "2026-07-06T10:00:00Z")!,
+            endedAt: ISO8601DateFormatter().date(from: "2026-07-06T11:00:00Z")!,
+            stepsMeasured: 0, stepsEstimated: 0, strideM: 0.655, distanceM: 7500,
+            durationS: 3600, pausesS: 0, paceSecPerKm: nil, cadenceSpm: 0
+        )
+        let root = CompositionRoot(
+            clock: ClockStub(now: now), motion: MotionStub(status: .granted),
+            storage: StorageStub(sessions: [record]), location: LocationStub(status: .denied), weather: WeatherStub()
+        )
+
+        let progress = try #require(root.settingsStore.weeklyProgress)
+        #expect(progress.completedKm == 7.5, "con el reloj del sistema esta caminata estaría fuera de la semana")
+        #expect(progress.goalKm == 10)
+        #expect(GoalEngine.weekKey(for: now, calendar: root.clock.calendar) == "2026-W28")
+    }
+
+    @Test("El store de ajustes recibe LA MISMA instancia del historial: el anillo se mueve al guardar")
+    func settingsStoreSharesTheHistoryOwner() throws {
+        // `history` también tenía valor por omisión mientras se escribía la 3.1, y dejarlo sin
+        // cablear COMPILA: `SettingsStore` se construiría su propio `HistoryStore` sobre el mismo
+        // fichero y habría **dos lectores** de `sessions.json`. Dos consecuencias, las dos mudas:
+        // el anillo no se movería tras una caminata, y con el historial ilegible el primer lector
+        // apartaría el fichero y el segundo leería "ausente" — el anillo diría 0 km / 0 % en vez
+        // de "no se pudo leer".
+        let now = ISO8601DateFormatter().date(from: "2026-07-08T12:00:00Z")!
+        let root = CompositionRoot(
+            clock: ClockStub(now: now), motion: MotionStub(status: .granted),
+            storage: StorageStub(), location: LocationStub(status: .denied), weather: WeatherStub()
+        )
+        #expect(root.settingsStore.weeklyProgress?.completedKm == 0)
+
+        let record = try SessionRecord(
+            id: UUID(), startedAt: ISO8601DateFormatter().date(from: "2026-07-07T10:00:00Z")!,
+            endedAt: ISO8601DateFormatter().date(from: "2026-07-07T11:00:00Z")!,
+            stepsMeasured: 0, stepsEstimated: 0, strideM: 0.655, distanceM: 4000,
+            durationS: 3600, pausesS: 0, paceSecPerKm: nil, cadenceSpm: 0
+        )
+        #expect(root.historyStore.append(record))
+
+        #expect(root.settingsStore.weeklyProgress?.completedKm == 4, "el anillo lee el historial del root, no otro")
+    }
+
+    @Test("Con el historial ilegible el anillo dice 'no se sabe', no 0 %")
+    func anUnreadableHistoryReachesTheRing() {
+        // La otra mitad del cableado anterior: con dos lectores, el primero aparta el fichero y
+        // el segundo encuentra "no hay fichero", así que `readOutcome` dejaría de ser
+        // `unreadable` y el anillo pintaría un 0 % que nadie sabe.
+        let storage = StorageStub()
+        storage.failLoadSessions(with: .malformed("bytes"))
+        let root = CompositionRoot(
+            clock: ClockStub(now: ISO8601DateFormatter().date(from: "2026-07-08T12:00:00Z")!),
+            motion: MotionStub(status: .granted), storage: storage,
+            location: LocationStub(status: .denied), weather: WeatherStub()
+        )
+
+        #expect(root.historyStore.showsUnreadableNotice)
+        #expect(root.settingsStore.weeklyProgress == nil)
+    }
 }

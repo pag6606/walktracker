@@ -186,6 +186,7 @@ struct VectorHarness: Sendable {
     /// - `v3distance`, `pace` y `calculateCadence` (1.3): `MetricsCalculator`.
     /// - `estimateSteps` (1.5): `GapEstimator.estimateSteps`.
     /// - `selectQuote` y `updateRecentIds` (2.2): `MotivationEngine`.
+    /// - `weeklyProgress` (3.1): `GoalEngine.weeklyProgress`.
     static let swiftDomain = VectorHarness(implementations: [
         "elapsedS": SwiftDomainPorts.elapsedS,
         "v3distance": SwiftDomainPorts.v3distance,
@@ -194,6 +195,7 @@ struct VectorHarness: Sendable {
         "estimateSteps": SwiftDomainPorts.estimateSteps,
         "selectQuote": SwiftDomainPorts.selectQuote,
         "updateRecentIds": SwiftDomainPorts.updateRecentIds,
+        "weeklyProgress": SwiftDomainPorts.weeklyProgress,
     ])
 
     let implementations: [String: VectorImplementation]
@@ -364,6 +366,80 @@ enum SwiftDomainPorts {
         return .array(updated.map { .number(Double($0)) })
     }
 
+    /// `GoalEngine.weeklyProgress` (3.1).
+    ///
+    /// **El calendario sale del propio vector.** `weeklyProgress` es una función de hora
+    /// (`TIME_FUNCTIONS` en `run-js.js`), así que su vector declara `timeZone` y aquí se
+    /// construye con ella el `AppCalendar` de AD-19 —ISO-8601, lunes primero— en vez de usar el
+    /// del `ClockStub`, que es siempre UTC: los tres vectores divergentes son precisamente los
+    /// que se evalúan en `America/Guayaquil`, y con un calendario en UTC pasarían por la razón
+    /// equivocada.
+    ///
+    /// La entrada trae `{startedAt, distanceM}` por sesión, que es lo que consume el motor. Se
+    /// materializa un `SessionRecord` completo —el tipo real, no un sucedáneo— rellenando lo
+    /// que el vector no fija con valores que crucen su frontera: el motor solo lee esos dos
+    /// campos, y construir el tipo de verdad es lo que impide que el vector pase contra una
+    /// estructura que el historial no podría contener.
+    static let weeklyProgress: VectorImplementation = { vector in
+        let input = vector.input
+        guard let zoneIdentifier = vector.timeZone, let zone = TimeZone(identifier: zoneIdentifier) else {
+            throw VectorInputError(description: "weeklyProgress: falta timeZone o no es una zona conocida")
+        }
+        guard let goalKm = input["weeklyGoalKm"]?.double else {
+            throw VectorInputError(description: "weeklyProgress: falta weeklyGoalKm")
+        }
+        guard let nowText = input["now"]?.string, let now = instant(nowText) else {
+            throw VectorInputError(description: "weeklyProgress: falta now o no es ISO-8601")
+        }
+        guard case .array(let rawSessions)? = input["sessions"] else {
+            throw VectorInputError(description: "weeklyProgress: falta sessions o no es un array")
+        }
+        let records = try rawSessions.map { raw throws(VectorInputError) -> SessionRecord in
+            guard let startedAtText = raw["startedAt"]?.string, let startedAt = instant(startedAtText) else {
+                throw VectorInputError(description: "weeklyProgress: una sesión sin startedAt ISO-8601")
+            }
+            guard let distanceM = raw["distanceM"]?.double else {
+                throw VectorInputError(description: "weeklyProgress: una sesión sin distanceM")
+            }
+            do {
+                return try SessionRecord(
+                    id: UUID(),
+                    startedAt: startedAt,
+                    endedAt: startedAt,
+                    stepsMeasured: 0,
+                    stepsEstimated: 0,
+                    strideM: 0.655,
+                    distanceM: distanceM,
+                    durationS: 0,
+                    pausesS: 0,
+                    paceSecPerKm: nil,
+                    cadenceSpm: 0
+                )
+            } catch {
+                throw VectorInputError(description: "weeklyProgress: la sesión del vector no cruza la frontera (\(error))")
+            }
+        }
+
+        var calendar = Calendar(identifier: .iso8601)
+        calendar.firstWeekday = 2
+        calendar.timeZone = zone
+
+        let progress = GoalEngine.weeklyProgress(records: records, goalKm: goalKm, now: now, calendar: calendar)
+        return .object([
+            "completedKm": .number(progress.completedKm),
+            "goalKm": .number(progress.goalKm),
+            "percentage": .number(progress.percentage),
+            "isComplete": .bool(progress.isComplete),
+        ])
+    }
+
+    /// Una fecha ISO-8601 del vector, con o sin fracción de segundo y con cualquier desfase.
+    private static func instant(_ text: String) -> Date? {
+        let withFraction = ISO8601DateFormatter()
+        withFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return withFraction.date(from: text) ?? ISO8601DateFormatter().date(from: text)
+    }
+
     /// `RandomPort` fijo en la primera posición: determinista, para que el vector no dependa
     /// del azar. Las conductas que sí dependen de él se prueban aparte, con `RandomStub`.
     private struct FirstIndexRandom: RandomPort {
@@ -440,6 +516,20 @@ enum VectorBundle {
             guard let url = bundle.url(forResource: function, withExtension: "json") else { return nil }
             return ("\(function).json", try JSONDecoder().decode(VectorFile.self, from: Data(contentsOf: url)))
         }
+    }
+
+    /// Los bytes crudos del fichero de una función.
+    ///
+    /// Existe para lo que `DomainVector` no decodifica: `expectedJs`, el valor que da
+    /// `domain.js` en un vector divergente. Swift lo ignora a propósito —el vector lleva el
+    /// valor de Swift en `expected`— pero hay un criterio que exige leerlo: un divergente
+    /// ejecutado contra `expectedJs` **tiene que fallar**, o la divergencia declarada ya no
+    /// sería una divergencia.
+    static func data(for function: String) throws -> Data {
+        guard let url = bundle.url(forResource: function, withExtension: "json") else {
+            throw VectorInputError(description: "\(function).json no está en el bundle de tests")
+        }
+        return try Data(contentsOf: url)
     }
 
     /// Funciones conocidas cuyo fichero no está en el bundle.

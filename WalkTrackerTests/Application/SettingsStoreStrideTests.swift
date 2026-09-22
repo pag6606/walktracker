@@ -14,7 +14,7 @@ import Testing
 struct SettingsStoreStrideTests {
 
     private static func store(_ storage: StorageStub = StorageStub()) -> (StorageStub, SettingsStore) {
-        (storage, SettingsStore(storage: storage))
+        (storage, SettingsStoreFixture.store(storage: storage))
     }
 
     // MARK: - Aceptado
@@ -264,11 +264,11 @@ struct SettingsStoreStrideTests {
     @Test("Volver al default sobrevive a relanzar la app")
     func clearedStrideSurvivesRelaunch() {
         let storage = StorageStub()
-        let settings = SettingsStore(storage: storage)
+        let settings = SettingsStoreFixture.store(storage: storage)
         settings.saveStride(fromText: "0,670")
         settings.clearStride()
 
-        let relaunched = SettingsStore(storage: storage)
+        let relaunched = SettingsStoreFixture.store(storage: storage)
 
         #expect(relaunched.strideM == nil)
         #expect(relaunched.resolvedStrideM(default: 0.655) == 0.655)
@@ -300,10 +300,10 @@ struct SettingsStoreStrideTests {
     @Test("La zancada guardada sobrevive a relanzar la app")
     func strideSurvivesRelaunch() {
         let storage = StorageStub()
-        SettingsStore(storage: storage).saveStride(fromText: "0,670")
+        SettingsStoreFixture.store(storage: storage).saveStride(fromText: "0,670")
 
         // "Relanzar" es montar otro store sobre el mismo almacenamiento.
-        let relaunched = SettingsStore(storage: storage)
+        let relaunched = SettingsStoreFixture.store(storage: storage)
 
         #expect(relaunched.strideM == 0.670)
         #expect(relaunched.strideOutcome == nil, "el mensaje es de la pulsación, no del ajuste")
@@ -313,7 +313,7 @@ struct SettingsStoreStrideTests {
     func diskFailureKeepsTheValueInMemory() {
         let storage = StorageStub()
         storage.failSaveSettings(with: .failed(operation: "write"))
-        let settings = SettingsStore(storage: storage)
+        let settings = SettingsStoreFixture.store(storage: storage)
 
         settings.saveStride(fromText: "0,670")
 
@@ -328,7 +328,7 @@ struct SettingsStoreStrideTests {
     @Test("Un fallo de disco al volver al default tampoco se cuenta como guardado")
     func diskFailureWhenClearingIsReported() {
         let storage = StorageStub(settings: AppSettings(strideM: 0.067))
-        let settings = SettingsStore(storage: storage)
+        let settings = SettingsStoreFixture.store(storage: storage)
         storage.failSaveSettings(with: .failed(operation: "write"))
 
         settings.clearStride()

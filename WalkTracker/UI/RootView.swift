@@ -21,6 +21,9 @@ struct RootView<Diagnostics: View>: View {
     /// Dueño de `settings.json` (AD-16). Llega cableado desde `WalkTrackerApp`, no a través del
     /// store de sesión: la sección 6 del gate prohíbe a `UI/` alcanzar los ajustes por dentro
     /// del store de sesión, y con razón — son dos dueños distintos del mismo puerto.
+    ///
+    /// Lo usan **dos** pestañas desde la 3.1: Ajustes, para la zancada y la meta, e Inicio, que
+    /// le pide el progreso de la semana para el anillo.
     let settingsStore: SettingsStore
     /// Dueño de `sessions.json` (AD-16, 5.1). Llega cableado desde `WalkTrackerApp` por la misma
     /// razón que el de ajustes: son dueños distintos del mismo puerto y la sección 6 del gate
@@ -50,7 +53,12 @@ struct RootView<Diagnostics: View>: View {
     var body: some View {
         TabView {
             Tab("Inicio", systemImage: "house") {
-                HomeView(store: store, historyStore: historyStore, diagnostics: diagnostics)
+                HomeView(
+                    store: store,
+                    settingsStore: settingsStore,
+                    historyStore: historyStore,
+                    diagnostics: diagnostics
+                )
             }
             Tab("Historial", systemImage: "clock.arrow.circlepath") {
                 EmptyTabView(
@@ -78,6 +86,10 @@ struct RootView<Diagnostics: View>: View {
         .onChange(of: scenePhase) { _, phase in
             // Cada fase va al store sin filtrar: él decide qué hace con ella.
             store.scenePhaseDidChange(to: SessionStore.ScenePhase(phase))
+            // Y la semana puede haber cambiado mientras la app no estaba delante: el anillo mide
+            // contra `clock.now`, que no es estado observable, así que volver de segundo plano un
+            // lunes no repintaría nada y la celebración de la semana nueva no se dispararía.
+            settingsStore.weekMayHaveChanged()
         }
     }
 

@@ -88,14 +88,18 @@ struct SettingsFileAdapterTests {
         )
     }
 
-    @Test("Un campo que el esquema todavía no conoce no rompe: el Epic 3 añadirá la meta semanal")
+    @Test("Un campo que el esquema todavía no conoce no rompe: la 4.2 añadirá el sonido")
     func unknownFieldsAreIgnored() throws {
-        let json = #"{ "schemaVersion": 1, "recentQuoteIds": [1], "strideM": 0.7, "weeklyGoalKm": 10 }"#
+        // Hasta la 3.1 el campo desconocido de este test era `weeklyGoalKm`, que ya existe: el
+        // ejemplo se mueve al siguiente que va a llegar, que es lo que la prueba dice. Lo que se
+        // comprueba no cambia — una clave que este build no conoce se ignora y el resto se lee.
+        let json = #"{ "schemaVersion": 1, "recentQuoteIds": [1], "strideM": 0.7, "weeklyGoalKm": 15, "soundEnabled": true }"#
 
         let settings = try SettingsFileAdapter.decode(Data(json.utf8))
 
         #expect(settings.recentQuoteIds == [1])
         #expect(settings.strideM == 0.7, "y el que sí conoce desde la 2.3 se lee")
+        #expect(settings.weeklyGoalKm == 15, "y el que conoce desde la 3.1, también")
     }
 
     // MARK: - Zancada (2.3)
@@ -166,6 +170,116 @@ struct SettingsFileAdapterTests {
             let settings = try adapter.loadSettings()
 
             #expect(settings?.strideM == nil)
+            #expect(settings?.recentQuoteIds == [9])
+            #expect(try Self.setAsideNames(in: directory).isEmpty, "no es un fichero ilegible: no se aparta")
+            #expect(FileManager.default.fileExists(atPath: adapter.fileURL.path(percentEncoded: false)))
+        }
+    }
+
+    // MARK: - Meta semanal (3.1)
+
+    @Test("Ida y vuelta con meta y semana celebrada: vuelven igual y el esquema NO sube de 1")
+    func goalRoundTrip() throws {
+        var settings = AppSettings(recentQuoteIds: [4, 5])
+        try settings.setStrideM(0.670)
+        try settings.setWeeklyGoalKm(15)
+        settings.setLastGoalCelebratedWeek("2026-W28")
+
+        let data = try SettingsFileAdapter.encode(settings)
+        let object = try Self.json(data)
+
+        #expect(object["weeklyGoalKm"] as? Double == 15)
+        #expect(object["lastGoalCelebratedWeek"] as? String == "2026-W28")
+        #expect(object["strideM"] as? Double == 0.670, "y la zancada sigue donde estaba")
+        #expect(
+            object["schemaVersion"] as? Int == 1,
+            "dos campos opcionales más siguen siendo compatibles en las dos direcciones: subirlo a 2 dejaría a un build anterior leyendo los ajustes como del futuro y perdiendo la ventana Y la zancada"
+        )
+        #expect(try SettingsFileAdapter.decode(data) == settings)
+    }
+
+    @Test("Sin fijar la meta, la clave no se escribe")
+    func absentGoalIsNotWritten() throws {
+        let object = try Self.json(SettingsFileAdapter.encode(AppSettings(recentQuoteIds: [1])))
+
+        #expect(object["weeklyGoalKm"] == nil)
+        #expect(object["lastGoalCelebratedWeek"] == nil)
+    }
+
+    @Test("Un fichero de la 2.3 (esquema 1, con zancada y sin meta) se lee bien y admite la meta")
+    func fileFromTheStrideStoryStillReads() throws {
+        let json = #"{ "schemaVersion": 1, "recentQuoteIds": [1, 2, 3], "strideM": 0.67 }"#
+
+        var settings = try SettingsFileAdapter.decode(Data(json.utf8))
+
+        #expect(settings.strideM == 0.67)
+        #expect(settings.weeklyGoalKm == nil, "sin fijar, no 10: el default vive en el dominio")
+
+        try settings.setWeeklyGoalKm(15)
+        let object = try Self.json(SettingsFileAdapter.encode(settings))
+        #expect(object["weeklyGoalKm"] as? Double == 15)
+        #expect(object["strideM"] as? Double == 0.67)
+        #expect(object["recentQuoteIds"] as? [Int] == [1, 2, 3])
+    }
+
+    @Test("Una meta corrupta se lee como sin fijar y NO cuesta ni la zancada ni la ventana", arguments: [
+        #"{ "schemaVersion": 1, "recentQuoteIds": [1, 2], "strideM": 0.67, "weeklyGoalKm": "abc" }"#,
+        #"{ "schemaVersion": 1, "recentQuoteIds": [1, 2], "strideM": 0.67, "weeklyGoalKm": -3 }"#,
+        #"{ "schemaVersion": 1, "recentQuoteIds": [1, 2], "strideM": 0.67, "weeklyGoalKm": 0 }"#,
+        #"{ "schemaVersion": 1, "recentQuoteIds": [1, 2], "strideM": 0.67, "weeklyGoalKm": null }"#,
+        #"{ "schemaVersion": 1, "recentQuoteIds": [1, 2], "strideM": 0.67, "weeklyGoalKm": [10] }"#,
+        #"{ "schemaVersion": 1, "recentQuoteIds": [1, 2], "strideM": 0.67, "weeklyGoalKm": true }"#,
+    ])
+    func corruptGoalFallsBackToUnset(json: String) throws {
+        let settings = try SettingsFileAdapter.decode(Data(json.utf8))
+
+        #expect(settings.weeklyGoalKm == nil)
+        #expect(settings.resolvedWeeklyGoalKm == 10)
+        #expect(settings.strideM == 0.67)
+        #expect(settings.recentQuoteIds == [1, 2])
+    }
+
+    @Test("Una semana celebrada de otro tipo se lee como 'nunca', sin tirar el fichero")
+    func corruptCelebratedWeekFallsBackToNever() throws {
+        let json = #"{ "schemaVersion": 1, "recentQuoteIds": [1], "weeklyGoalKm": 15, "lastGoalCelebratedWeek": 28 }"#
+
+        let settings = try SettingsFileAdapter.decode(Data(json.utf8))
+
+        #expect(settings.lastGoalCelebratedWeek == nil, "el peor efecto es celebrar una vez de más")
+        #expect(settings.weeklyGoalKm == 15)
+        #expect(settings.recentQuoteIds == [1])
+    }
+
+    @Test("Un campo editable con el tipo equivocado se nombra: el valor se pierde, pero NO en silencio", arguments: [
+        (#"{ "schemaVersion": 1, "weeklyGoalKm": "abc" }"#, ["weeklyGoalKm"]),
+        (#"{ "schemaVersion": 1, "weeklyGoalKm": true }"#, ["weeklyGoalKm"]),
+        (#"{ "schemaVersion": 1, "weeklyGoalKm": [10] }"#, ["weeklyGoalKm"]),
+        (#"{ "schemaVersion": 1, "lastGoalCelebratedWeek": 28 }"#, ["lastGoalCelebratedWeek"]),
+        (#"{ "schemaVersion": 1, "strideM": "abc" }"#, ["strideM"]),
+        (#"{ "schemaVersion": 1, "strideM": 0.67, "weeklyGoalKm": 15, "lastGoalCelebratedWeek": "2026-W28" }"#, []),
+        (#"{ "schemaVersion": 1, "weeklyGoalKm": null, "strideM": null }"#, []),
+        (#"{ "schemaVersion": 1, "weeklyGoalKm": -3 }"#, []),
+    ])
+    func unreadableEditableKeysAreNamed(json: String, expected: [String]) {
+        // La tolerancia es un `try?`, así que sin esto el valor desaparecía sin que nada lo
+        // dijera. `null` y un número fuera de rango NO son "ilegibles": el primero es la forma
+        // legítima de decir "sin configurar" y el segundo lo rechaza el dominio, con su propio
+        // aviso. Un booleano SÍ lo es: `JSONSerialization` lo da como `NSNumber` y `JSONDecoder`
+        // lo tira igual.
+        #expect(SettingsFileAdapter.unreadableEditableKeys(in: Data(json.utf8)) == expected)
+    }
+
+    @Test("Unos ajustes con la meta corrupta en disco se leen enteros y no se apartan")
+    func corruptGoalOnDiskIsNotSetAside() throws {
+        try Self.withDirectory { directory in
+            let adapter = SettingsFileAdapter(directory: directory)
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            let json = #"{ "schemaVersion": 1, "recentQuoteIds": [9], "weeklyGoalKm": "abc" }"#
+            try Data(json.utf8).write(to: adapter.fileURL)
+
+            let settings = try adapter.loadSettings()
+
+            #expect(settings?.weeklyGoalKm == nil)
             #expect(settings?.recentQuoteIds == [9])
             #expect(try Self.setAsideNames(in: directory).isEmpty, "no es un fichero ilegible: no se aparta")
             #expect(FileManager.default.fileExists(atPath: adapter.fileURL.path(percentEncoded: false)))
@@ -361,7 +475,7 @@ struct SettingsStoreTests {
 
     @Test("Sin fichero: se parte de los ajustes por omisión")
     func defaultsWhenMissing() {
-        let store = SettingsStore(storage: StorageStub())
+        let store = SettingsStoreFixture.store(storage: StorageStub())
 
         #expect(store.settings == .defaults)
         #expect(store.recentQuoteIds.isEmpty)
@@ -371,7 +485,7 @@ struct SettingsStoreTests {
     func readsOnceOnInit() {
         let storage = StorageStub(settings: AppSettings(recentQuoteIds: [4, 5]))
 
-        let store = SettingsStore(storage: storage)
+        let store = SettingsStoreFixture.store(storage: storage)
 
         #expect(store.recentQuoteIds == [4, 5])
         #expect(storage.settingsLoadCount == 1)
@@ -384,7 +498,7 @@ struct SettingsStoreTests {
         let storage = StorageStub(settings: AppSettings(recentQuoteIds: [1]))
         storage.failLoadSettings(with: .malformed("basura"))
 
-        let store = SettingsStore(storage: storage)
+        let store = SettingsStoreFixture.store(storage: storage)
 
         #expect(store.settings == .defaults)
         #expect(storage.settingsSetAside.count == 1)
@@ -398,7 +512,7 @@ struct SettingsStoreTests {
         // guardar nada nunca más por un fichero que ya está a salvo.
         let storage = StorageStub(settings: AppSettings(recentQuoteIds: [1]))
         storage.failLoadSettings(with: .malformed("basura"))
-        let store = SettingsStore(storage: storage)
+        let store = SettingsStoreFixture.store(storage: storage)
 
         store.recordShownQuote(id: 7)
 
@@ -412,7 +526,7 @@ struct SettingsStoreTests {
         let storage = StorageStub(settings: AppSettings(recentQuoteIds: [1]))
         storage.failLoadSettings(with: .failed(operation: "read"))
 
-        let store = SettingsStore(storage: storage)
+        let store = SettingsStoreFixture.store(storage: storage)
 
         #expect(store.settings == .defaults)
         #expect(storage.settingsSetAside.isEmpty)
@@ -433,7 +547,7 @@ struct SettingsStoreTests {
     func transientFailureRecoversOnRetry() {
         let storage = StorageStub(settings: AppSettings(recentQuoteIds: [1, 2, 3]))
         storage.failLoadSettings(with: .failed(operation: "read"))
-        let store = SettingsStore(storage: storage)
+        let store = SettingsStoreFixture.store(storage: storage)
         #expect(store.recentQuoteIds.isEmpty, "al arrancar no se pudo leer nada")
 
         storage.failLoadSettings(with: nil)
@@ -451,7 +565,7 @@ struct SettingsStoreTests {
         // definición, y eso es justo lo que mantiene el fichero a salvo mientras exista.
         let storage = StorageStub(settings: AppSettings(recentQuoteIds: [1, 2, 3]))
         storage.failLoadSettings(with: .unsupportedSchemaVersion(2))
-        let store = SettingsStore(storage: storage)
+        let store = SettingsStoreFixture.store(storage: storage)
 
         store.recordShownQuote(id: 7)
         store.recordShownQuote(id: 8)
@@ -466,7 +580,7 @@ struct SettingsStoreTests {
     @Test("recordShownQuote: FIFO con tope de 20, y cada vez se guarda")
     func recordShownQuoteAppendsAndSaves() {
         let storage = StorageStub()
-        let store = SettingsStore(storage: storage)
+        let store = SettingsStoreFixture.store(storage: storage)
 
         for id in 1...25 {
             store.recordShownQuote(id: id)
@@ -481,7 +595,7 @@ struct SettingsStoreTests {
     func saveFailureDoesNotPropagate() {
         let storage = StorageStub()
         storage.failSaveSettings(with: .failed(operation: "write"))
-        let store = SettingsStore(storage: storage)
+        let store = SettingsStoreFixture.store(storage: storage)
 
         store.recordShownQuote(id: 7)
 

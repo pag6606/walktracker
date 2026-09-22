@@ -272,4 +272,151 @@ struct AppSettingsTests {
         #expect(throws: DomainError.invalidValue(field: "strideM")) { try settings.setStrideM(meters) }
         #expect(settings.strideM == nil)
     }
+
+    // MARK: - Meta semanal (3.1)
+
+    @Test("Sin configurar, la meta son 10 km, y el default NO vive en formulas.json")
+    func unsetGoalResolvesToTenKilometres() {
+        // La diferencia con la zancada, escrita donde se ve: el default de la zancada se inyecta
+        // desde `formulas.json` porque es una calibración medible; el de la meta es un default de
+        // producto y vive en el dominio, así que `resolvedWeeklyGoalKm` no recibe parámetro.
+        #expect(AppSettings.defaults.weeklyGoalKm == nil)
+        #expect(AppSettings.defaults.resolvedWeeklyGoalKm == 10)
+        #expect(AppSettings.defaultWeeklyGoalKm == 10)
+    }
+
+    @Test("Una meta válida se guarda y pasa a mandar")
+    func validGoalIsStored() throws {
+        var settings = AppSettings()
+
+        try settings.setWeeklyGoalKm(15)
+
+        #expect(settings.weeklyGoalKm == 15)
+        #expect(settings.resolvedWeeklyGoalKm == 15)
+    }
+
+    @Test("La frontera RECHAZA y no muta", arguments: [0.0, -3.0, 0.01, 0.999, .infinity, -Double.infinity, .nan])
+    func invalidGoalIsRejected(kilometers: Double) {
+        var settings = AppSettings(weeklyGoalKm: 15)
+
+        #expect(throws: DomainError.invalidValue(field: "weeklyGoalKm")) {
+            try settings.setWeeklyGoalKm(kilometers)
+        }
+        #expect(settings.weeklyGoalKm == 15, "y la meta que había sigue donde estaba")
+    }
+
+    @Test("La puerta de LECTURA tolera: una meta corrupta se lee como sin configurar", arguments: [0.0, -3.0, 0.01, .infinity, .nan])
+    func corruptGoalOnDiskReadsAsUnset(kilometers: Double) {
+        // Un `settings.json` manipulado no puede costar ni la zancada ni la ventana de frases:
+        // es la misma asimetría de la 2.3, y por eso hay dos puertas y no una.
+        let settings = AppSettings(recentQuoteIds: [1, 2], strideM: 0.67, weeklyGoalKm: kilometers)
+
+        #expect(settings.weeklyGoalKm == nil)
+        #expect(settings.resolvedWeeklyGoalKm == 10)
+        #expect(settings.recentQuoteIds == [1, 2], "y el resto del fichero sigue en pie")
+        #expect(settings.strideM == 0.67)
+    }
+
+    @Test("Quitar la meta devuelve los 10 km, y no toca lo demás")
+    func clearingTheGoalReturnsToTheDefault() {
+        var settings = AppSettings(recentQuoteIds: [4], strideM: 0.67, weeklyGoalKm: 42)
+
+        settings.clearWeeklyGoalKm()
+
+        #expect(settings.weeklyGoalKm == nil)
+        #expect(settings.resolvedWeeklyGoalKm == 10)
+        #expect(settings.strideM == 0.67)
+        #expect(settings.recentQuoteIds == [4])
+    }
+
+    @Test("El parser de la meta es el mismo que el de la zancada, y acepta coma y punto")
+    func goalTextParsing() {
+        #expect(AppSettings.weeklyGoalKm(fromText: "15") == 15)
+        #expect(AppSettings.weeklyGoalKm(fromText: "12,5") == 12.5)
+        #expect(AppSettings.weeklyGoalKm(fromText: "12.5") == 12.5)
+        #expect(AppSettings.weeklyGoalKm(fromText: " 15 ") == 15, "los espacios de alrededor no cuentan")
+        #expect(AppSettings.weeklyGoalKm(fromText: "") == nil)
+        #expect(AppSettings.weeklyGoalKm(fromText: "abc") == nil)
+        #expect(AppSettings.weeklyGoalKm(fromText: ",") == nil)
+        #expect(AppSettings.weeklyGoalKm(fromText: "1e3") == nil, "notación científica no, como en la zancada")
+        #expect(AppSettings.weeklyGoalKm(fromText: "0x10") == nil)
+        #expect(AppSettings.weeklyGoalKm(fromText: "inf") == nil)
+        #expect(AppSettings.weeklyGoalKm(fromText: "12,5,5") == nil, "dos separadores no son un número")
+    }
+
+    @Test("El mínimo de 1 km: el borde exacto se acepta y justo por debajo se rechaza")
+    func theMinimumGoalIsInclusive() throws {
+        // Decisión de Paul (2026-09-21): por debajo de 1 km, caminar diez metros cumpliría la
+        // meta y desbloquearía `weekly_goal`, que es **de por vida e irrevocable**.
+        var settings = AppSettings()
+
+        try settings.setWeeklyGoalKm(AppSettings.minimumWeeklyGoalKm)
+        #expect(settings.weeklyGoalKm == 1, "el mínimo es inclusivo")
+
+        #expect(throws: DomainError.invalidValue(field: "weeklyGoalKm")) {
+            try settings.setWeeklyGoalKm(AppSettings.minimumWeeklyGoalKm.nextDown)
+        }
+        #expect(settings.weeklyGoalKm == 1, "y lo que había sigue donde estaba")
+
+        // El motivo del rechazo se distingue: `0,5` no es "menor o igual que cero".
+        #expect(AppSettings.isTooSmallGoalKm(0.5))
+        #expect(AppSettings.isTooSmallGoalKm(0.01))
+        #expect(!AppSettings.isTooSmallGoalKm(1), "el borde no es demasiado pequeño")
+        #expect(!AppSettings.isTooSmallGoalKm(0), "cero tiene su propio mensaje")
+        #expect(!AppSettings.isTooSmallGoalKm(-3))
+        #expect(!AppSettings.isTooSmallGoalKm(.nan))
+    }
+
+    @Test("Una meta por debajo del mínimo guardada por un build anterior se TOLERA al leer")
+    func aGoalBelowTheMinimumOnDiskReadsAsUnset() {
+        // La puerta de lectura no lanza: un `settings.json` con `0,01` —guardado antes de que el
+        // mínimo existiera— cae a "sin configurar" y no se lleva por delante ni la zancada ni la
+        // ventana de frases. Es la misma asimetría que estrenó la zancada con B-3.
+        let settings = AppSettings(recentQuoteIds: [7], strideM: 0.67, weeklyGoalKm: 0.01)
+
+        #expect(settings.weeklyGoalKm == nil)
+        #expect(settings.resolvedWeeklyGoalKm == 10)
+        #expect(settings.strideM == 0.67)
+        #expect(settings.recentQuoteIds == [7])
+    }
+
+    @Test("Cientos de dígitos desbordan a infinito: se parsean, y el motivo del rechazo es que NO CABEN")
+    func overflowingGoalIsNotZero() throws {
+        let text = String(repeating: "9", count: 400)
+        let kilometers = try #require(AppSettings.weeklyGoalKm(fromText: text))
+
+        #expect(kilometers.isInfinite, "400 dígitos son dígitos: se parsean y desbordan")
+        #expect(AppSettings.isRepresentableGoalKm(kilometers) == false)
+        // Y cero y los negativos SÍ son representables: su problema es otro y su mensaje también.
+        #expect(AppSettings.isRepresentableGoalKm(0))
+        #expect(AppSettings.isRepresentableGoalKm(-3))
+    }
+
+    // MARK: - La semana celebrada (3.1, AD-25)
+
+    @Test("La semana celebrada se guarda tal cual, y una cadena vacía es 'nunca'")
+    func celebratedWeekIsStored() {
+        var settings = AppSettings()
+        #expect(settings.lastGoalCelebratedWeek == nil)
+
+        settings.setLastGoalCelebratedWeek("2026-W28")
+        #expect(settings.lastGoalCelebratedWeek == "2026-W28")
+
+        settings.setLastGoalCelebratedWeek("   ")
+        #expect(settings.lastGoalCelebratedWeek == nil, "una cadena de espacios no es una semana")
+
+        settings.setLastGoalCelebratedWeek(nil)
+        #expect(settings.lastGoalCelebratedWeek == nil)
+    }
+
+    @Test("La semana celebrada es independiente del logro: quitar la meta no la borra")
+    func celebratedWeekSurvivesClearingTheGoal() {
+        // AD-25: el desbloqueo de `weekly_goal` es de por vida y la celebración es semanal. Son
+        // dos estados distintos y ninguno se deduce del otro.
+        var settings = AppSettings(weeklyGoalKm: 15, lastGoalCelebratedWeek: "2026-W28")
+
+        settings.clearWeeklyGoalKm()
+
+        #expect(settings.lastGoalCelebratedWeek == "2026-W28")
+    }
 }

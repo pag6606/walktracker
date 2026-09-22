@@ -205,12 +205,15 @@ struct MeasurementLogTests {
             self.motion = motion
             self.sink = sink
             let storage = StorageStub(snapshot: snapshot)
+            // El historial, una vez y compartido: dos instancias del dueño de `sessions.json`
+            // son dos lectores, y el primero que lea uno ilegible lo aparta (AD-16).
+            let history = HistoryStore(storage: storage)
             store = SessionStore(
                 clock: clock, motion: motion, storage: storage, defaultStrideM: 0.655,
                 reconciliationTimeoutS: timeoutS, orphanSessionThresholdS: 21_600, maxEstimableGapS: 1200,
                 location: LocationStub(status: .denied), weather: WeatherStub(),
-                settings: SettingsStore(storage: storage),
-                history: HistoryStore(storage: storage),
+                settings: SettingsStoreFixture.store(storage: storage, history: history, clock: clock),
+                history: history,
                 measure: { sink.append($0) }
             )
         }
