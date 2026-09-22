@@ -50,16 +50,26 @@ const TIME_FUNCTIONS = new Set(['evaluateAchievements', 'checkStreak', 'checkTim
  * siendo una falsa.
  *
  * Reglas de la lista:
- *   - Cada entrada declara **clave, campo, fecha y razón**. Sin fecha o sin razón no es
- *     una decisión declarada, es una exención colada: el gate se pone rojo.
+ *   - Cada entrada declara **clave, campo, fecha, razón y VALOR**. Sin fecha, sin razón o
+ *     sin valor no es una decisión declarada, es una exención colada: el gate se pone rojo.
+ *   - El **valor forma parte de la declaración**: la exención vale para ESE texto y no para
+ *     cualquier otro. Sin él la excepción sería un cheque en blanco sobre el campo —medido:
+ *     con `value` ausente, cambiar la descripción de `early_bird` a "Camina antes de las
+ *     9:00" salía en **verde**—. Cambiar el texto exige actualizar la declaración y AD-6.
  *   - La lista **se imprime en cada ejecución**, también en verde: lo que está exento se
  *     ve. Una exención invisible es una mentira.
- *   - La exención es por logro **Y** por campo: no exime `description` de los otros
- *     trece logros, ni `name`/`icon` de los que aparecen aquí.
+ *   - La exención es por logro, por campo **y** por valor: no exime `description` de los
+ *     otros trece logros, ni `name`/`icon` de los que aparecen aquí, ni otro texto en el
+ *     mismo campo.
  *   - El criterio es **bidireccional**, como el inventario de suites de B-6 y las
  *     exenciones de `check-spec-shape.sh` (A-7): si el catálogo vuelve a coincidir con la
  *     referencia en ese campo, la divergencia **sobra** y el gate se pone rojo pidiendo
  *     que se borre.
+ *
+ * Los tres desenlaces posibles de un campo declarado, y los tres se distinguen en el
+ * mensaje: coincide con `value` → **divergencia vigente**, verde; coincide con la
+ * referencia v3 → **divergencia sobrante**, rojo pidiendo el borrado; ninguno de los dos
+ * → **valor no declarado**, rojo pidiendo que se actualicen declaración y AD-6 a la vez.
  *
  * La declaración de por qué existe vive en `ARCHITECTURE-SPINE.md` AD-6; aquí vive su
  * cumplimiento.
@@ -69,6 +79,8 @@ const CATALOG_TEXT_DIVERGENCES = [
     key: 'early_bird',
     field: 'description',
     date: '2026-09-20',
+    // El valor exacto al que nos apartamos. La exención vale para éste y para ningún otro.
+    value: 'Camina antes de las 8:00',
     reason: 'La v3 describe el logro como "Camina antes de las 7:00", pero su regla es '
       + '`{ "metric": "startHourLocal", "threshold": [5, 7], "comparison": "between" }` y `between` es '
       + 'inclusiva en los dos extremos: la franja llega a las 07:59, así que el texto de la referencia '
@@ -159,6 +171,9 @@ function matches(expected, actual, tol) {
 }
 
 const show = (v) => JSON.stringify(v);
+
+/** Compara textos de catálogo sin espacios: `achievements.md` escribe "30 °C" y la v3 "30°C". */
+const squash = (s) => String(s).replace(/\s+/g, '');
 
 function validTimeZone(tz) {
   try { new Intl.DateTimeFormat('en-US', { timeZone: tz }); return true; } catch { return false; }
@@ -307,17 +322,19 @@ for (const [key, c] of Object.entries(coverage)) {
 const divergenceStatus = CATALOG_TEXT_DIVERGENCES.map(() => 'no evaluada');
 const divergenceDetail = CATALOG_TEXT_DIVERGENCES.map(() => null);
 
-// Forma de la lista, ANTES de usarla para eximir nada: una entrada sin fecha o sin razón
-// no es una decisión declarada, es una exención colada.
+// Forma de la lista, ANTES de usarla para eximir nada: una entrada sin fecha, sin razón o
+// sin valor no es una decisión declarada, es una exención colada.
 {
   const fieldNames = CATALOG_TEXT_FIELDS.map(f => f.field);
+  const refByKey = new Map(Motivation.getAchievementsCatalog().map(r => [r.key, r]));
   const seen = new Set();
   CATALOG_TEXT_DIVERGENCES.forEach((d, i) => {
     const where = `divergencia de catálogo #${i + 1} (${d.key || '¿sin clave?'} · ${d.field || '¿sin campo?'})`;
     if (!CATALOG_KEYS.includes(d.key)) {
       failures.push(`${where}: "key" no nombra ningún logro del catálogo de la referencia`);
     }
-    if (!fieldNames.includes(d.field)) {
+    const spec = CATALOG_TEXT_FIELDS.find(f => f.field === d.field);
+    if (!spec) {
       failures.push(`${where}: "field" debe ser uno de ${fieldNames.join(' · ')}: la exención es por campo, no por logro`);
     }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(String(d.date))) {
@@ -325,6 +342,19 @@ const divergenceDetail = CATALOG_TEXT_DIVERGENCES.map(() => null);
     }
     if (typeof d.reason !== 'string' || d.reason.trim().length < 40) {
       failures.push(`${where}: sin razón escrita. Una divergencia sin motivo es un olvido, no una decisión: escríbela aquí o borra la entrada.`);
+    }
+    // El valor es parte de la declaración: sin él la exención es un cheque en blanco sobre
+    // el campo, y cualquier otro texto pasaría en verde.
+    if (typeof d.value !== 'string' || d.value.trim() === '') {
+      failures.push(`${where}: sin "value". El valor al que nos apartamos es parte de la declaración: sin él la exención vale para CUALQUIER texto de ese campo, que es un cheque en blanco. Escribe aquí el texto exacto que lleva achievements.json.`);
+    } else if (spec) {
+      // Y tiene que declarar una divergencia de verdad: igual a la referencia es ruido.
+      const r = refByKey.get(d.key);
+      const refValue = r ? spec.ofRef(r) : undefined;
+      const same = spec.squash ? squash(d.value) === squash(refValue) : d.value === refValue;
+      if (r && same) {
+        failures.push(`${where}: "value" ('${d.value}') es el mismo valor de la referencia v3: esta entrada no declara ninguna divergencia y es ruido. Bórrala.`);
+      }
     }
     const id = `${d.key} · ${d.field}`;
     if (seen.has(id)) failures.push(`${where}: ${id} está declarada dos veces; la segunda entrada no se aplicaría y nadie lo vería`);
@@ -339,18 +369,20 @@ try {
   if (show(list.map(a => a.key)) !== show(ref.map(a => a.key))) {
     failures.push(`achievements.json: las claves ${show(list.map(a => a.key))} no son las de la referencia ${show(ref.map(a => a.key))}`);
   } else {
-    const squash = (s) => String(s).replace(/\s+/g, '');
     ref.forEach((r, i) => {
       const b = list[i];
       for (const f of CATALOG_TEXT_FIELDS) {
         const got = b[f.field];
         const want = f.ofRef(r);
-        const equal = f.squash ? squash(got) === squash(want) : got === want;
+        const same = (a, c) => (f.squash ? squash(a) === squash(c) : a === c);
+        const equal = same(got, want);
         const di = CATALOG_TEXT_DIVERGENCES.findIndex(d => d.key === r.key && d.field === f.field);
         if (di < 0) {
           if (!equal) failures.push(`achievements.json#${r.key}: ${f.field} '${got}' ≠ referencia '${want}'`);
           continue;
         }
+        // Campo declarado: tres desenlaces, y los tres se distinguen en el mensaje. Sin el
+        // tercero la exención sería un cheque en blanco sobre el campo.
         const d = CATALOG_TEXT_DIVERGENCES[di];
         if (equal) {
           // El mismo criterio bidireccional de B-6 y del A-7: una exención que ya no hace
@@ -359,9 +391,15 @@ try {
           failures.push(`achievements.json#${r.key}: ${f.field} vuelve a coincidir con la referencia ('${want}'), `
             + `y hay una divergencia declarada el ${d.date} que dice que nos apartamos de ella. La divergencia sobra: `
             + `bórrala de CATALOG_TEXT_DIVERGENCES en Scripts/vectors/run-js.js y de la tabla de AD-6.`);
+        } else if (!same(got, d.value)) {
+          divergenceStatus[di] = 'valor no declarado';
+          failures.push(`achievements.json#${r.key}: ${f.field} lleva '${got}', que no es la referencia v3 ('${want}') `
+            + `ni el valor declarado el ${d.date} ('${d.value}'). La divergencia está declarada PARA ESE VALOR y no para `
+            + `cualquier otro: si el texto nuevo es el que se quiere, actualiza "value" en CATALOG_TEXT_DIVERGENCES `
+            + `(Scripts/vectors/run-js.js) y la tabla de AD-6 a la vez; si no, devuelve el fichero al valor declarado.`);
         } else {
           divergenceStatus[di] = 'vigente';
-          divergenceDetail[di] = `achievements.json lleva '${got}' y la referencia v3 dice '${want}'`;
+          divergenceDetail[di] = `achievements.json lleva el valor declarado '${got}' y la referencia v3 dice '${want}'`;
         }
       }
     });
@@ -384,15 +422,16 @@ if (!args.quiet || failures.length) {
 // `≈`): no es el mismo tipo de cosa — aquí no hay vector que falle ni función afectada.
 if (CATALOG_TEXT_DIVERGENCES.length) {
   console.log('Divergencias declaradas del TEXTO del catálogo (achievements.json se aparta de la v3 a propósito; la regla del logro no cambia):');
-  const MARKS = { vigente: '≠', sobrante: '✗', 'no evaluada': '?' };
+  const MARKS = { vigente: '≠', sobrante: '✗', 'valor no declarado': '✗', 'no evaluada': '?' };
   CATALOG_TEXT_DIVERGENCES.forEach((d, i) => {
     const state = divergenceStatus[i];
     const detail = divergenceDetail[i] || `[${state}]`;
-    console.log(`  ${MARKS[state] || '?'} ${d.key} · ${d.field} — declarada el ${d.date}: ${detail}`);
+    console.log(`  ${MARKS[state] || '?'} ${d.key} · ${d.field} — declarada el ${d.date} para el valor '${d.value}': ${detail}`);
     console.log(`      razón: ${d.reason}`);
   });
-  console.log(`  Total: ${CATALOG_TEXT_DIVERGENCES.length} divergencia(s) de texto declarada(s), por logro Y por campo: `
-    + 'no cubren `description` de los otros logros ni `name`/`icon` de éstos. La declaración de por qué existen vive en AD-6.');
+  console.log(`  Total: ${CATALOG_TEXT_DIVERGENCES.length} divergencia(s) de texto declarada(s), por logro, por campo Y por valor: `
+    + 'no cubren `description` de los otros logros, ni `name`/`icon` de éstos, ni otro texto en el mismo campo. '
+    + 'La declaración de por qué existen vive en AD-6.');
 }
 
 if (failures.length) {

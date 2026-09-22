@@ -144,16 +144,28 @@ solo diverge en una (la hora local), y un lector encontraría dos razones siendo
 | --- | --- | --- | --- | --- |
 | `early_bird` · `description` | 2026-09-20 | *"Camina antes de las 8:00"* | *"Camina antes de las 7:00"* | La regla es `threshold: [5, 7]` con `between`, **inclusiva en los dos extremos**: la franja llega a las **07:59**, así que el texto de la referencia miente al usuario — quien camine a las 07:30 desbloquea el logro creyendo que no debía. Decisión de Paul: se corrige **el texto, no la regla**. Cambiar el umbral de un logro cuyos desbloqueos son irrevocables por un problema de redacción es desproporcionado; el logro se desbloquea exactamente igual y solo deja de mentir |
 
+**La columna "Qué dice el catálogo" es parte de la declaración, no una nota informativa.** La
+divergencia está declarada **para ese valor exacto** y para ningún otro: cambiar el texto de
+`achievements.json` sin actualizar esta tabla y la lista del gate **deja el gate en rojo**, con un
+mensaje que lo dice. Es deliberado, y cierra un agujero medido: con la declaración sin valor, pasar
+la descripción de `early_bird` a *"Camina antes de las 9:00"* salía en **verde**, así que la
+excepción era un cheque en blanco sobre el campo. Los tres desenlaces de un campo declarado se
+distinguen: el valor declarado → verde; el valor de la v3 → la divergencia **sobra**, rojo pidiendo
+que se borre; cualquier otro → **valor no declarado**, rojo pidiendo que se actualicen la tabla y la
+lista **a la vez**.
+
 La declaración **vive en el gate**, que es quien la hace cumplir: `CATALOG_TEXT_DIVERGENCES` en
-`Scripts/vectors/run-js.js`, con clave, campo, fecha y razón, **impresa en cada ejecución** y
-distinguida del bloque de divergencias de vector. Tres propiedades, y ninguna es decorativa:
-la exención es **por logro y por campo** (no cubre `description` de los otros trece ni
-`name`/`icon` de `early_bird`); el criterio es **bidireccional**, como el inventario de suites de
-B-6 — si el catálogo vuelve a coincidir con la referencia en ese campo, la divergencia **sobra** y el
-gate se pone rojo pidiendo que se borre de aquí y de allí; y una entrada **sin fecha o sin razón**
-también deja el gate en rojo. Los cinco casos están en `Scripts/vectors/red-path-tests.sh`,
-incluido el **verde**. `motivation.js` y el catálogo de la referencia **no se tocan**: la referencia
-es la referencia, y lo que se declara es que nos apartamos de ella a propósito.
+`Scripts/vectors/run-js.js`, con clave, campo, fecha, razón **y valor**, **impresa en cada
+ejecución** y distinguida del bloque de divergencias de vector. Cuatro propiedades, y ninguna es
+decorativa: la exención es **por logro, por campo y por valor** (no cubre `description` de los otros
+trece, ni `name`/`icon` de `early_bird`, ni otro texto en el mismo campo); el criterio es
+**bidireccional**, como el inventario de suites de B-6 — si el catálogo vuelve a coincidir con la
+referencia en ese campo, la divergencia **sobra** y el gate se pone rojo pidiendo que se borre de
+aquí y de allí; una entrada **sin fecha, sin razón o sin valor** también deja el gate en rojo; y un
+`value` **igual al de la referencia** es rojo también, porque no declara ninguna divergencia. Los
+casos están en `Scripts/vectors/red-path-tests.sh`, incluido el **verde**. `motivation.js` y el
+catálogo de la referencia **no se tocan**: la referencia es la referencia, y lo que se declara es que
+nos apartamos de ella a propósito.
 
 **Cumplimiento sin CI.** No hay servidor de integración (`SPEC` no-backend, AR-11). La ejecución de vectores y escenarios es un **script local** (`Scripts/verify-domain.sh`) que corre ambos runtimes, y su paso en verde es **Definition of Done de cada historia que toca `Domain/`**. Decir "bloquea el merge" sin mecanismo sería una aspiración, no una regla.
 
