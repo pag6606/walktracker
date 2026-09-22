@@ -161,6 +161,20 @@ final class SessionStore {
     /// Es estado observable del store y no de la vista (sección 6 del gate). Lo escriben
     /// `SessionStore+History.swift` y el reset; la pantalla solo lo pinta.
     var finishedWalkNotPersisted = false
+    /// Los logros que **el cierre de esta caminata** ha desbloqueado y que ya están escritos en
+    /// `achievements.json` (3.2). Vacío mientras no se haya evaluado nada, y en toda sesión que
+    /// no cuente para logros (una huérfana, AD-18).
+    ///
+    /// **Es la señal, no la celebración.** Esta historia produce el desbloqueo y esto; la
+    /// celebración visible es de la 3.4 y la sección de logros del resumen, de la 3.5. Lleva las
+    /// definiciones del catálogo —nombre y emoji incluidos— para que quien pinte no vuelva a
+    /// buscarlas.
+    ///
+    /// **`weekly_goal` nunca aparece aquí** (AD-25): no lo evalúa este camino y no produce
+    /// celebración propia; quien celebra la meta es el anillo, una vez por semana.
+    ///
+    /// Lo escriben `SessionStore+History.swift` y el reset; la pantalla solo lo lee.
+    var unlockedAchievements: [AchievementDefinition] = []
 
     // MARK: - Dependencias
 
@@ -201,6 +215,20 @@ final class SessionStore {
     /// pregunta si una sesión ya está guardada; nunca toca el fichero. Como con `settings`, la
     /// sección 9b del gate impide asignarle estado o llamar a su `save()` desde aquí.
     @ObservationIgnored let history: HistoryStore
+    /// Dueño de `achievements.json` **del sandbox** (AD-16, 5.1). Este store le entrega los
+    /// logros que el motor da por cumplidos al cerrar (3.2); nunca toca el fichero. Como con
+    /// `settings` y `history`, la sección 9b del gate impide asignarle estado o llamar a su
+    /// `save()` desde aquí.
+    ///
+    /// **Obligatorio, y sin valor por omisión**, por la misma razón que los tres colaboradores de
+    /// `SettingsStore` desde la 3.1: un fichero, un dueño, **y una sola instancia**. Un segundo
+    /// `AchievementsStore` sobre el mismo almacenamiento sería un segundo lector, y el desbloqueo
+    /// escrito por uno no lo vería el otro.
+    @ObservationIgnored let achievements: AchievementsStore
+    /// El catálogo congelado de los 14 logros, ya validado (AD-5). Lo carga `CompositionRoot` del
+    /// bundle y llega aquí para dárselo al motor: la evaluación es Swift, pero **qué** se evalúa
+    /// es dato, y en este fichero no hay ni una clave de logro escrita.
+    @ObservationIgnored let achievementCatalog: AchievementCatalog
     @ObservationIgnored let log = Logger(subsystem: "com.walktracker.app", category: "SessionStore")
     /// Destino de las líneas de medición de la 8.4 (`MeasurementLog`). Solo observa: nada
     /// del comportamiento depende de él. Los tests lo sustituyen para leer las líneas.
@@ -298,6 +326,8 @@ final class SessionStore {
         weather: any WeatherPort,
         settings: SettingsStore,
         history: HistoryStore,
+        achievements: AchievementsStore,
+        achievementCatalog: AchievementCatalog,
         quotes: QuoteBank = .empty,
         random: any RandomPort = SystemRandom(),
         weatherStepTimeoutS: TimeInterval = SessionStore.weatherStepTimeoutS,
@@ -314,6 +344,8 @@ final class SessionStore {
         self.weather = weather
         self.settings = settings
         self.history = history
+        self.achievements = achievements
+        self.achievementCatalog = achievementCatalog
         self.quotes = quotes
         self.random = random
         self.weatherStepTimeoutS = weatherStepTimeoutS
@@ -397,10 +429,10 @@ final class SessionStore {
     ///
     /// **Y guarda la caminata** (5.1). Entre materializar las métricas y borrar el snapshot está
     /// el único instante en que coexisten la sesión finalizada y sus métricas congeladas: ese es
-    /// el punto de escritura del historial, y el mismo donde AD-17 enchufará la evaluación de
-    /// logros de la 3.2. El orden es **guardar primero y borrar el snapshot solo si el guardado
-    /// fue bien**: si falla, el snapshot sigue ahí y la caminata se recupera al relanzar, con el
-    /// resumen diciéndolo antes de dejar salir.
+    /// el punto de escritura del historial, y el mismo desde el que se evalúan los logros (3.2,
+    /// AD-17), **después** de un guardado con éxito (decisión D1). El orden es **guardar primero y
+    /// borrar el snapshot solo si el guardado fue bien**: si falla, el snapshot sigue ahí y la
+    /// caminata se recupera al relanzar, con el resumen diciéndolo antes de dejar salir.
     func confirmFinish() async {
         isConfirmingFinish = false
         guard !isReconciling, let status = session?.status, status != .finished else { return }
@@ -477,6 +509,14 @@ final class SessionStore {
     /// **Último reintento del guardado.** Si el historial falló al cerrar, se intenta otra vez
     /// antes de soltar la sesión: es el último instante en que el registro sigue a mano. Si
     /// también falla, el snapshot sigue en disco y la caminata vuelve al relanzar.
+    /// **Los logros que desbloquee el reintento se escriben, pero NO se anuncian.** El reintento
+    /// puede evaluar (D1b) y `unlockedAchievements` se llena un instante antes de que
+    /// `resetSessionState()` lo vacíe. **Se deja morir a propósito, y no es un olvido:** el único
+    /// destino de esta intención es Inicio, así que el resumen ya no está en pantalla y no hay
+    /// dónde celebrar; inventar una celebración que aparezca fuera del resumen sería decidir por
+    /// la 3.4, que es su dueña. El desbloqueo, que es lo irrevocable, sí queda en
+    /// `achievements.json` y lo enseña el grid de la 3.3. Lo fija
+    /// `SessionStoreAchievementsTests`, "El reintento escribe los logros pero NO los anuncia".
     func leaveSummary() {
         guard !isReconciling, session?.status == .finished else { return }
         retrySavingFinishedWalk()
@@ -513,6 +553,9 @@ final class SessionStore {
         quote = nil
         finishedWalkNotPersisted = false
         unsavedFinishedRecord = nil
+        // La señal de logros es de ESTE cierre: la caminata siguiente no hereda la celebración de
+        // la anterior. El desbloqueo, en cambio, ya está en `achievements.json` y es de por vida.
+        unlockedAchievements = []
         // La captura del clima y la pre-pantalla: un clima tardío no llega a la sesión siguiente.
         cancelWeatherCapture()
     }

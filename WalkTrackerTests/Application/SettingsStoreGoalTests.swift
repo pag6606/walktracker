@@ -28,7 +28,8 @@ struct SettingsStoreGoalTests {
     /// porque con el reloj real la semana la fijaría el día en que se ejecute la suite.
     private static func store(
         _ storage: StorageStub = StorageStub(),
-        now: Date = Self.wednesday
+        now: Date = Self.wednesday,
+        timeZone: String = "UTC"
     ) -> (StorageStub, SettingsStore, AchievementsStore) {
         let history = HistoryStore(storage: storage)
         let achievements = AchievementsStore(storage: storage)
@@ -36,7 +37,7 @@ struct SettingsStoreGoalTests {
             storage: storage,
             history: history,
             achievements: achievements,
-            clock: ClockStub(now: now)
+            clock: ClockStub(now: now, timeZone: timeZone)
         )
         return (storage, settings, achievements)
     }
@@ -55,6 +56,36 @@ struct SettingsStoreGoalTests {
             paceSecPerKm: nil,
             cadenceSpm: 0,
             recovered: recovered
+        )
+    }
+
+    // MARK: - La semana es LOCAL en la costura donde se cablea el calendario
+
+    /// **La misma exposición que la 3.2 destapó en el cierre de sesión, y viene de la 3.1.** Los
+    /// 15 vectores de `weeklyProgress` llaman a `GoalEngine` **directamente** con la zona que
+    /// declaran; por `SettingsStore+Goal.swift`, que es donde `clock.calendar` se cablea de
+    /// verdad, no pasa ninguno — y el reloj de los tests estaba clavado en UTC, así que
+    /// sustituirlo ahí por un `Calendar` en UTC (lo que AD-19 prohíbe) salía en verde.
+    ///
+    /// El caso: son las **20:00 del domingo 12 en Guayaquil**, que en UTC ya es el **lunes 13 a
+    /// la 01:00**. En hora local Paul sigue en su semana y el anillo enseña los 7,5 km del sábado;
+    /// con el calendario en UTC la semana ya habría cambiado y el anillo se vaciaría solo la
+    /// noche del domingo.
+    @Test("El anillo suma la semana LOCAL: el domingo por la noche en Guayaquil sigue en su semana")
+    func theWeekIsLocalAtTheWiringSeam() throws {
+        // Sábado 11 de julio, 15:00 en Guayaquil.
+        let sabado = try Self.record("2026-07-11T20:00:00Z", 7_500)
+        let storage = StorageStub(sessions: [sabado])
+        // "Ahora": domingo 12 a las 20:00 locales = lunes 13 a la 01:00 UTC.
+        let domingoNoche = Self.instant("2026-07-13T01:00:00Z")
+        let (_, settings, _) = Self.store(storage, now: domingoNoche, timeZone: "America/Guayaquil")
+
+        let progress = try #require(settings.weeklyProgress)
+
+        #expect(progress.completedKm == 7.5, "con el calendario en UTC ya sería lunes, otra semana, y esto sería 0")
+        #expect(
+            GoalEngine.weekKey(for: domingoNoche, calendar: settings.clock.calendar) == "2026-W28",
+            "en UTC este mismo instante es 2026-W29"
         )
     }
 

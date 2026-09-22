@@ -81,7 +81,15 @@ development_status:
   # "abc" rechazados sin tocar el fichero, VoiceOver sobre el anillo, y el anillo con Dynamic Type
   # al máximo y con Reduce Motion) nunca se ejecutaron. Deliberado, no deriva: 2026-09-21.
   3-1-meta-semanal-configurable-con-anillo-de-progreso: review
-  3-2-evaluación-de-logros-al-cierre-de-sesión-achievementengine: backlog
+  # 3-2 pasa a review con la verificación completa registrada en su spec (verify-domain verde con
+  # la línea de pendientes de AD-6 VACÍA, los 65 vectores ejecutándose, los cuatro gates y la suite
+  # completa) y cinco mutaciones comprobadas y revertidas. Queda en review, no en done, por lo
+  # mismo que la 3.1: sus checks manuales en el iPhone (caminar 1 km y ver el desbloqueo de
+  # `first_km`; cerrar una caminata de menos de 100 m y comprobar que NO aparece `speed_walker`)
+  # nunca se ejecutaron. Y ojo con el primero: esta historia produce el desbloqueo y la señal, no
+  # la celebración visible, que es de la 3.4 — en el dispositivo lo que se comprueba hoy es la
+  # fila en `achievements.json`, no un toast. Deliberado, no deriva: 2026-09-21.
+  3-2-evaluación-de-logros-al-cierre-de-sesión-achievementengine: review
   3-3-pantalla-de-logros-grid-locked-unlocked-con-progreso: backlog
   3-4-celebración-de-meta-y-logros-no-bloqueante: backlog
   # 2026-09-21 · Historia nueva del correct course: la Summary Screen de UX-DR4/UX-DR5 no tenía

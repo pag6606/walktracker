@@ -282,7 +282,7 @@ store_types='(SessionStore|SettingsStore|HistoryStore|AchievementsStore)'
 # `[^A-Za-z0-9_.]` final deja fuera los tipos anidados (`…Store.ScenePhase`).
 store_decl="[A-Za-z_][A-Za-z0-9_]*[[:space:]]*:[[:space:]]*(any[[:space:]]+)?$store_types[?!]?([^A-Za-z0-9_.]|\$)"
 store_init="[A-Za-z_][A-Za-z0-9_]*[[:space:]]*=[[:space:]]*$store_types\("
-store_props='(persist|save|record|reconcile|countSteps|stopCountingSteps|clearSnapshot|capLastSampleAt|beginWeatherForNewSession|cancelWeatherCapture|attachQuoteForNewSession|recordShownQuote|saveFinishedWalk|retrySavingFinishedWalk|finishedRecord|unsavedFinishedRecord|weatherCapture|stepCounting|storage|motion|clock|location|weather|random|quotes|settings|history)'
+store_props='(persist|save|record|reconcile|countSteps|stopCountingSteps|clearSnapshot|capLastSampleAt|beginWeatherForNewSession|cancelWeatherCapture|attachQuoteForNewSession|recordShownQuote|saveFinishedWalk|retrySavingFinishedWalk|finishedRecord|unsavedFinishedRecord|weatherCapture|stepCounting|storage|motion|clock|location|weather|random|quotes|settings|history|achievements|achievementCatalog)'
 
 # Los identificadores de ESTE fichero declarados con el tipo de un store, uno por línea.
 store_receivers_in() {
@@ -311,7 +311,7 @@ for dir in "$ROOT/WalkTracker/UI" "$ROOT/WalkTracker/App"; do
         while IFS= read -r hit; do
             [ -n "$hit" ] || continue
             hit_line="${hit%%:*}"
-            err "$file:$hit_line" "AD-7/AD-16: la UI y la app no escriben el estado de \`SessionStore\` ni de \`SettingsStore\`: solo leen y llaman a sus intenciones. Asignar una propiedad del store, llamar a \`persist\`, \`save\`, \`record\`, \`reconcile\`, \`countSteps\`, \`stopCountingSteps\`, \`clearSnapshot\`, \`capLastSampleAt\`, \`beginWeatherForNewSession\`, \`cancelWeatherCapture\`, \`attachQuoteForNewSession\`, \`recordShownQuote\`, \`saveFinishedWalk\` o \`retrySavingFinishedWalk\`, tocar sus tareas \`stepCounting\`/\`weatherCapture\`, o usar \`storage\`/\`motion\`/\`clock\`/\`location\`/\`weather\`/\`random\`/\`quotes\`/\`settings\`/\`history\` del store es cosa de \`SessionStore*.swift\`, \`SettingsStore*.swift\`, \`HistoryStore*.swift\` y \`AchievementsStore*.swift\`."
+            err "$file:$hit_line" "AD-7/AD-16: la UI y la app no escriben el estado de \`SessionStore\` ni de \`SettingsStore\`: solo leen y llaman a sus intenciones. Asignar una propiedad del store, llamar a \`persist\`, \`save\`, \`record\`, \`reconcile\`, \`countSteps\`, \`stopCountingSteps\`, \`clearSnapshot\`, \`capLastSampleAt\`, \`beginWeatherForNewSession\`, \`cancelWeatherCapture\`, \`attachQuoteForNewSession\`, \`recordShownQuote\`, \`saveFinishedWalk\` o \`retrySavingFinishedWalk\`, tocar sus tareas \`stepCounting\`/\`weatherCapture\`, o usar \`storage\`/\`motion\`/\`clock\`/\`location\`/\`weather\`/\`random\`/\`quotes\`/\`settings\`/\`history\`/\`achievements\`/\`achievementCatalog\` del store es cosa de \`SessionStore*.swift\`, \`SettingsStore*.swift\`, \`HistoryStore*.swift\` y \`AchievementsStore*.swift\`."
         done < <(grep -nE "$store_write|$store_internal" "$file" 2>/dev/null)
     done < <(find "$dir" -name '*.swift' -type f 2>/dev/null | sort)
 done
@@ -539,7 +539,7 @@ if [ -d "$ROOT/WalkTracker/Application" ]; then
     injected_owner_rule 'history' 'HistoryStore' \
         "\`append\`, \`contains\`"
     injected_owner_rule 'achievements' 'AchievementsStore' \
-        "\`unlockWeeklyGoal\` (3.1) y las que estrene la 3.2"
+        "\`unlockWeeklyGoal\` (3.1) y \`unlock(_:at:)\` (3.2)"
 fi
 
 # ── 10. Ninguna vista importa un framework de sistema (AD-10) ───────────────

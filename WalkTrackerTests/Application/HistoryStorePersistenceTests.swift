@@ -55,10 +55,12 @@ struct HistoryStorePersistenceTests {
         // que el segundo encontraría "no hay fichero" y el aviso de la 5.1 no saldría. Con las
         // dos líneas al revés, el test de historial ilegible de este mismo fichero se cae.
         let history = HistoryStore(storage: storage)
+        // Y los logros, una vez y compartidos, por la misma razón (AD-16).
+        let achievements = AchievementsStore(storage: storage)
         let settings = SettingsStore(
             storage: storage,
             history: history,
-            achievements: AchievementsStore(storage: storage),
+            achievements: achievements,
             clock: clock
         )
         let store = SessionStore(
@@ -73,6 +75,8 @@ struct HistoryStorePersistenceTests {
             weather: WeatherStub(),
             settings: settings,
             history: history,
+            achievements: achievements,
+            achievementCatalog: AchievementCatalogFixture.bundled,
             quotes: .empty,
             random: RandomStub(),
             weatherStepTimeoutS: 5,

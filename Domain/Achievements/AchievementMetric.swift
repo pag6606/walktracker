@@ -30,10 +30,8 @@ public enum AchievementComparison: String, CaseIterable, Codable, Sendable {
     case gte, lte, eq, gt, lt, between
 }
 
-/// Categoría interna del clima. Solo existe la que usa el catálogo.
-public enum WeatherCategory: String, CaseIterable, Codable, Sendable {
-    case rain
-}
+// `WeatherCategory` —la categoría de clima con la que compara `weatherCategory`— vive en
+// `WeatherCategory.swift`, con su puente desde `WeatherCondition` (3.2).
 
 /// Umbral de un logro: número, intervalo `[min, max]` para `between`, o categoría de
 /// clima para `weatherCategory`. En JSON: `1000`, `[5, 7]` o `"rain"`.

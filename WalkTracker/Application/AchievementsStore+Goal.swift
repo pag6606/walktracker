@@ -41,14 +41,13 @@ extension AchievementsStore {
             return false
         }
 
-        return save { unlocks in
-            // Una clave no aparece dos veces en el fichero: si había una fila con progreso pero
-            // sin `unlockedAt`, se sustituye en su sitio en vez de añadir una segunda.
-            if let index = unlocks.firstIndex(where: { $0.key == Self.weeklyGoalKey }) {
-                unlocks[index] = unlocked
-            } else {
-                unlocks.append(unlocked)
-            }
+        // La guarda de "ya desbloqueado" vive dentro de `upsert(_:into:)` y no en el `guard` de
+        // arriba, porque `save(applying:)` puede releer el fichero antes de aplicar: sin ella, una
+        // fila que la relectura destapa como conseguida se reescribiría con otro instante.
+        var wrote = false
+        let saved = save { unlocks in
+            wrote = self.upsert(unlocked, into: &unlocks)
         }
+        return saved && wrote
     }
 }

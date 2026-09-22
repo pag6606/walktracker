@@ -208,12 +208,18 @@ struct MeasurementLogTests {
             // El historial, una vez y compartido: dos instancias del dueño de `sessions.json`
             // son dos lectores, y el primero que lea uno ilegible lo aparta (AD-16).
             let history = HistoryStore(storage: storage)
+            // Y los logros, una vez y compartidos con el store de ajustes, por lo mismo.
+            let achievements = AchievementsStore(storage: storage)
             store = SessionStore(
                 clock: clock, motion: motion, storage: storage, defaultStrideM: 0.655,
                 reconciliationTimeoutS: timeoutS, orphanSessionThresholdS: 21_600, maxEstimableGapS: 1200,
                 location: LocationStub(status: .denied), weather: WeatherStub(),
-                settings: SettingsStoreFixture.store(storage: storage, history: history, clock: clock),
+                settings: SettingsStoreFixture.store(
+                    storage: storage, history: history, achievements: achievements, clock: clock
+                ),
                 history: history,
+                achievements: achievements,
+                achievementCatalog: AchievementCatalogFixture.bundled,
                 measure: { sink.append($0) }
             )
         }
