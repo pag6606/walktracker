@@ -90,7 +90,15 @@ development_status:
   # la celebración visible, que es de la 3.4 — en el dispositivo lo que se comprueba hoy es la
   # fila en `achievements.json`, no un toast. Deliberado, no deriva: 2026-09-21.
   3-2-evaluación-de-logros-al-cierre-de-sesión-achievementengine: review
-  3-3-pantalla-de-logros-grid-locked-unlocked-con-progreso: backlog
+  # 3-3 pasa a review con la verificación completa registrada en su spec (los cuatro gates verdes,
+  # verify-domain con la línea de pendientes de AD-6 todavía VACÍA y la suite completa creciendo de
+  # 847 a 870 casos en 67 suites) y cinco mutaciones comprobadas y revertidas. Queda en review, no
+  # en done, por lo mismo que la 3.1 y la 3.2: sus checks manuales en el iPhone (abrir Logros sin
+  # ninguna caminata y ver los 14 bloqueados; VoiceOver sobre una insignia bloqueada; la rejilla
+  # con Dynamic Type al máximo y la barra con Reduce Motion) nunca se ejecutaron — y nada de lo
+  # que se ve en pantalla lo fija ningún test, porque XCUITest está descartado. Deliberado, no
+  # deriva: 2026-09-22.
+  3-3-pantalla-de-logros-grid-locked-unlocked-con-progreso: review
   3-4-celebración-de-meta-y-logros-no-bloqueante: backlog
   # 2026-09-21 · Historia nueva del correct course: la Summary Screen de UX-DR4/UX-DR5 no tenía
   # historia dueña desde la 1.4, porque no existe FR que la cubra. sprint-change-proposal-2026-09-21.md

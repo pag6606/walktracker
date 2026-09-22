@@ -199,6 +199,113 @@ public enum AchievementEngine {
         calendar.component(.hour, from: instant)
     }
 
+    // MARK: - El progreso del grid (3.3)
+
+    /// Lo que Paul lleva acumulado hacia `definition`, en la unidad de su métrica, o `nil` si
+    /// ese logro **no tiene progreso que medir**.
+    ///
+    /// **Calcular una barra no es evaluar** (AD-17, decisión D1 de la 3.3). Esta función no
+    /// desbloquea nada, no mira el estado de `achievements.json` y no tiene efectos: devuelve una
+    /// magnitud derivada del historial, que es lo que el grid pinta cada vez que se abre. Por eso
+    /// el progreso de los logros en curso **no se guarda**: guardado sería una caché que habría
+    /// que invalidar al borrar una sesión (CAP-15), y una caché que miente es peor que un cálculo.
+    ///
+    /// **`nil` no es 0, y la diferencia es la honestidad de la pantalla** (AD-22). Un logro sin
+    /// fracción se pinta **sin barra**, no con un 0 % falso. Son tres familias:
+    /// - **`weekly_goal`**, cuyo progreso no está en el historial: lo posee `GoalEngine`, contra
+    ///   la meta y la semana en curso (AD-25). Derivarlo aquí sería una segunda fuente de verdad
+    ///   para el mismo número, y la que se quedara atrás lo haría en silencio.
+    /// - **Las métricas que no se acumulan**: una categoría de clima no tiene fracción, y una
+    ///   hora de inicio, una temperatura o un ritmo tampoco — caminar a 20 °C no es "avanzar
+    ///   hacia" los 30 °C de `hot_walker`, y con `cold_walker` (`lt 5`) la fracción saldría del
+    ///   revés.
+    /// - **Los umbrales que no se alcanzan subiendo**: solo `gte` y `gt` sobre un número positivo
+    ///   describen una cuenta atrás hacia una meta. `lt`, `lte`, `eq` y `between` no.
+    ///
+    /// **Una huérfana no cuenta, igual que no cuenta para desbloquear** (AD-18): el filtro es
+    /// `SessionRecord.countsForAchievements`. Ojo, es la pregunta contraria a la del anillo, donde
+    /// una huérfana **sí** suma kilómetros (3.1).
+    ///
+    /// - Parameters:
+    ///   - definition: el logro del catálogo. Ni su clave ni sus umbrales se escriben aquí: se
+    ///     leen, como en el resto del motor (AD-5).
+    ///   - sessions: el historial. **Sin caminata que cierre**: el grid no cierra nada.
+    ///   - calendar: el `AppCalendar` de AD-19, para la racha.
+    public static func accumulated(
+        towards definition: AchievementDefinition,
+        sessions: [SessionRecord],
+        calendar: Calendar
+    ) -> Double? {
+        // Un umbral que no es un número positivo no describe una meta que se alcance subiendo:
+        // sin él no hay fracción que calcular ni cifra que enseñar frente a nada.
+        guard case .number(let threshold) = definition.threshold, threshold > 0 else { return nil }
+        // **Sin `default`**, como los otros dos `switch` del motor: un comparador nuevo obliga a
+        // decidir si su logro lleva barra, en vez de heredar un `nil` mudo.
+        switch definition.comparison {
+        case .gte, .gt: break
+        case .lte, .lt, .eq, .between: return nil
+        }
+        return accumulation(
+            of: definition.metric,
+            sessions: sessions.filter(\.countsForAchievements),
+            calendar: calendar
+        )
+    }
+
+    /// La fracción `0…1` de `definition` sobre el historial, o `nil` si el logro no tiene barra.
+    ///
+    /// **Se capa en 1 y el logro sigue bloqueado.** Con 42 km caminados y sin fila en
+    /// `achievements.json`, la barra está llena y `marathon_42km` **no** se desbloquea: eso ocurre
+    /// en el cierre siguiente, porque AD-17 fija un único disparador y el grid no es uno. Parece
+    /// un defecto y no lo es; hay caso en la matriz de la 3.3 para que nadie lo "arregle".
+    ///
+    /// Es exactamente `accumulated(towards:sessions:calendar:)` dividido por el umbral del
+    /// catálogo, **incluida su regla de ausencia**: las dos devuelven `nil` en los mismos casos,
+    /// porque la segunda se define sobre la primera. Así la pantalla no puede enseñar una cifra
+    /// sin barra ni una barra sin cifra.
+    public static func progressFraction(
+        towards definition: AchievementDefinition,
+        sessions: [SessionRecord],
+        calendar: Calendar
+    ) -> Double? {
+        guard
+            case .number(let threshold) = definition.threshold,
+            let value = accumulated(towards: definition, sessions: sessions, calendar: calendar)
+        else { return nil }
+        return Swift.min(1, Swift.max(0, value / threshold))
+    }
+
+    /// El acumulado de una métrica sobre el historial, o `nil` si esa métrica no se acumula.
+    ///
+    /// **Exhaustivo y sin `default`**, como la tabla del cierre: una métrica nueva obliga a
+    /// decidir si tiene barra. Cada rama mide **lo mismo que decide el desbloqueo**, para que la
+    /// barra y el logro no cuenten cosas distintas:
+    /// - `sessionDistanceM` es la **caminata más larga**, no la suma: `first_5km` se decide sobre
+    ///   una sola sesión, así que lo que acerca a conseguirlo es el mejor día de Paul. Con el
+    ///   historial vacío es **0**, que es lo que la matriz pide (barra a 0, no "sin dato").
+    /// - `consecutiveDays` es **la tirada más larga**, la misma magnitud que compara el catálogo.
+    private static func accumulation(
+        of metric: AchievementMetric,
+        sessions: [SessionRecord],
+        calendar: Calendar
+    ) -> Double? {
+        switch metric {
+        case .sessionDistanceM:
+            return sessions.map(\.distanceM).max() ?? 0
+        case .totalDistanceM:
+            return sessions.reduce(0) { $0 + $1.distanceM }
+        case .sessionCount:
+            return Double(sessions.count)
+        case .consecutiveDays:
+            return Double(consecutiveDays(startedAts: sessions.map(\.startedAt), calendar: calendar))
+        case .startHourLocal, .weatherCategory, .tempC, .paceSecPerKm, .weeklyGoalMet:
+            // Ninguna se acumula: una hora, una temperatura, un ritmo y una categoría de clima
+            // son estados de **una** caminata, no una cuenta que suba con el historial. Y la meta
+            // semanal la posee `GoalEngine` (AD-25). Ver la nota de `accumulated`.
+            return nil
+        }
+    }
+
     // MARK: - La tabla métrica → dato
 
     /// El valor de `metric`, o `nil` si no se puede medir.
