@@ -449,6 +449,73 @@ struct SettingsStoreGoalTests {
         #expect(settings.weeklyProgress?.completedKm == 12)
     }
 
+    // MARK: - La señal visible de la celebración (3.4)
+
+    /// El otro canal del **mismo** suceso. La háptica de la 4.1 no necesita pantalla; el aviso
+    /// sí, y por eso la señal es **estado observable** y no el `Bool` de retorno, que los dos
+    /// llamadores descartan (decisión D1 de la 3.4).
+    @Test("Cumplir la meta enciende el aviso visible, y descartarlo lo apaga")
+    func meetingTheGoalRaisesTheVisibleNotice() throws {
+        let storage = StorageStub(sessions: try [Self.record("2026-07-06T10:00:00Z", 12_000)])
+        let (_, settings, _) = Self.store(storage)
+        #expect(!settings.showsGoalCelebration, "sin mirar el anillo todavía no hay nada que celebrar")
+
+        #expect(settings.goalRingDidUpdate() == true)
+        #expect(settings.showsGoalCelebration, "la meta cumplida se celebra a la vista, no solo vibrando")
+
+        settings.dismissGoalCelebration()
+        #expect(!settings.showsGoalCelebration)
+        #expect(settings.lastGoalCelebratedWeek == "2026-W28", "descartar el aviso NO descelebra la semana")
+        #expect(settings.goalRingDidUpdate() == false, "y volver a Inicio no lo vuelve a encender")
+        #expect(!settings.showsGoalCelebration)
+    }
+
+    @Test("Sin llegar a la meta no hay aviso que enseñar")
+    func belowTheGoalRaisesNoNotice() throws {
+        let storage = StorageStub(sessions: try [Self.record("2026-07-06T10:00:00Z", 9995)])
+        let (_, settings, _) = Self.store(storage)
+
+        #expect(settings.goalRingDidUpdate() == false)
+        #expect(!settings.showsGoalCelebration)
+    }
+
+    /// La fila "meta fuera de Inicio" de la matriz: el aviso **no se pierde** por no estar
+    /// mirando el anillo. Con la señal colgada del valor de retorno esto era imposible —
+    /// `weekMayHaveChanged()` lo descarta— y es justo el caso más probable, porque se llama al
+    /// volver a primer plano.
+    @Test("La meta que se cumple con la app en otra pestaña deja su aviso esperando")
+    func theNoticeSurvivesAWeekChangeFromAnotherTab() throws {
+        let clock = ClockStub(now: Self.instant("2026-07-12T20:00:00Z"))
+        let storage = StorageStub(sessions: try [
+            Self.record("2026-07-06T10:00:00Z", 12_000),
+            Self.record("2026-07-13T10:00:00Z", 12_000),
+        ])
+        let settings = SettingsStore(
+            storage: storage,
+            history: HistoryStore(storage: storage),
+            achievements: AchievementsStore(storage: storage),
+            feedback: FeedbackSpy(),
+            clock: clock
+        )
+        #expect(settings.goalRingDidUpdate() == true)
+        settings.dismissGoalCelebration()
+
+        // Lunes: la semana cambia con la app en segundo plano, sin que nadie pinte el anillo.
+        clock.set(Self.instant("2026-07-13T12:00:00Z"))
+        settings.weekMayHaveChanged()
+
+        #expect(settings.showsGoalCelebration, "el aviso de la semana nueva espera a que haya dónde mostrarlo")
+    }
+
+    @Test("Descartar un aviso que no está encendido no hace nada")
+    func dismissingNothingIsHarmless() {
+        let (_, settings, _) = Self.store()
+
+        settings.dismissGoalCelebration()
+
+        #expect(!settings.showsGoalCelebration)
+    }
+
     // MARK: - El canal de feedback (4.1)
 
     /// El cuarto de los cuatro disparos de la 4.1. Va **donde se decide que se celebra** y no

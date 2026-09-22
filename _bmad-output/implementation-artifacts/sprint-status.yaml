@@ -1,5 +1,5 @@
 # generated: 2026-08-01
-# last_updated: 2026-09-12
+# last_updated: 2026-09-22   # a mano: si esta fecha se queda vieja, el fichero miente sobre sí mismo
 # project: walktracker
 # project_key: NOKEY
 # tracking_system: file-system
@@ -99,7 +99,21 @@ development_status:
   # que se ve en pantalla lo fija ningún test, porque XCUITest está descartado. Deliberado, no
   # deriva: 2026-09-22.
   3-3-pantalla-de-logros-grid-locked-unlocked-con-progreso: review
-  3-4-celebración-de-meta-y-logros-no-bloqueante: backlog
+  # 3-4 pasa a review con la verificación completa registrada en su spec (los cuatro gates verdes,
+  # verify-domain con la línea de pendientes de AD-6 todavía en `ninguna` y la suite completa
+  # creciendo de 901 a 917 casos en 70 suites) y siete mutaciones comprobadas y revertidas, entre
+  # ellas las DOS que quitan el cableado de cada aviso, que es un criterio de aceptación propio.
+  # La fila "Reduce Motion" de la matriz NO tenía cobertura en la primera versión —el ternario
+  # estaba escrito en las dos vistas y sustituirlo dejaba las 914 en verde—; lo encontró el
+  # coordinador y se cerró sacando la decisión a dos funciones puras de `CelebrationToast` que los
+  # dos avisos consumen, con sus dos ramas fijadas y su rojo comprobado contra la suite completa.
+  # Queda en review, y no en done, por lo mismo que la 3.1, la 3.2 y la 3.3: sus checks manuales en
+  # el iPhone (dos logros en un cierre y dos avisos seguidos; tocar un aviso durante una sesión y
+  # ver que el cronómetro no se para; el aviso sin animación con Reduce Motion) nunca se
+  # ejecutaron. Lo que esta historia SÍ cierra de ese hueco: que el aviso esté montado en las dos
+  # pantallas lo fija ahora un test por tipo, así que borrarlo deja de salir en verde. Deliberado,
+  # no deriva: 2026-09-22.
+  3-4-celebración-de-meta-y-logros-no-bloqueante: review
   # 2026-09-21 · Historia nueva del correct course: la Summary Screen de UX-DR4/UX-DR5 no tenía
   # historia dueña desde la 1.4, porque no existe FR que la cubra. sprint-change-proposal-2026-09-21.md
   3-5-summary-screen-la-pantalla-de-cierre-y-su-contrato-de-filas: backlog

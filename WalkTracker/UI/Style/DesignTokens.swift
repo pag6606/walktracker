@@ -195,6 +195,24 @@ enum Surface {
     static let noticeTintOpacity: Double = 0.12
 }
 
+/// El aviso transitorio de celebración (3.4). Lo comparten los **dos** sucesos que celebran: la
+/// meta semanal cumplida, sobre el `TabView`, y cada logro desbloqueado, dentro de la sesión.
+enum Celebration {
+
+    /// Cuánto se queda un aviso de celebración antes de irse solo, si nadie lo toca.
+    ///
+    /// **Entra aquí por repetido**, que es la primera vía de la regla de admisión de la cabecera:
+    /// el rol "cuánto dura un aviso de celebración" lo deciden dos vistas —`RootView` y
+    /// `SessionView`— y con el número escrito en cada una, el de la meta y el del logro se
+    /// separarían sin que nada lo dijera. Con varios logros encolados, además, es lo que fija
+    /// cuánto tarda la cola entera.
+    ///
+    /// Son los mismos 3 s que la frase del arranque (2.2) y que "Sesión recuperada" (1.6), que
+    /// **conservan su constante privada de vista**: unificar los tres es otra decisión y no la
+    /// toma esta historia — ninguno de esos dos roles es "celebrar".
+    static let noticeDuration: Duration = .seconds(3)
+}
+
 /// Los dos únicos roles tipográficos que el sistema no nombra ya. Todo lo demás
 /// —`.headline` de un encabezado, `.subheadline`, `.footnote`— se escribe con su nombre
 /// de SwiftUI: aliasarlo no aporta nada.

@@ -252,6 +252,9 @@
     "Guardar meta": {
       "comment": "Botón explícito de Ajustes que persiste la meta semanal. Dice \"meta\" para distinguirse del Guardar de la zancada, que está en la misma pantalla."
     },
+    "Has completado los kilómetros de esta semana.": {
+      "comment": "Segunda línea del aviso de celebración de la meta semanal, bajo el titular."
+    },
     "Historial": {
       "comment": "Pestaña Historial del TabView (AD-14) y título de su pantalla."
     },
@@ -321,6 +324,12 @@
     "Lluvia moderada": {
       "comment": "Condición del clima, código WMO 63, en la tarjeta de clima de la sesión."
     },
+    "Logro desbloqueado": {
+      "comment": "Segunda línea del aviso de celebración de un logro, bajo el nombre del logro."
+    },
+    "Logro desbloqueado: %@. %@": {
+      "comment": "Lectura de VoiceOver del aviso de celebración de un logro. Los dos marcadores son el nombre y la descripción del logro, que salen del catálogo congelado y no se traducen aquí."
+    },
     "Logros": {
       "comment": "Pestaña Logros del TabView (AD-14) y título de su pantalla."
     },
@@ -338,6 +347,9 @@
     },
     "Meta semanal": {
       "comment": "Rótulo de la meta semanal, en sus dos sitios: la etiqueta de VoiceOver del anillo de progreso de Inicio —cuyo valor dice el completado, la meta y el porcentaje— y el encabezado de la sección de Ajustes donde se fija. El String Catalog guarda un comentario por clave: si se acorta para el encabezado, se acorta también lo que VoiceOver lee del anillo."
+    },
+    "Meta semanal cumplida. Has completado los kilómetros de esta semana.": {
+      "comment": "Lectura de VoiceOver del aviso de celebración de la meta semanal: el aviso entero en una sola frase."
     },
     "Nevada intensa": {
       "comment": "Condición del clima, código WMO 75, en la tarjeta de clima de la sesión."
@@ -429,6 +441,9 @@
     "Toca para continuar con la caminata, que ya está en curso.": {
       "comment": "Pista de VoiceOver del overlay de la frase motivacional: cómo se descarta y que la caminata no está esperando."
     },
+    "Toca para descartar el aviso. Tu caminata sigue en curso.": {
+      "comment": "Pista de VoiceOver del aviso de celebración (meta cumplida o logro desbloqueado): cómo se quita y que no detiene nada."
+    },
     "Tormenta": {
       "comment": "Condición del clima, código WMO 95, en la tarjeta de clima de la sesión."
     },
@@ -473,6 +488,9 @@
     },
     "spm": {
       "comment": "Unidad visible de la cadencia en la rejilla de la pantalla de sesión (pasos por minuto)."
+    },
+    "¡Meta semanal cumplida!": {
+      "comment": "Titular del aviso de celebración al completar la meta semanal de kilómetros."
     },
     "¿Añadir el clima a tus caminatas?": {
       "comment": "Título de la pre-pantalla de ubicación sobre la sesión ya abierta (permiso sin decidir)."

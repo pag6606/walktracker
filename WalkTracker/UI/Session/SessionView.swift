@@ -36,6 +36,12 @@ import SwiftUI
 /// arranque: una sesión recuperada tras un force-quit conserva su `quoteId` y **no** vuelve a
 /// verla.
 ///
+/// Logros (3.4): al cerrar, cada logro desbloqueado se celebra con un aviso transitorio arriba,
+/// **uno tras otro y nunca dos a la vez**, sin bloquear nada — ni el cronómetro, ni el resumen,
+/// ni el botón de volver. Cuelga de **toda** esta pantalla y no de la sesión en curso, porque en
+/// el instante en que se desbloquean lo que se está pintando es el resumen. La háptica de ese
+/// mismo suceso ya la dispara la capa de aplicación (4.1): aquí no se toca.
+///
 /// Con tamaños de texto grandes la pantalla se desplaza en vertical en lugar de recortar.
 ///
 /// **Criterio único de `minimumScaleFactor` en esta pantalla (2026-09-18).** Los tres sitios
@@ -57,6 +63,9 @@ struct SessionView: View {
     @State private var lastFinished: FinishedWalk?
     /// La reconciliación en curso ya dura más de `reconcilingNoticeDelay`.
     @State private var showsReconcilingNotice = false
+    /// Los logros de este cierre que faltan por enseñar (3.4). **Estado de la vista**, como
+    /// `showsReconcilingNotice`: ver `CelebrationQueue`.
+    @State private var celebrations = CelebrationQueue()
 
     /// Retraso del aviso de reconciliación (decisión de Paul, 1.5): una reconciliación
     /// rápida solo deshabilita los controles, sin texto que parpadee.
@@ -81,6 +90,54 @@ struct SessionView: View {
         .onChange(of: currentFinished, initial: true) { _, finished in
             if let finished { lastFinished = finished }
         }
+        // El aviso de logros cuelga de **toda** la pantalla de sesión, no de `live(...)`: los
+        // logros se evalúan al cerrar, y en ese instante lo que se está pintando es el resumen.
+        // Colgarlo de la sesión en curso lo habría dejado sin verse nunca (3.4, D2).
+        .overlay(alignment: .top) { achievementCelebration }
+        // Reduce Motion: sin animación, no con un fundido más corto. La decisión es de
+        // `CelebrationToast` —la misma que usa el aviso de meta, y con test— y el valor es el
+        // logro que está en pantalla, así que el relevo entre dos también pasa por ella.
+        .animation(CelebrationToast.animation(reduceMotion: reduceMotion), value: celebrations.current)
+        // La cola se **copia** de la señal del store: qué se desbloqueó lo publica él, cuántos
+        // quedan por enseñar es de la vista (D3). Con `initial: true` también se recoge lo que ya
+        // estuviera publicado cuando esta pantalla aparece.
+        .onChange(of: store.unlockedAchievements, initial: true) { _, unlocked in
+            celebrations.receive(unlocked)
+        }
+    }
+
+    // MARK: - Celebración de logros (3.4)
+
+    /// El aviso del logro que toca ahora, **uno solo**: los demás esperan su turno en la cola.
+    ///
+    /// **Sin `.id()` a propósito.** Con identidad propia por logro, el relevo entre dos avisos
+    /// sería una salida y una entrada simultáneas —dos en pantalla a la vez durante la
+    /// animación—, que es justo lo que el criterio de aceptación prohíbe. Sin ella, SwiftUI
+    /// sustituye el contenido en su sitio y solo hay uno.
+    @ViewBuilder
+    private var achievementCelebration: some View {
+        if let definition = celebrations.current {
+            CelebrationToast.achievement(definition, onDismiss: dismissCelebration)
+                .padding(.horizontal, LayoutMetrics.margin)
+                .transition(CelebrationToast.transition(reduceMotion: reduceMotion))
+                // El `id` es la **clave del logro**, no la cola entera: así el temporizador del
+                // que está en pantalla no se redispara porque cambie lo que viene detrás, y sí
+                // arranca de nuevo —con su anuncio— cuando el relevo trae otro. Es el mismo
+                // cuidado que `QuoteOverlay` tiene con `quote.id`.
+                .task(id: definition.key) {
+                    AccessibilityNotification.Announcement(CelebrationToast.spokenAchievement(definition)).post()
+                    try? await Task.sleep(for: Celebration.noticeDuration)
+                    if !Task.isCancelled { dismissCelebration() }
+                }
+        }
+    }
+
+    /// Las dos salidas del aviso —el toque y el vencimiento— son la misma: pasar al siguiente.
+    ///
+    /// Esto **no escribe estado del store**: la cola es de la vista, y `unlockedAchievements`
+    /// solo se lee. La vacía el store en su reset, como todo lo de la sesión.
+    private func dismissCelebration() {
+        celebrations.advance()
     }
 
     private var currentFinished: FinishedWalk? {
@@ -323,6 +380,45 @@ struct SessionView: View {
         Binding(get: { store.isConfirmingFinish }, set: { presented in
             if !presented { store.cancelFinish() }
         })
+    }
+}
+
+// MARK: - La cola de celebraciones
+
+/// Los logros desbloqueados que faltan por enseñar, en orden (3.4, decisión D3).
+///
+/// **Es estado de presentación y por eso no vive en el store.** `SessionStore` publica un
+/// hecho —*estos logros se desbloquearon y quedaron escritos*— y ese hecho no cambia porque
+/// uno ya se haya visto. Cuántos quedan por enseñar, en qué orden y cuántos a la vez es una
+/// decisión de pintado, que cambiaría entera si mañana se enseñaran apilados o en una sola
+/// tarjeta; meterla en el store obligaría además a la vista a escribir estado ajeno, que es lo
+/// que la sección 6 del gate prohíbe.
+///
+/// Es un valor, no un objeto: vive en un `@State` de `SessionView` y muere con la pantalla,
+/// igual que `showsReconcilingNotice`.
+struct CelebrationQueue: Equatable {
+
+    /// Los que faltan por enseñar. El primero es el que está en pantalla.
+    private(set) var pending: [AchievementDefinition] = []
+
+    /// El aviso que toca ahora, o `nil` si no queda ninguno. **Uno solo**: nunca dos a la vez.
+    var current: AchievementDefinition? { pending.first }
+
+    /// El store ha publicado lo que desbloqueó un cierre: la cola pasa a ser eso.
+    ///
+    /// **Se sustituye, no se acumula.** `unlockedAchievements` es de **un** cierre —se asigna
+    /// entero y el reset lo vacía—, así que acumular duplicaría los avisos de la misma caminata
+    /// cada vez que la vista volviera a leer la señal. Y con la lista vacía la cola se vacía: sin
+    /// logros escritos no hay nada que celebrar, que es la fila "ninguno escrito" de la matriz.
+    mutating func receive(_ unlocked: [AchievementDefinition]) {
+        pending = unlocked
+    }
+
+    /// El aviso de arriba se ha ido —lo tocaron o venció su tiempo, que son la misma salida— y
+    /// pasa el turno al siguiente si lo hay.
+    mutating func advance() {
+        guard !pending.isEmpty else { return }
+        pending.removeFirst()
     }
 }
 

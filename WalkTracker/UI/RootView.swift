@@ -13,6 +13,13 @@ import SwiftUI
 /// (`scenePhaseDidChange(to:)`), sin filtrarlas: el gap de AD-8 y la relectura del permiso
 /// los decide el store. Ninguna fase pausa.
 ///
+/// **Y es quien enseña la celebración de la meta semanal** (3.4): un aviso transitorio sobre el
+/// `TabView`, no bloqueante, que se descarta al tocarlo o a los `Celebration.noticeDuration`.
+/// Cuelga de aquí y no de Inicio porque la meta se cumple **también** con otra pestaña delante:
+/// `weekMayHaveChanged()` la mira al volver de segundo plano. Dentro de la sesión no se ve —el
+/// modo se presenta por encima—, y eso es correcto: los logros, que sí se desbloquean ahí, los
+/// celebra `SessionView` con su propio aviso.
+///
 /// En `DEBUG` Inicio enlaza la pantalla de diagnóstico de la capa nativa (historia 8.6).
 /// Llega ya construida desde la app, así que esta vista no conoce los puertos que usa;
 /// en `Release` el tipo es `Never` y el enlace no existe.
@@ -50,6 +57,7 @@ struct RootView<Diagnostics: View>: View {
     private let diagnostics: Diagnostics?
 
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(
         store: SessionStore,
@@ -101,6 +109,27 @@ struct RootView<Diagnostics: View>: View {
                 SettingsView(settingsStore: settingsStore, defaultStrideM: defaultStrideM)
             }
         }
+        // El aviso de meta cuelga del `TabView` y **no** de una pestaña: la meta se cumple
+        // mirando Inicio o al volver de segundo plano con cualquier pestaña delante, así que
+        // colgarlo de Inicio lo perdería en los dos casos que más ocurren (3.4, D2).
+        .overlay(alignment: .top) { goalCelebration }
+        // Reduce Motion: aparece **sin** animación, no con un fundido más corto. La decisión no
+        // se reteclea aquí —vive en `CelebrationToast` y tiene test—, porque los dos avisos de
+        // esta historia son el mismo componente en dos superficies.
+        .animation(CelebrationToast.animation(reduceMotion: reduceMotion), value: settingsStore.showsGoalCelebration)
+        // El temporizador y el anuncio, en un solo sitio, con el molde del "Sesión recuperada" de
+        // la 1.6: `.task(id:)` sobre el estado que gobierna la aparición, anuncio, espera y la
+        // **intención** de descartarlo — la vista no apaga el estado del store (sección 6).
+        //
+        // El `id` es el propio estado y no el contenido del aviso, porque aquí no hay contenido
+        // variable: es uno o ninguno. Y la tarea vive sobre el `TabView`, que está montado
+        // siempre, así que el aviso no depende de qué pestaña esté delante.
+        .task(id: settingsStore.showsGoalCelebration) {
+            guard settingsStore.showsGoalCelebration else { return }
+            AccessibilityNotification.Announcement(CelebrationToast.spokenWeeklyGoal).post()
+            try? await Task.sleep(for: Celebration.noticeDuration)
+            if !Task.isCancelled { settingsStore.dismissGoalCelebration() }
+        }
         .fullScreenCover(isPresented: sessionPresented) {
             SessionView(store: store)
         }
@@ -111,6 +140,20 @@ struct RootView<Diagnostics: View>: View {
             // contra `clock.now`, que no es estado observable, así que volver de segundo plano un
             // lunes no repintaría nada y la celebración de la semana nueva no se dispararía.
             settingsStore.weekMayHaveChanged()
+        }
+    }
+
+    /// La celebración de la meta semanal, **no bloqueante**, sobre las pestañas (3.4).
+    ///
+    /// Se descarta al tocarlo o al vencer su tiempo, y las dos salidas son la **misma**
+    /// intención del store. Mientras está, no impide tocar nada de lo que hay debajo: es un
+    /// `.overlay` con el tamaño de su contenido, no una capa que tape la pantalla.
+    @ViewBuilder
+    private var goalCelebration: some View {
+        if settingsStore.showsGoalCelebration {
+            CelebrationToast.weeklyGoal(onDismiss: settingsStore.dismissGoalCelebration)
+                .padding(.horizontal, LayoutMetrics.margin)
+                .transition(CelebrationToast.transition(reduceMotion: reduceMotion))
         }
     }
 

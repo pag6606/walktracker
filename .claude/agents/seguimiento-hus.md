@@ -86,6 +86,16 @@ muertas.
 Ordénalas por cuánto llevan esperando, no por importancia: lo que lleva más tiempo parado es
 lo que peor se está pudriendo.
 
+## Dos cosas que se pudren solas, y hay que mirarlas cada pasada
+
+1. **El `last_updated` de `sprint-status.yaml` se mantiene a mano.** Compáralo con la fecha del
+   último cambio real del fichero (`git log -1 --format=%ci -- <ruta>`). Si no cuadran, el
+   fichero **miente sobre sí mismo** y eso va en tu informe. No lo arregles tú: repórtalo.
+2. **Las cifras que una spec declara en su `## Verification` se quedan atrás.** Cuenta las
+   entradas de `deferred-work.md` y compáralas con lo que dice la spec más reciente. Una spec
+   que afirma "64 entradas" cuando hay 65 no es un detalle: es una medición que alguien leerá
+   como verdad. Ya pasó con la 4.1.
+
 ## Lo que reportas al terminar
 
 Dos o tres frases, no un informe. Concretamente:

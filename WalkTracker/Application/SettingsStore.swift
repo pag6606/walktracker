@@ -72,6 +72,26 @@ final class SettingsStore {
     /// almacenar— y lo escriben solo las intenciones de `SettingsStore+Goal.swift`.
     var goalOutcome: GoalOutcome?
 
+    /// La meta semanal se acaba de cumplir **por primera vez esta semana** y su aviso visible
+    /// todavía no se ha descartado (3.4).
+    ///
+    /// **Es la mitad observable de una señal que antes era solo un valor de retorno.**
+    /// `goalRingDidUpdate()` devuelve `true` la primera vez de cada semana, y sus dos llamadores
+    /// —`HomeView` al pintar el anillo y `weekMayHaveChanged()` al volver de segundo plano—
+    /// **descartaban el `Bool`**. Con la celebración colgando de ese retorno, cumplir la meta con
+    /// la app en otra pestaña se habría perdido sin celebrar, que es justo el caso más probable:
+    /// `weekMayHaveChanged()` se llama al volver a primer plano. Así el aviso **espera a que haya
+    /// dónde mostrarlo** en vez de morir con la llamada.
+    ///
+    /// Es el molde de `SessionStore.showsRecoveredNotice` (1.6): lo enciende quien decide que se
+    /// celebra y lo apaga una intención, `dismissGoalCelebration()`. La vista no lo escribe
+    /// (sección 6 del gate).
+    ///
+    /// **No sobrevive al relanzamiento a propósito.** Vive en memoria, no en `settings.json`: la
+    /// semana celebrada sí es persistente (`lastGoalCelebratedWeek`) y es ella quien impide
+    /// celebrar dos veces; esto es solo el aviso que está en pantalla ahora.
+    var showsGoalCelebration = false
+
     /// Cambia cada vez que la semana **puede** haber cambiado debajo (3.1).
     ///
     /// **Existe porque `ClockPort.now` no es estado observable.** `weeklyProgress` se recalcula

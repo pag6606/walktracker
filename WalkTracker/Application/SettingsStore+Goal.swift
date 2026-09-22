@@ -213,11 +213,11 @@ extension SettingsStore {
     ///    pantalla, volver a Inicio o relanzar la app no vuelven a disparar nada, porque la
     ///    semana celebrada vive en `settings.json` y no en memoria.
     ///
-    /// - Returns: `true` **la primera vez de cada semana** que la meta aparece cumplida. Esa es
-    ///   la señal a la que se engancha la celebración visible de la 3.4 — toast, háptica y
-    ///   sonido—: la 3.1 deja el estado y la señal, y no entrega una celebración provisional,
-    ///   porque en este proyecto lo provisional se queda y después nadie sabe si era el diseño
-    ///   final (decisión D2 de Paul).
+    /// - Returns: `true` **la primera vez de cada semana** que la meta aparece cumplida. Los dos
+    ///   canales de celebración cuelgan de ese mismo punto: la háptica (4.1) y el aviso visible
+    ///   (3.4), este último a través de `showsGoalCelebration`, que es estado observable **porque
+    ///   los dos llamadores descartan este `Bool`** (decisión D1 de la 3.4). El valor se conserva
+    ///   para quien quiera saber si esta llamada celebró — hoy, los tests.
     @discardableResult
     func goalRingDidUpdate() -> Bool {
         // Sin historial legible no se sabe si la meta está cumplida, así que no se celebra ni se
@@ -249,7 +249,27 @@ extension SettingsStore {
         //
         // `soundEnabled: false` es la decisión D1: la preferencia de sonido es de la 4.2.
         feedback.fire(.goal, soundEnabled: false)
+        // Y la mitad **visible** (3.4, D1), que es estado observable y no este `return`: los dos
+        // llamadores descartan el `Bool`, así que una celebración colgada de él se perdería al
+        // cumplir la meta con la app en otra pestaña — que es lo que pasa cuando quien llama es
+        // `weekMayHaveChanged()` al volver de segundo plano. El aviso espera a que haya dónde
+        // mostrarlo y lo apaga `dismissGoalCelebration()`.
+        //
+        // La háptica de arriba y esto son **el mismo suceso celebrado por dos canales**, no dos
+        // decisiones: por eso comparten este único punto, el mismo que garantiza "una vez por
+        // semana".
+        showsGoalCelebration = true
         log.info("Meta semanal cumplida por primera vez esta semana: el anillo celebra")
         return true
+    }
+
+    /// El aviso de meta cumplida se va: lo tocaron, o venció su tiempo.
+    ///
+    /// **Las dos salidas son la misma intención**, como en el overlay de la frase (2.2): la vista
+    /// no apaga el estado, lo pide. Y apagarlo **no descelebra nada** —la semana ya quedó marcada
+    /// en `settings.json`—, así que volver a Inicio después no vuelve a encenderlo.
+    func dismissGoalCelebration() {
+        guard showsGoalCelebration else { return }
+        showsGoalCelebration = false
     }
 }
