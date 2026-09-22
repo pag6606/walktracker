@@ -178,9 +178,10 @@ assert_run "achievements.json con un icon cambiado rompe" nonzero "achievements.
 # VERDE que este arnés tiene para el catálogo: hasta aquí solo había rojos, y una
 # excepción que nadie ve pasar en verde no está probada.
 
-# (a) Con la divergencia declarada, el texto decidido pasa Y se imprime.
-assert_run "la divergencia declarada de early_bird·description pasa y se imprime" 0 \
-    "≠ early_bird · description — declarada el 2026-09-20" \
+# (a) Con la divergencia declarada, el texto decidido pasa Y se imprime, con su valor: la
+# exención es para ESE texto, y eso tiene que verse en la salida.
+assert_run "la divergencia declarada de early_bird·description pasa y se imprime con su valor" 0 \
+    "≠ early_bird · description — declarada el 2026-09-20 para el valor 'Camina antes de las 8:00'" \
     -- "$RUN_JS" --vectors "$VECTORS"
 
 # (b) La excepción es por LOGRO: el mismo campo en otro logro sigue rompiendo.
@@ -196,6 +197,15 @@ cp "$ROOT/WalkTracker/Resources/achievements.json" "$dir/catalog.json"
 mutate "$dir/catalog.json" 'd.achievements.find(a => a.key === "early_bird").name = "Madrugadora";'
 assert_run "name cambiado en early_bird rompe: la excepción es por campo" nonzero \
     "achievements.json#early_bird: name 'Madrugadora' ≠ referencia 'Madrugador'" \
+    -- "$RUN_JS" --vectors "$VECTORS" --catalog "$dir/catalog.json"
+
+# Por VALOR, no solo por campo: un tercer texto que no es ni la referencia ni el valor
+# declarado rompe. Sin este caso la exención sería un cheque en blanco sobre el campo —se
+# midió: antes de declarar el valor, este mismo catálogo salía en **verde**, exit 0.
+cp "$ROOT/WalkTracker/Resources/achievements.json" "$dir/catalog.json"
+mutate "$dir/catalog.json" 'd.achievements.find(a => a.key === "early_bird").description = "Camina antes de las 9:00";'
+assert_run "un tercer texto en early_bird·description rompe: la exención es por valor" nonzero \
+    "achievements.json#early_bird: description lleva 'Camina antes de las 9:00', que no es la referencia v3 ('Camina antes de las 7:00') ni el valor declarado" \
     -- "$RUN_JS" --vectors "$VECTORS" --catalog "$dir/catalog.json"
 
 # Bidireccional, como el inventario de suites de B-6: revertido al texto viejo, la
@@ -242,6 +252,14 @@ if mutate_run_js "$sdir" "date: '2026-09-20'," "date: ''," ; then
         -- "$sdir/run-js.js" --root "$ROOT" --vectors "$VECTORS"
 else
     report_fail "divergencia declarada sin fecha — no se pudo mutar la lista de run-js.js"
+fi
+
+sdir="$WORK/divergence-no-value"
+if mutate_run_js "$sdir" "value: 'Camina antes de las 8:00'," "" ; then
+    assert_run "divergencia declarada sin valor rompe" nonzero 'sin "value"' \
+        -- "$sdir/run-js.js" --root "$ROOT" --vectors "$VECTORS"
+else
+    report_fail "divergencia declarada sin valor — no se pudo mutar la lista de run-js.js"
 fi
 
 # ── Divergente fuera de logros con expectedJs que no casa ────────────────────

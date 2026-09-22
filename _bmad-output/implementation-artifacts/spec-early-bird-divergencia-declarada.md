@@ -194,14 +194,24 @@ ruidosamente si el patrón no casa** —un caso rojo que se vuelve no-op sin avi
 pasándole `--root "$ROOT"` para que la copia siga encontrando la referencia v3 del árbol real. El
 árbol real solo se lee, y el `fingerprint` del final del arnés lo confirma como siempre.
 
-**Límite conocido, declarado en vez de anunciado como cubierto (B-5).** La exención es por logro y por
-campo, que es lo que la Intent pide, pero **no fija el valor**: con la divergencia declarada,
-`early_bird.description` podría pasar a `"Camina antes de las 9:00"` y el gate saldría verde
-nombrándolo. Lo comprobado y probado es lo que la Intent acota —otro logro u otro campo siguen
-rompiendo, y revertir al texto de la v3 también—; pinchar el valor exacto habría añadido un quinto
-campo a la lista que las Tasks no enumeran (*"clave, campo, fecha y razón"*). Queda dicho aquí, y lo
-que sí cubre el rojo es que el cambio **se vea**: cualquier texto distinto se imprime con su valor en
-cada ejecución.
+**El cheque en blanco sobre el campo: detectado, declarado y CERRADO (2026-09-21).** La primera
+versión eximía por logro y por campo —los cuatro campos que las Tasks enumeran— pero **no fijaba el
+valor**, así que la exención valía para cualquier texto de `early_bird.description`. Se declaró como
+límite conocido en vez de taparlo, y **medido**: con la declaración sin valor,
+`"Camina antes de las 9:00"` salía en **verde, exit 0**. Eso contradice la Boundary *"sin (b) la
+excepción sería un cheque en blanco"*, así que se cerró: un **quinto campo** `value` con el texto
+exacto al que nos apartamos, comparado con el mismo `squash()` que el resto de descripciones —espacios
+distintos no rompen, y está probado con `"Camina  antes   de las 8:00"`, que sigue en verde—.
+
+Ahora un campo declarado tiene **tres** desenlaces, distinguidos en el mensaje porque piden acciones
+distintas: el valor declarado → **verde**; el valor de la v3 → divergencia **sobrante**, rojo pidiendo
+que se borre la declaración (lo que ya funcionaba, y sigue dando el mismo mensaje); **cualquier otro**
+→ **valor no declarado**, rojo pidiendo que se actualicen `CATALOG_TEXT_DIVERGENCES` y la tabla de
+AD-6 **a la vez**. La forma del campo nuevo se valida como los otros cuatro —presente, no vacío, y
+**distinto del valor de la referencia**, porque una entrada que declara el mismo texto de la v3 no
+declara ninguna divergencia y es ruido—. Medido después: `"Camina antes de las 9:00"` sale **rojo,
+exit 1**. El arnés pasa de 25 a **27 casos** (el tercer texto rompe; `value` ausente rompe) y el caso
+verde afirma ahora el valor en la salida, no solo la fecha.
 
 **La regla no se tocó, y eso se lee en el diff.** `WalkTracker/Resources/achievements.json` cambia
 **una línea y un campo**: `description`. `threshold: [5, 7]`, `comparison: "between"`, `metric`,
@@ -222,19 +232,41 @@ es la regla D4 y la lección L2.
 ## Spec Change Log
 
 **1 · Sin cambios sobre el bloque congelado.** Las cinco filas de la I/O & Edge-Case Matrix se
-implementaron tal cual y las cinco tienen su caso en `red-path-tests.sh`. Las únicas dos adiciones
-sobre lo escrito son **ampliaciones, no desvíos**: la fila 5 se probó en sus **dos** mitades (sin
-fecha y sin razón, un caso cada una) y se declara arriba el límite de que la exención no fija el
-valor del campo. Nada de la Intent se renegoció.
+implementaron tal cual y las cinco tienen su caso en `red-path-tests.sh`. La fila 5 se probó además
+en sus **dos** mitades (sin fecha y sin razón, un caso cada una). Nada de la Intent se renegoció.
 
-**2 · Un incidente de entorno durante la verificación, sin efecto en el resultado.** A mitad del
-chore, `CATALOG_TEXT_DIVERGENCES` apareció en disco como `[]` —la lista vaciada, el resto del fichero
-intacto— por un cambio **externo** a la ejecución (no hay hooks en `.claude/`, y el arnés solo escribe
-en copias temporales, como confirma su `fingerprint`). El estado fue transitorio y el fichero volvió
-solo a su contenido correcto. Se anota porque **sirvió de comprobación independiente del rojo**: con
-la lista vacía y el texto nuevo puesto, `run-js.js` falla con el mensaje de `description ≠
-referencia`, que es la primera fila de los Acceptance Criteria. Todas las órdenes de verificación de
-abajo se repitieron **después**, sobre el árbol ya estable.
+**2 · Ampliación: la declaración incluye el VALOR, un quinto campo que las Tasks no enumeraban
+(2026-09-21).**
+
+Las Tasks piden la lista *"con clave, campo, fecha y razón"*, y así se escribió. Al verificarla salió
+que esos cuatro campos **no bastan para lo que la Intent congelada exige**: la Boundary dice que sin
+el caso (b) *"la excepción sería un cheque en blanco"*, y con la exención solo por logro y por campo
+el cheque en blanco seguía existiendo **dentro** del campo — cualquier texto en
+`early_bird.description` pasaba. Medido antes de tocar nada: `"Camina antes de las 9:00"` → **exit
+0**, verde.
+
+El hallazgo salió del **informe de esta misma implementación**, que lo declaró como límite conocido
+en vez de taparlo (la regla de B-5), y Paul lo reprodujo y mandó cerrarlo. Es un fallo de la **spec**,
+no de la implementación: la lista de Tasks se olvidó del valor, y la Boundary lo pedía en espíritu.
+
+Lo que se añadió: un campo `value` por entrada, la comparación de tres desenlaces, la validación de
+forma del campo nuevo (presente, no vacío, distinto del de la referencia) y dos casos rojos más
+—25 → **27**—. **El bloque congelado no se edita**, así que la fila que le correspondería a la matriz
+queda dicha aquí: *"Otro texto en el campo declarado · `early_bird.description = "Camina antes de las
+9:00"` · **rompe** — la divergencia está declarada para un valor, no para el campo · exit ≠ 0"*.
+Nada más de la Intent cambió: la regla del logro sigue intacta y las cinco filas originales siguen
+comportándose como dicen.
+
+**3 · Nota de procedimiento: el historial quedó partido en tres.** El trabajo se commiteó y mergeó
+(PR #45 y #46) **mientras la implementación seguía en curso**, así que las notas de implementación
+llegaron en un segundo PR y esta ampliación del valor llega en un tercero. La causa está anotada por
+quien lo hizo —commitear antes de que la ejecución terminara—, y se deja escrito aquí en vez de
+dejarlo como rareza del `git log`. En el mismo movimiento entró `epic-3-context.md`, que **no es de
+este chore**: lo recompiló otro agente porque AD-25 lo había invalidado. Y el `[]` que se vio un
+instante en `CATALOG_TEXT_DIVERGENCES` fue la **mutación de verificación de Paul**, no una anomalía;
+sirvió de comprobación independiente del rojo —lista vacía con el texto nuevo puesto → falla con
+`description ≠ referencia`, la primera fila de los Acceptance Criteria—. Todas las órdenes de
+verificación se repitieron **después**, sobre el árbol estable.
 
 ## Review Triage Log
 
@@ -266,3 +298,28 @@ desproporcionado. Decisión de Paul del 2026-09-20.
 **Manual checks:**
 - Mutación propia: borrar la entrada de la lista de divergencias y comprobar que el gate vuelve a
   romper por `early_bird`. Restaurar y confirmar con `git status`.
+
+**Resultados (2026-09-21, ejecutados en este orden):**
+
+| Orden | Resultado |
+|---|---|
+| `run-js.js` con el texto nuevo y **sin** declarar la divergencia | **rojo**, `exit 1`: `achievements.json#early_bird: description 'Camina antes de las 8:00' ≠ referencia 'Camina antes de las 7:00'` — 1 fallo en 109 vectores. Es la primera fila de los Acceptance Criteria, y se comprobó **antes** de declarar nada |
+| `bash Scripts/verify-domain.sh` (tras declararla) | **verde**. Su salida nombra la divergencia: `≠ early_bird · description — declarada el 2026-09-20 para el valor 'Camina antes de las 8:00': achievements.json lleva el valor declarado 'Camina antes de las 8:00' y la referencia v3 dice 'Camina antes de las 7:00'`. 109 vectores, 91 pasan en `domain.js`, 18 divergencias de vector (localTime 15, wmoCategory 3); 19 suites y 284 tests en Swift |
+| `bash Scripts/vectors/red-path-tests.sh` | **27 de 27**, conteo creciente: **19 → 27** (8 casos nuevos: los 5 de la matriz, la segunda mitad de la fila 5, y los 2 de la ampliación del valor). Incluye el `✅ los vectores reales no se tocaron` |
+| `bash Scripts/check-project-shape.sh` | **verde**, sin tocarlo |
+| `bash Scripts/check-spec-shape.sh` | **verde**. 29 specs, 0 en rojo; `deferred-work.md` con 61 entradas, 7 cerradas y 0 con fallo de forma — cubre la entrada cerrada de `early_bird` y la nueva de la deriva del paquete SPEC |
+| Mutación propia (manual check) | Borrada la entrada de `CATALOG_TEXT_DIVERGENCES` en el árbol real, el gate **vuelve a romper** con el mensaje exacto de `description ≠ referencia`. Restaurada, `run-js.js` sale en verde y `git status` queda limpio |
+
+**Ampliación del valor (2026-09-21), medida antes y después.** `early_bird.description = "Camina
+antes de las 9:00"`: **exit 0** con la declaración de cuatro campos, **exit 1** con el `value`
+declarado y el mensaje de *valor no declarado*. El valor declarado sigue en verde, y también con
+espacios distintos (`"Camina  antes   de las 8:00"` → exit 0), que es lo que confirma que se compara
+con `squash()`. Revertir a la referencia sigue dando el mensaje de divergencia **sobrante**, no el
+nuevo: los dos casos se distinguen.
+
+Los cuatro casos rojos del catálogo se comprobaron además uno a uno: `first_5km.description`
+cambiada rompe (la excepción es **por logro**), `early_bird.name` cambiado rompe (es **por campo**),
+revertir `early_bird.description` al texto de la v3 rompe pidiendo que se borre la declaración
+(**bidireccional**), y una entrada sin fecha o sin razón rompe. Los dos rojos que ya existían
+—`name` de `first_5km` e `icon` de `hot_walker`— siguen dando **el mismo mensaje de antes**, con su
+needle intacto: la reescritura de la comparación no cambió ningún rojo existente.
