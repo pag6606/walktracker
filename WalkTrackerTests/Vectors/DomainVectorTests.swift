@@ -205,6 +205,97 @@ struct VectorHarnessTests {
         try Self.expectPorted("weeklyProgress")
     }
 
+    @Test("achievementCatalog está portado: sus vectores reales pasan y no quedan pendientes")
+    func achievementCatalogIsPorted() throws {
+        try Self.expectPorted("achievementCatalog")
+    }
+
+    @Test("evaluateAchievements está portado: sus 51 vectores reales pasan y no quedan pendientes")
+    func evaluateAchievementsIsPorted() throws {
+        try Self.expectPorted("evaluateAchievements")
+    }
+
+    @Test("checkStreak está portado: sus vectores reales pasan y no quedan pendientes")
+    func checkStreakIsPorted() throws {
+        try Self.expectPorted("checkStreak")
+    }
+
+    @Test("checkTimeOfDay está portado: sus vectores reales pasan y no quedan pendientes")
+    func checkTimeOfDayIsPorted() throws {
+        try Self.expectPorted("checkTimeOfDay")
+    }
+
+    /// **Ya no queda ninguna función pendiente**, y eso tiene que ser un test y no una línea de
+    /// log que alguien lea.
+    ///
+    /// **Lo que este test NO alcanza, dicho en voz alta:** `VectorBundle.files()` itera
+    /// `knownFunctions` y descarta lo que no tenga fichero, así que un `.json` de una función que
+    /// **no esté en esa lista** nunca se enumera y no saldría aquí en rojo. Quien lo caza es
+    /// `run-js.js`, que recorre el **directorio** y falla con "función sin traducción a la
+    /// referencia". Lo que sí se puede afirmar desde aquí es el otro lado: que el registro de
+    /// Swift cubre `knownFunctions` **entera**, sin sobras ni faltas.
+    @Test("No queda ninguna función de vectores sin portar a Swift")
+    func nothingIsPendingAnyMore() throws {
+        let run = VectorRun.evaluate(harness: .swiftDomain, files: try VectorBundle.files())
+
+        #expect(run.pending.isEmpty, "pendientes: \(run.pending)")
+        #expect(run.failures.isEmpty, "\(run.failures)")
+        #expect(
+            Set(VectorHarness.swiftDomain.implementations.keys) == VectorHarness.knownFunctions,
+            "el registro y la lista de funciones conocidas tienen que decir lo mismo"
+        )
+    }
+
+    /// **La divergencia de hora local, ejecutada al revés.** Los vectores de `localTime` llevan el
+    /// valor de Swift y pasan con el calendario de su zona; con el calendario en **UTC** —que es
+    /// literalmente lo que hace `motivation.js`— tienen que **fallar**. Sin esto, AD-19 podría
+    /// dejar de ejecutarse sin que nada se pusiera en rojo: los vectores en UTC seguirían pasando
+    /// y los divergentes no distinguirían un calendario del otro.
+    @Test("Los divergentes de hora local fallan si el calendario se fuerza a UTC", arguments: [
+        "evaluateAchievements", "checkStreak", "checkTimeOfDay",
+    ])
+    func localTimeDivergencesNeedTheLocalCalendar(function: String) throws {
+        let divergent = try Self.rawVectors(of: function).filter { $0["divergence"] as? String == "localTime" }
+        #expect(!divergent.isEmpty, "\(function): si dejara de tener divergentes de hora local, este test tiene que verlo")
+
+        for var vector in divergent {
+            let id = vector["id"] as? String ?? "?"
+            // El mismo vector con la zona cambiada a UTC, que es lo que lee `motivation.js`.
+            vector["timeZone"] = "UTC"
+            vector["divergence"] = nil
+            vector["expectedJs"] = nil
+            let inUTC = try JSONDecoder().decode(
+                DomainVector.self,
+                from: try JSONSerialization.data(withJSONObject: vector)
+            )
+
+            // **`.failed`, no `!= .passed`**: `.pending` (una función sin registrar) y un
+            // `.failed` por error de decodificación también cumplirían `!= .passed`, y este test
+            // se daría por bueno sin haber ejecutado nada.
+            guard case .failed(let reason) = VectorHarness.swiftDomain.verdict(for: inUTC, of: function) else {
+                Issue.record("\(function)#\(id): pasa igual en UTC, así que la divergencia de hora local ya no existe")
+                continue
+            }
+            #expect(reason.hasPrefix("esperado"), "\(function)#\(id): tiene que fallar por el VALOR, no por la entrada: \(reason)")
+        }
+    }
+
+    /// Los vectores de una función como JSON crudo. Existe para lo que `DomainVector` no
+    /// decodifica —`expectedJs`, `divergence` como dato editable— y para poder reconstruir un
+    /// vector con un campo cambiado sin mutar el tipo, que es inmutable a propósito.
+    private static func rawVectors(of function: String) throws -> [[String: Any]] {
+        let file = try JSONSerialization.jsonObject(with: try VectorBundle.data(for: function))
+        return try #require((file as? [String: Any])?["vectors"] as? [[String: Any]])
+    }
+
+    @Test(
+        "Los divergentes de checkStreak y checkTimeOfDay fallan contra su expectedJs",
+        arguments: zip(["checkStreak", "checkTimeOfDay"], [3, 2])
+    )
+    func hourAndStreakDivergencesAreRealDivergences(function: String, expectedCount: Int) throws {
+        try Self.expectDivergencesFailAgainstJs(function, count: expectedCount)
+    }
+
     @Test("Los tres divergentes de weeklyProgress fallan contra su expectedJs")
     func weeklyProgressDivergencesAreRealDivergences() throws {
         // **La divergencia es declarada, no una tolerancia.** Los tres vectores de hora local
@@ -213,15 +304,36 @@ struct VectorHarnessTests {
         // dejado de existir y AD-19 estaría sin efecto sin que nada lo dijera — que es
         // exactamente lo que el runner JS comprueba en su lado con la regla "un divergente que
         // PASA es un fallo".
-        let file = try JSONSerialization.jsonObject(with: try VectorBundle.data(for: "weeklyProgress"))
-        let vectors = try #require((file as? [String: Any])?["vectors"] as? [[String: Any]])
-        let divergent = vectors.filter { $0["divergence"] as? String == "localTime" }
-        #expect(divergent.count == 3, "los tres de `America/Guayaquil`; si cambian, este test tiene que verlo")
+        try Self.expectDivergencesFailAgainstJs("weeklyProgress", count: 3)
+    }
+
+    /// Los divergentes de `function` ejecutados con el valor de la v3 en el sitio del de Swift:
+    /// **tienen que fallar**. Un divergente sin `expectedJs` fuera de `evaluateAchievements` es un
+    /// vector mal escrito, y dos valores iguales no declaran ninguna divergencia.
+    private static func expectDivergencesFailAgainstJs(
+        _ function: String,
+        count: Int,
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) throws {
+        let divergent = try rawVectors(of: function).filter { $0["divergence"] as? String == "localTime" }
+        #expect(
+            divergent.count == count,
+            "\(function): \(count) divergentes de hora local; si cambian, este test tiene que verlo",
+            sourceLocation: sourceLocation
+        )
 
         for var vector in divergent {
             let id = vector["id"] as? String ?? "?"
-            let expectedJs = try #require(vector["expectedJs"], "\(id): un divergente fuera de evaluateAchievements lleva expectedJs")
-            #expect(!Self.equalJSON(expectedJs, vector["expected"]), "\(id): si los dos valores coinciden no hay divergencia que declarar")
+            let expectedJs = try #require(
+                vector["expectedJs"],
+                "\(function)#\(id): un divergente fuera de evaluateAchievements lleva expectedJs",
+                sourceLocation: sourceLocation
+            )
+            #expect(
+                !equalJSON(expectedJs, vector["expected"]),
+                "\(function)#\(id): si los dos valores coinciden no hay divergencia que declarar",
+                sourceLocation: sourceLocation
+            )
 
             // El mismo vector, con lo que espera la v3 en el sitio de lo que espera Swift.
             vector["expected"] = expectedJs
@@ -231,17 +343,32 @@ struct VectorHarnessTests {
                 from: try JSONSerialization.data(withJSONObject: vector)
             )
 
+            // `.failed` y no `!= .passed`: ver la nota del test de UTC. Y la razón tiene que
+            // nombrar el desajuste de **valor**, no un fallo al leer la entrada.
+            guard case .failed(let reason) = VectorHarness.swiftDomain.verdict(for: asJs, of: function) else {
+                Issue.record(
+                    "\(function)#\(id): Swift pasa el valor de domain.js, así que la divergencia de hora local ya no existe",
+                    sourceLocation: sourceLocation
+                )
+                continue
+            }
             #expect(
-                VectorHarness.swiftDomain.verdict(for: asJs, of: "weeklyProgress") != .passed,
-                "\(id): Swift pasa el valor de domain.js, así que la divergencia de hora local ya no existe"
+                reason.hasPrefix("esperado") && reason.contains("Swift da"),
+                "\(function)#\(id): tiene que fallar por el VALOR: \(reason)",
+                sourceLocation: sourceLocation
             )
         }
     }
 
+    /// Dos valores JSON iguales. Pasa por `NSObject.isEqual`, no por `NSDictionary`: el valor de
+    /// un divergente de `checkStreak` o `checkTimeOfDay` es un **booleano**, y comparándolo como
+    /// diccionario dos booleanos distintos salían iguales — un verde falso justo en el test que
+    /// comprueba que la divergencia existe.
     private static func equalJSON(_ lhs: Any?, _ rhs: Any?) -> Bool {
-        guard let lhs, let rhs else { return lhs == nil && rhs == nil }
-        return NSDictionary(dictionary: lhs as? [String: Any] ?? [:])
-            .isEqual(to: rhs as? [String: Any] ?? [:])
+        guard let lhs = lhs as? NSObject, let rhs = rhs as? NSObject else {
+            return lhs == nil && rhs == nil
+        }
+        return lhs.isEqual(rhs)
     }
 
     @Test("updateRecentIds: el tope de 20 se recorta por el final, no por el principio")

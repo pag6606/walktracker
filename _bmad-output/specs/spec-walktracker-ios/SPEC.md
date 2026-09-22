@@ -116,7 +116,7 @@ Paul sale a caminar con el iPhone en el bolsillo, auriculares con música y pant
 
 - **A-1:** Paul dispone o dispondrá de Mac + Xcode + cuenta Apple Developer de pago — barrera documentada desde v3 como la razón de ser del producto puente PWA.
 - **A-2 [verificada, ya no es supuesto]:** el dispositivo es un **iPhone 14** (A15, sin Dynamic Island) con **iOS 26**. Consecuencia: CAP-18 se valida solo en el layout de pantalla de bloqueo; la Dynamic Island se limita a compilar.
-- **A-3:** El banco de 100 frases (`quotes.json`) y el catálogo de 14 logros se reutilizan íntegros, sin cambios de contenido.
+- **A-3:** El banco de 100 frases (`quotes.json`) y el catálogo de 14 logros se reutilizan íntegros, **salvo la divergencia declarada de `early_bird`·`description`** — dice "Camina antes de las 8:00" y la v3 decía "antes de las 7:00", porque su regla (`between [5, 7]`, inclusiva en los dos extremos) llega hasta las 07:59 y el texto de la referencia mentía; la **regla no se tocó**. Es la única excepción, está declarada en `ARCHITECTURE-SPINE.md` AD-6 y la hace cumplir el gate campo a campo (`CATALOG_TEXT_DIVERGENCES` en `Scripts/vectors/run-js.js`), por logro, por campo y por valor.
 
 ## Open Questions
 

@@ -157,6 +157,26 @@ struct CompositionRootTests {
         #expect(root.settingsStore.weeklyProgress?.completedKm == 4, "el anillo lee el historial del root, no otro")
     }
 
+    @Test("El store de sesión recibe LA MISMA instancia de los logros y el catálogo del bundle")
+    func sessionStoreSharesTheAchievementsOwnerAndTheCatalog() throws {
+        // Mismo argumento que con el historial, un fichero más adentro: dejar `achievements` sin
+        // cablear **compilaría** si tuviera valor por omisión, y habría dos dueños de
+        // `achievements.json`. El de la sesión escribiría un desbloqueo que el del anillo no
+        // vería, y `unlockWeeklyGoal(at:)` dejaría de ser idempotente contra lo ya escrito.
+        let root = CompositionRoot(
+            clock: ClockStub(now: ISO8601DateFormatter().date(from: "2026-07-08T12:00:00Z")!),
+            motion: MotionStub(status: .granted), storage: StorageStub(),
+            location: LocationStub(status: .denied), weather: WeatherStub()
+        )
+
+        #expect(root.sessionStore.achievements === root.achievementsStore)
+        #expect(root.settingsStore.achievements === root.achievementsStore)
+        // Y el catálogo es el que la app carga del bundle, no uno inventado: la evaluación es
+        // Swift, pero qué se evalúa es dato (AD-5).
+        #expect(root.sessionStore.achievementCatalog == root.achievementCatalog)
+        #expect(root.sessionStore.achievementCatalog.achievements.map(\.key) == AchievementCatalog.requiredKeys)
+    }
+
     @Test("Con el historial ilegible el anillo dice 'no se sabe', no 0 %")
     func anUnreadableHistoryReachesTheRing() {
         // La otra mitad del cableado anterior: con dos lectores, el primero aparta el fichero y

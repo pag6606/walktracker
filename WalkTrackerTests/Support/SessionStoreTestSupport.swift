@@ -42,6 +42,11 @@ struct SessionStoreFixture {
     /// Dueño del historial (5.1), sobre el mismo `StorageStub`. "Relanzar" es montar otro
     /// `SessionStoreFixture` sobre el mismo stub: el historial y el snapshot vuelven con él.
     let history: HistoryStore
+    /// Dueño del estado de los logros (5.1), sobre el mismo `StorageStub`. **Una sola
+    /// instancia**, compartida por el store de ajustes y el de sesión: son los dos que
+    /// desbloquean logros (el anillo `weekly_goal`, el cierre los demás) y dos dueños del mismo
+    /// fichero no verían lo que escribe el otro (AD-16).
+    let achievements: AchievementsStore
     /// Las líneas `WTM1` que escribe el store. Solo observan: sirven de condición de espera.
     let measurements: LineSink
     let store: SessionStore
@@ -65,6 +70,13 @@ struct SessionStoreFixture {
     ///   - quotes: banco de frases. **Vacío por defecto**: sin frase ni overlay, así las
     ///     suites anteriores a la 2.2 no ven la selección.
     ///   - random: azar determinista para elegir la frase.
+    ///   - catalog: el catálogo congelado de los 14 logros. Por omisión **el del bundle**, que es
+    ///     el que la app carga: los tests de logros comprueban la conducta real, no una tabla de
+    ///     prueba (AD-5).
+    ///   - timeZone: zona del `AppCalendar` del montaje. **UTC por omisión**, como siempre; un
+    ///     test que quiera comprobar que las horas y las rachas son **locales** pasa otra, porque
+    ///     en UTC el calendario de AD-19 y el de `motivation.js` coinciden y la divergencia no se
+    ///     ve desde aquí.
     init(
         motion: MotionStub = MotionStub(status: .granted),
         storage: StorageStub = StorageStub(),
@@ -77,10 +89,12 @@ struct SessionStoreFixture {
         weather: WeatherStub = WeatherStub(),
         weatherStepTimeoutS: TimeInterval = 5,
         quotes: QuoteBank = .empty,
-        random: RandomStub = RandomStub()
+        random: RandomStub = RandomStub(),
+        catalog: AchievementCatalog = AchievementCatalogFixture.bundled,
+        timeZone: String = "UTC"
     ) {
         let measurements = LineSink()
-        clock = ClockStub(now: instant)
+        clock = ClockStub(now: instant, timeZone: timeZone)
         self.motion = motion
         self.storage = storage
         self.location = location
@@ -93,10 +107,12 @@ struct SessionStoreFixture {
         // caminata no pueden estar en dos semanas distintas.
         let history = HistoryStore(storage: storage)
         self.history = history
+        let achievements = AchievementsStore(storage: storage)
+        self.achievements = achievements
         let settings = SettingsStore(
             storage: storage,
             history: history,
-            achievements: AchievementsStore(storage: storage),
+            achievements: achievements,
             clock: clock
         )
         self.settings = settings
@@ -112,6 +128,8 @@ struct SessionStoreFixture {
             weather: weather,
             settings: settings,
             history: history,
+            achievements: achievements,
+            achievementCatalog: catalog,
             quotes: quotes,
             random: random,
             weatherStepTimeoutS: weatherStepTimeoutS,

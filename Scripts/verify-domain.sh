@@ -63,6 +63,7 @@ section() { printf '\n── %s ────────────────
 SUITE_DIRS=(Domain Vectors Scenarios)
 DOMAIN_SUITES=(
     AchievementCatalogTests
+    AchievementEngineTests
     AchievementUnlockTests
     AppSettingsTests
     ChronometerTests

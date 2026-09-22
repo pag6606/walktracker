@@ -90,6 +90,10 @@ struct SettingsStorePersistenceTests {
             // tener dos lectores de `sessions.json` — el primero que lea uno ilegible lo aparta
             // y el segundo encuentra "no hay fichero" (AD-16).
             history: history ?? settings.history,
+            // Y el dueño de los logros del propio store de ajustes, por lo mismo: una sola
+            // instancia por fichero (AD-16).
+            achievements: settings.achievements,
+            achievementCatalog: AchievementCatalogFixture.bundled,
             quotes: SessionStoreFixture.bank(5),
             random: RandomStub(.fixed(0)),
             weatherStepTimeoutS: 5,

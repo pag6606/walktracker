@@ -35,13 +35,40 @@ struct WeatherSnapshotTests {
         #expect(WeatherCondition(wmoCode: code) == expected)
     }
 
-    @Test("Los casos de lluvia de evaluateAchievements.json (51, 61, 67, 95, 99) son rain; nieve, niebla y nublado no")
-    func vectorRainCodes() {
-        for code in [51, 61, 67, 95, 99, 56, 80, 82] {
-            #expect(WeatherCondition(wmoCode: code) == .rain, "WMO \(code)")
+    /// **Los códigos salen del propio `evaluateAchievements.json`, no de una lista escrita a
+    /// mano** (diferido de la 2.1, cerrado en la 3.2). La lista anterior nombraba el fichero en su
+    /// título y traía ocho códigos que el fichero no tiene (56, 45, 50, 68, 77, 79, 83, 94): decía
+    /// estar atada al contrato y no lo estaba. Ahora cada vector con clima se contrasta con lo que
+    /// su propio `expected` dice de `rain_walker`.
+    ///
+    /// Es la mitad de `WeatherCondition`; la del puente a `WeatherCategory` la cubre
+    /// `AchievementEngineTests`, sobre el mismo fichero y por la misma razón.
+    @Test("Los códigos WMO de los vectores de clima cuadran con WeatherCondition")
+    func vectorRainCodes() throws {
+        var seen = 0
+        for (wmoCode, unlocksRain) in try Self.weatherCasesFromVectors() {
+            seen += 1
+            #expect(
+                WeatherCondition(wmoCode: wmoCode) == (unlocksRain ? .rain : .other),
+                "WMO \(wmoCode): el vector y `WeatherCondition` no dicen lo mismo"
+            )
         }
-        for code in [0, 3, 45, 50, 68, 71, 77, 79, 83, 85, 94] {
-            #expect(WeatherCondition(wmoCode: code) == .other, "WMO \(code)")
+        #expect(seen >= 9, "los vectores de clima siguen ahí; si bajan de nueve, este test tiene que verlo")
+    }
+
+    /// `(wmoCode, ¿su vector desbloquea rain_walker?)` de cada vector de `evaluateAchievements`
+    /// con clima.
+    private static func weatherCasesFromVectors() throws -> [(Int, Bool)] {
+        let file = try JSONSerialization.jsonObject(with: try VectorBundle.data(for: "evaluateAchievements"))
+        let vectors = try #require((file as? [String: Any])?["vectors"] as? [[String: Any]])
+        return vectors.compactMap { vector in
+            guard let input = vector["input"] as? [String: Any],
+                  let session = input["session"] as? [String: Any],
+                  let weather = session["weather"] as? [String: Any],
+                  let wmoCode = weather["wmoCode"] as? Int,
+                  let expected = (vector["expected"] as? [String: Any])?["newlyUnlocked"] as? [String]
+            else { return nil }
+            return (wmoCode, expected.contains("rain_walker"))
         }
     }
 

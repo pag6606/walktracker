@@ -106,6 +106,11 @@ struct CompositionRoot {
             weather: weather,
             settings: settingsStore,
             history: historyStore,
+            // **La misma instancia** que recibe el store de ajustes, no otra (AD-16): los dos
+            // desbloquean logros —el anillo `weekly_goal`, el cierre los demás— y dos dueños del
+            // mismo fichero serían dos lectores que no ven lo que escribe el otro.
+            achievements: achievementsStore,
+            achievementCatalog: self.achievementCatalog,
             quotes: quotes,
             random: random
         )

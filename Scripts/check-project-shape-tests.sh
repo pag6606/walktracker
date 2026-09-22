@@ -374,7 +374,9 @@ for call in 'store.persist()' 'store.record(sample)' 'await store.reconcile(unti
             'store.attachQuoteForNewSession()' 'store.settings.recordShownQuote(id: 1)' \
             'store.random.index(below: 3)' 'store.quotes.quotes.count' 'store.quote = nil' \
             'try await store.weather.currentWeather(at: c)' 'store.locationPrompt = nil' \
-            'store.weatherCapture?.cancel()' 'await store.stepCounting?.value'; do
+            'store.weatherCapture?.cancel()' 'await store.stepCounting?.value' \
+            'store.history.append(record)' 'store.achievements.unlock([], at: now)' \
+            'store.achievementCatalog.achievements.count'; do
     ROOT="$(make_fixture)"
     echo "        $call" >> "$ROOT/WalkTracker/UI/SessionView.swift"
     assert_gate "\`$call\` en UI/ falla" "$ROOT" 1 "AD-7/AD-16"

@@ -187,6 +187,8 @@ struct VectorHarness: Sendable {
     /// - `estimateSteps` (1.5): `GapEstimator.estimateSteps`.
     /// - `selectQuote` y `updateRecentIds` (2.2): `MotivationEngine`.
     /// - `weeklyProgress` (3.1): `GoalEngine.weeklyProgress`.
+    /// - `evaluateAchievements`, `checkStreak` y `checkTimeOfDay` (3.2): `AchievementEngine`.
+    /// - `achievementCatalog` (3.2): el catálogo congelado del bundle de la app.
     static let swiftDomain = VectorHarness(implementations: [
         "elapsedS": SwiftDomainPorts.elapsedS,
         "v3distance": SwiftDomainPorts.v3distance,
@@ -196,6 +198,10 @@ struct VectorHarness: Sendable {
         "selectQuote": SwiftDomainPorts.selectQuote,
         "updateRecentIds": SwiftDomainPorts.updateRecentIds,
         "weeklyProgress": SwiftDomainPorts.weeklyProgress,
+        "achievementCatalog": SwiftDomainPorts.achievementCatalog,
+        "evaluateAchievements": SwiftDomainPorts.evaluateAchievements,
+        "checkStreak": SwiftDomainPorts.checkStreak,
+        "checkTimeOfDay": SwiftDomainPorts.checkTimeOfDay,
     ])
 
     let implementations: [String: VectorImplementation]
@@ -382,9 +388,7 @@ enum SwiftDomainPorts {
     /// estructura que el historial no podría contener.
     static let weeklyProgress: VectorImplementation = { vector in
         let input = vector.input
-        guard let zoneIdentifier = vector.timeZone, let zone = TimeZone(identifier: zoneIdentifier) else {
-            throw VectorInputError(description: "weeklyProgress: falta timeZone o no es una zona conocida")
-        }
+        let calendar = try appCalendar(vector, in: "weeklyProgress")
         guard let goalKm = input["weeklyGoalKm"]?.double else {
             throw VectorInputError(description: "weeklyProgress: falta weeklyGoalKm")
         }
@@ -420,10 +424,6 @@ enum SwiftDomainPorts {
             }
         }
 
-        var calendar = Calendar(identifier: .iso8601)
-        calendar.firstWeekday = 2
-        calendar.timeZone = zone
-
         let progress = GoalEngine.weeklyProgress(records: records, goalKm: goalKm, now: now, calendar: calendar)
         return .object([
             "completedKm": .number(progress.completedKm),
@@ -431,6 +431,239 @@ enum SwiftDomainPorts {
             "percentage": .number(progress.percentage),
             "isComplete": .bool(progress.isComplete),
         ])
+    }
+
+    // MARK: - Logros (3.2)
+
+    /// El catálogo congelado de los 14 logros, leído **del bundle de la app** (AD-5).
+    ///
+    /// Los tests corren alojados en la app, así que `Bundle.main` es la que lleva
+    /// `achievements.json`. El catálogo no se declara en Swift: si se declarara, los vectores
+    /// pasarían contra una copia y el fichero de datos podría irse a la deriva sin que nada lo
+    /// dijera — que es exactamente el incidente de AD-5.
+    ///
+    /// **Hay un segundo cargador en el target de tests (`AchievementCatalogFixture.bundled`), y la
+    /// duplicación es deliberada.** Este fichero importa **solo `Domain`**, a propósito: es la
+    /// misma regla que hace que los vectores no puedan importar `WalkTracker` (AD-6), así que no
+    /// puede llamar a `CompositionRoot.loadAchievementCatalog(from:)`. Y el fallo se trata
+    /// distinto a propósito: aquí rompe **el vector que lo necesita**, con su motivo, porque el
+    /// arnés existe para nombrar lo que falla; allí mata el proceso.
+    static let bundledCatalog: Result<AchievementCatalog, VectorInputError> = {
+        guard let url = Bundle.main.url(forResource: "achievements", withExtension: "json"),
+              let data = try? Data(contentsOf: url)
+        else {
+            return .failure(VectorInputError(description: "achievements.json no está en el bundle de la app"))
+        }
+        do {
+            return .success(try AchievementCatalog.decode(from: data))
+        } catch {
+            return .failure(VectorInputError(description: "achievements.json no valida: \(error)"))
+        }
+    }()
+
+    /// `achievementCatalog`: las 14 claves del catálogo, en su orden.
+    ///
+    /// El vector fija **cuáles y en qué orden**, que es más de lo que afirma el test de la
+    /// referencia (solo que son 14). Ejecuta el catálogo real del bundle, no una lista escrita a
+    /// mano.
+    static let achievementCatalog: VectorImplementation = { _ in
+        let catalog = try bundledCatalog.get()
+        return .object(["keys": .array(catalog.achievements.map { JSONValue.string($0.key) })])
+    }
+
+    /// `AchievementEngine.newlyUnlocked` (3.2).
+    ///
+    /// **El calendario sale del propio vector**, como en `weeklyProgress`: `evaluateAchievements`
+    /// es una función de hora (`TIME_FUNCTIONS` en `run-js.js`) y los divergentes de `localTime`
+    /// se evalúan en `America/Guayaquil`. Con un calendario en UTC pasarían por la razón
+    /// equivocada, o no pasarían.
+    ///
+    /// La entrada trae la sesión que cierra como `{startedAt, distanceM, paceSecPerKm, weather}` y
+    /// el historial como `{startedAt, distanceM}`. Se materializan `SessionRecord` **reales** —el
+    /// tipo del historial, no un sucedáneo— para que ningún vector pase contra una estructura que
+    /// `sessions.json` no podría contener. `alreadyUnlocked` son claves, y aquí se convierten en
+    /// filas **con `unlockedAt`**: una fila sin instante es un logro en curso, no uno conseguido,
+    /// y el motor las distingue.
+    ///
+    /// La salida va **ordenada**: es lo que fija el vector y lo que hace el adapter de `run-js.js`
+    /// con la lista que devuelve `motivation.js`.
+    static let evaluateAchievements: VectorImplementation = { vector in
+        let input = vector.input
+        let calendar = try appCalendar(vector, in: "evaluateAchievements")
+        let catalog = try bundledCatalog.get()
+
+        guard let session = input["session"] else {
+            throw VectorInputError(description: "evaluateAchievements: falta session")
+        }
+        let record = try sessionRecord(session, in: "evaluateAchievements")
+        guard case .array(let rawHistory)? = input["history"] else {
+            throw VectorInputError(description: "evaluateAchievements: falta history o no es un array")
+        }
+        let history = try rawHistory.map { try sessionRecord($0, in: "evaluateAchievements") }
+        guard case .array(let rawUnlocked)? = input["alreadyUnlocked"] else {
+            throw VectorInputError(description: "evaluateAchievements: falta alreadyUnlocked o no es un array")
+        }
+        let alreadyUnlocked = try rawUnlocked.map { raw throws(VectorInputError) -> AchievementUnlock in
+            guard let key = raw.string else {
+                throw VectorInputError(description: "evaluateAchievements: alreadyUnlocked tiene algo que no es una clave")
+            }
+            guard let unlock = try? AchievementUnlock(key: key, unlockedAt: alreadyUnlockedAt, progress: 1) else {
+                throw VectorInputError(description: "evaluateAchievements: la clave '\(key)' no cruza la frontera del desbloqueo")
+            }
+            return unlock
+        }
+
+        let newlyUnlocked = AchievementEngine.newlyUnlocked(
+            closing: record,
+            history: history,
+            alreadyUnlocked: alreadyUnlocked,
+            catalog: catalog,
+            calendar: calendar
+        )
+        return .object(["newlyUnlocked": .array(newlyUnlocked.map(\.key).sorted().map { JSONValue.string($0) })])
+    }
+
+    /// `AchievementEngine.consecutiveDays` (3.2), contra el umbral del vector.
+    ///
+    /// La referencia (`motivation.js:154`) responde un booleano; el catálogo, en cambio, compara
+    /// una **magnitud** (`consecutiveDays gte 7`). Aquí se compone lo mismo: la racha más larga
+    /// del conjunto frente a los días que pide el vector. La agrupación es por **día local** del
+    /// `AppCalendar`, que es la divergencia `localTime` de AD-6.
+    static let checkStreak: VectorImplementation = { vector in
+        let input = vector.input
+        let calendar = try appCalendar(vector, in: "checkStreak")
+        guard case .array(let rawInstants)? = input["startedAts"] else {
+            throw VectorInputError(description: "checkStreak: falta startedAts o no es un array")
+        }
+        let startedAts = try rawInstants.map { raw throws(VectorInputError) -> Date in
+            guard let text = raw.string, let instant = instant(text) else {
+                throw VectorInputError(description: "checkStreak: un startedAt que no es ISO-8601")
+            }
+            return instant
+        }
+        let days = try integer(input, "days", in: "checkStreak")
+
+        return .bool(AchievementEngine.consecutiveDays(startedAts: startedAts, calendar: calendar) >= days)
+    }
+
+    /// La franja horaria de un logro (`motivation.js:178`), por el camino **real** del motor.
+    ///
+    /// No se compara la hora a mano: se arma una definición con la métrica `startHourLocal`, el
+    /// comparador `between` y el intervalo del vector, y se pasa por
+    /// `AchievementEngine.isEarned`. Así estos 5 vectores ejercitan la misma extracción de hora
+    /// local y la misma inclusividad de `between` que desbloquean `early_bird` y `night_walker`,
+    /// en vez de una copia que podría irse a la deriva.
+    ///
+    /// La definición es **sintética** y no toca el catálogo: su único trabajo es llevar la franja
+    /// del vector hasta el motor. `name`, `description` e `icon` no se leen para decidir nada.
+    static let checkTimeOfDay: VectorImplementation = { vector in
+        let input = vector.input
+        let calendar = try appCalendar(vector, in: "checkTimeOfDay")
+        guard let startedAtText = input["startedAt"]?.string, instant(startedAtText) != nil else {
+            throw VectorInputError(description: "checkTimeOfDay: falta startedAt o no es ISO-8601")
+        }
+        let hourStart = try integer(input, "hourStart", in: "checkTimeOfDay")
+        let hourEnd = try integer(input, "hourEnd", in: "checkTimeOfDay")
+        let record = try sessionRecord(.object(["startedAt": .string(startedAtText), "distanceM": .number(0)]), in: "checkTimeOfDay")
+
+        let franja = AchievementDefinition(
+            key: "checkTimeOfDay",
+            name: "",
+            description: "",
+            icon: "",
+            metric: .startHourLocal,
+            threshold: .range(min: Double(hourStart), max: Double(hourEnd)),
+            comparison: .between
+        )
+        return .bool(AchievementEngine.isEarned(franja, closing: record, sessions: [record], calendar: calendar))
+    }
+
+    /// El instante con el que se materializa cada clave de `alreadyUnlocked`. Es el mismo que usa
+    /// el adapter de `run-js.js`: lo único que importa es que **no sea nulo**, porque es lo que
+    /// distingue un logro conseguido de uno en curso.
+    private static let alreadyUnlockedAt = Date(timeIntervalSince1970: 1_767_225_600)
+
+    /// El `AppCalendar` de AD-19 en la zona que declara el vector: ISO-8601 y lunes primero. Es el
+    /// mismo que construyen `SystemClock` y `ClockStub`; ninguna implementación se inventa otro.
+    private static func appCalendar(_ vector: DomainVector, in function: String) throws -> Calendar {
+        guard let identifier = vector.timeZone, let zone = TimeZone(identifier: identifier) else {
+            throw VectorInputError(description: "\(function): falta timeZone o no es una zona conocida")
+        }
+        var calendar = Calendar(identifier: .iso8601)
+        calendar.firstWeekday = 2
+        calendar.timeZone = zone
+        return calendar
+    }
+
+    /// Un `SessionRecord` real a partir de lo que el vector fija de una sesión.
+    ///
+    /// Lo que el vector no fija se rellena con valores que **crucen la frontera** del registro, y
+    /// nada más: el motor solo lee `startedAt`, `distanceM`, `paceSecPerKm`, `weather` y
+    /// `recovered`. El clima del vector es `{wmoCode, tempC}` —los dos datos que leen los logros
+    /// de clima— y el resto del snapshot se completa con valores válidos: la categoría sale del
+    /// **código**, nunca de un texto (divergencia `wmoCategory` de AD-6).
+    private static func sessionRecord(_ raw: JSONValue, in function: String) throws -> SessionRecord {
+        guard let startedAtText = raw["startedAt"]?.string, let startedAt = instant(startedAtText) else {
+            throw VectorInputError(description: "\(function): una sesión sin startedAt ISO-8601")
+        }
+        guard let distanceM = raw["distanceM"]?.double else {
+            throw VectorInputError(description: "\(function): una sesión sin distanceM")
+        }
+
+        var pace: Int?
+        switch raw["paceSecPerKm"] {
+        case nil, .null?:
+            pace = nil
+        case let value?:
+            guard let seconds = value.double, let exact = Int(exactly: seconds) else {
+                throw VectorInputError(description: "\(function): paceSecPerKm no es un entero")
+            }
+            pace = exact
+        }
+
+        var weather: WeatherSnapshot?
+        switch raw["weather"] {
+        case nil, .null?:
+            weather = nil
+        case let value?:
+            guard let wmo = value["wmoCode"]?.double, let wmoCode = Int(exactly: wmo),
+                  let tempC = value["tempC"]?.double
+            else {
+                throw VectorInputError(description: "\(function): un clima sin wmoCode entero o sin tempC")
+            }
+            do {
+                weather = try WeatherSnapshot(
+                    tempC: tempC,
+                    feelsLikeC: tempC,
+                    wmoCode: wmoCode,
+                    humidityPct: 50,
+                    uvIndex: 0,
+                    windKmh: 0,
+                    capturedAt: startedAt
+                )
+            } catch {
+                throw VectorInputError(description: "\(function): el clima del vector no cruza la frontera (\(error))")
+            }
+        }
+
+        do {
+            return try SessionRecord(
+                id: UUID(),
+                startedAt: startedAt,
+                endedAt: startedAt,
+                stepsMeasured: 0,
+                stepsEstimated: 0,
+                strideM: 0.655,
+                distanceM: distanceM,
+                durationS: 0,
+                pausesS: 0,
+                paceSecPerKm: pace,
+                cadenceSpm: 0,
+                weather: weather
+            )
+        } catch {
+            throw VectorInputError(description: "\(function): la sesión del vector no cruza la frontera (\(error))")
+        }
     }
 
     /// Una fecha ISO-8601 del vector, con o sin fracción de segundo y con cualquier desfase.

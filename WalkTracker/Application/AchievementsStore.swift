@@ -11,19 +11,19 @@ import OSLog
 /// guarda **qué ha conseguido Paul**. Son dos ficheros distintos con el mismo nombre en dos
 /// directorios distintos, y confundirlos rompe el gate o pisa contenido congelado.
 ///
-/// **La 5.1 crea el dueño y el esquema; el contenido lo escribe la 3.2.** AD-17 fija que los
-/// logros se evalúan **al cerrar la sesión, dentro de la misma transacción que la persiste**, y
-/// ese punto es `SessionStore.confirmFinish()`. Lo que la 3.2 encontrará hecho: el fichero, su
-/// adapter, este dueño y una caminata cerrada que ya sabe decir si cuenta para logros
-/// (`SessionRecord.countsForAchievements`, que es `false` para una huérfana — AD-18).
+/// **La 5.1 creó el dueño y el esquema; la 3.2 escribe el contenido.** Sus dos intenciones viven
+/// en extensiones: `AchievementsStore+Goal.swift` (`weekly_goal`, la excepción de AD-25 que
+/// desbloquea `GoalEngine` al cumplirse la meta) y `AchievementsStore+Evaluation.swift` (los
+/// logros que el `AchievementEngine` da por cumplidos al cerrar una caminata, AD-17).
 ///
-/// **La transacción que esta historia no puede cerrar, dicha en voz alta.** AD-17 pide
-/// atomicidad conjunta entre la sesión y los logros; AD-16 pide un fichero, un dueño; y la
-/// escritura atómica de AD-9 es **por fichero**. Dos ficheros con dos dueños no se pueden
-/// escribir de una sola vez, así que un corte entre las dos escrituras puede dejar una caminata
-/// guardada cuyos logros no se evaluaron. El problema se crea aquí aunque se manifieste en la
-/// 3.2, y por eso está escrito en `deferred-work.md` con su destino en vez de descubrirse
-/// entonces.
+/// **La transacción que no se puede cerrar, dicha en voz alta.** AD-17 pide atomicidad conjunta
+/// entre la sesión y los logros; AD-16 pide un fichero, un dueño; y la escritura atómica de AD-9
+/// es **por fichero**. Dos ficheros con dos dueños no se pueden escribir de una sola vez, así que
+/// un corte entre las dos escrituras puede dejar una caminata guardada cuyos logros no se
+/// evaluaron. La 3.2 lo resuelve con un orden declarado —**sesión primero, logros después**
+/// (decisión D1 de Paul): el peor caso es un logro que falta, nunca un logro fantasma
+/// irrevocable, y los cuatro acumulados se curan solos en el cierre siguiente. El límite sigue
+/// registrado en `deferred-work.md` como lo que es: conocido, no pendiente.
 ///
 /// **Invariante:** solo este fichero llama a `loadAchievements`/`saveAchievements` del
 /// `StoragePort`, y solo él escribe `unlocks`. Lo comprueba `Scripts/check-project-shape.sh`
@@ -86,9 +86,9 @@ final class AchievementsStore {
     /// y los ajustes: **sin una lectura buena no se escribe**, con un reintento antes de
     /// bloquear, y sin aplicar el cambio en memoria si no llegó al disco.
     ///
-    /// Aquí no hay intenciones todavía: quien decide qué logro sube y cuál se desbloquea es la
-    /// 3.2, y sus intenciones vivirán en `AchievementsStore+…swift`, exentas por la misma regla
-    /// de forma que las de los otros dueños.
+    /// Aquí no se decide **qué** logro se desbloquea: eso es de las intenciones
+    /// (`AchievementsStore+Goal.swift`, `AchievementsStore+Evaluation.swift`), exentas por la
+    /// misma regla de forma que las de los otros dueños.
     ///
     /// - Returns: `true` si quedó escrito en `achievements.json`.
     @discardableResult
@@ -104,6 +104,39 @@ final class AchievementsStore {
             log.error("No se pudo guardar el estado de los logros: \(String(describing: error), privacy: .public)")
             return false
         }
+    }
+
+    /// Inserta la fila de un logro, o sustituye la que hubiera, **sin tocar una ya desbloqueada**.
+    ///
+    /// **La guarda vive aquí dentro y no en quien llama, y eso es el arreglo de un defecto real.**
+    /// `save(applying:)` empieza por `readOutcome.allowsWriting || reloadBeforeWriting()`, y esa
+    /// recarga **repuebla `unlocks` desde disco**: una fila que en memoria no constaba puede
+    /// aparecer ya desbloqueada justo antes de aplicar el cambio. Decidir fuera, contra el estado
+    /// viejo, le movía el `unlockedAt` y la devolvía como nueva —es decir, **la volvía a
+    /// celebrar**—, rompiendo el invariante que AD-17 y CAP-15 fijan: un desbloqueo no se
+    /// re-dispara y **nunca** se revoca. Dentro del closure la decisión se toma contra lo que de
+    /// verdad se va a escribir.
+    ///
+    /// Vive en el store y no en una de las dos intenciones porque **las dos lo necesitan igual**
+    /// (`unlockWeeklyGoal(at:)` y `unlock(_:at:)`), y eran carácter por carácter el mismo bloque:
+    /// dos copias de la guarda serían dos sitios donde se puede arreglar solo uno.
+    ///
+    /// Una clave no aparece dos veces en el fichero: una fila con `progress` y sin `unlockedAt`
+    /// —un logro **en curso**— sí se sustituye en su sitio, que es como se consigue.
+    ///
+    /// - Returns: `true` si esta llamada escribió la fila.
+    @discardableResult
+    func upsert(_ row: AchievementUnlock, into stored: inout [AchievementUnlock]) -> Bool {
+        guard let index = stored.firstIndex(where: { $0.key == row.key }) else {
+            stored.append(row)
+            return true
+        }
+        guard !stored[index].isUnlocked else {
+            log.info("'\(row.key, privacy: .public)' ya estaba desbloqueado al escribir: su instante NO se mueve")
+            return false
+        }
+        stored[index] = row
+        return true
     }
 
     /// - Returns: `true` si la lectura funcionó y ya se puede escribir.

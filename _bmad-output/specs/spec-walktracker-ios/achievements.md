@@ -1,6 +1,6 @@
 # Achievements — Catálogo de 14 logros
 
-Companion de `SPEC.md` (CAP-8). Catálogo íntegro reutilizado sin cambios de contenido desde la PWA v3 (A-3), con las reglas de evaluación implementadas y validadas en producción. El AchievementEngine evalúa al cierre de cada sesión; los logros desbloqueados no se re-disparan ni se revocan (incluido si se elimina la sesión que los originó, ver CAP-15).
+Companion de `SPEC.md` (CAP-8). Catálogo íntegro reutilizado desde la PWA v3 (A-3) **salvo la divergencia declarada de `early_bird`·`description`** (ver AD-6: el texto dice "Camina antes de las 8:00" porque su regla llega hasta las 07:59; la regla no se tocó), con las reglas de evaluación implementadas y validadas en producción. El AchievementEngine evalúa al cierre de cada sesión; los logros desbloqueados no se re-disparan ni se revocan (incluido si se elimina la sesión que los originó, ver CAP-15).
 
 El catálogo vive además **como dato** en `WalkTracker/Resources/achievements.json`: una entrada por logro con `metric` (enum cerrado), `threshold` y `comparison`, que la app carga y valida al arrancar —14 entradas, claves únicas, todas las de esta tabla, `metric` conocida— y falla ruidosamente si no cuadra. Esta tabla es la especificación de la que ese fichero es la forma ejecutable (`ARCHITECTURE-SPINE.md` AD-5 y su enmienda del 2026-09-12).
 
@@ -15,7 +15,7 @@ El catálogo vive además **como dato** en `WalkTracker/Resources/achievements.j
 | 7 | `7_days_streak` | 7 días consecutivos | Camina 7 días seguidos | ≥ 1 sesión por día durante 7 días consecutivos (fechas sin duplicar, ordenadas desc) | 🔥 |
 | 8 | `marathon_42km` | Maratonista | Acumula 42 km en total | `Σ distanceM de todas las sesiones ≥ 42000` | 🏃 |
 | 9 | `speed_walker` | Caminante rápido | Ritmo menor a 8:00 /km | `session.paceSecPerKm > 0 y < 480` | ⚡ |
-| 10 | `early_bird` | Madrugador | Camina antes de las 7:00 | `startedAt` entre **05:00 y 07:59** (hora local; franja inclusiva, ver nota) | 🌅 |
+| 10 | `early_bird` | Madrugador | Camina antes de las 8:00 | `startedAt` entre **05:00 y 07:59** (hora local; franja inclusiva, ver nota) | 🌅 |
 | 11 | `night_walker` | Caminante nocturno | Camina después de las 21:00 | `startedAt` entre **21:00 y 23:59** (hora local; franja inclusiva, ver nota) | 🌙 |
 | 12 | `hot_walker` | Caminante del sol | Camina con temperatura >30 °C | `session.weather.tempC > 30` | ☀️ |
 | 13 | `cold_walker` | Caminante del frío | Camina con temperatura <5 °C | `session.weather.tempC < 5` | ❄️ |
