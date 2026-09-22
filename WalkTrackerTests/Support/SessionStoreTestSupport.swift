@@ -47,6 +47,10 @@ struct SessionStoreFixture {
     /// desbloquean logros (el anillo `weekly_goal`, el cierre los demás) y dos dueños del mismo
     /// fichero no verían lo que escribe el otro (AD-16).
     let achievements: AchievementsStore
+    /// El canal de háptica (4.1), **el mismo** para el store de sesión y el de ajustes: en la app
+    /// es un solo adapter, y los cuatro disparos se leen de aquí. Un test que quiera afirmar
+    /// sobre lo disparado lee `fixture.feedback.events` o `count(of:)`.
+    let feedback: FeedbackSpy
     /// Las líneas `WTM1` que escribe el store. Solo observan: sirven de condición de espera.
     let measurements: LineSink
     let store: SessionStore
@@ -73,6 +77,8 @@ struct SessionStoreFixture {
     ///   - catalog: el catálogo congelado de los 14 logros. Por omisión **el del bundle**, que es
     ///     el que la app carga: los tests de logros comprueban la conducta real, no una tabla de
     ///     prueba (AD-5).
+    ///   - feedback: el canal de háptica (4.1). Uno nuevo por omisión: los tests que no miran el
+    ///     feedback no tienen que cablear nada, y los que sí lo leen de `fixture.feedback`.
     ///   - timeZone: zona del `AppCalendar` del montaje. **UTC por omisión**, como siempre; un
     ///     test que quiera comprobar que las horas y las rachas son **locales** pasa otra, porque
     ///     en UTC el calendario de AD-19 y el de `motivation.js` coinciden y la divergencia no se
@@ -91,9 +97,11 @@ struct SessionStoreFixture {
         quotes: QuoteBank = .empty,
         random: RandomStub = RandomStub(),
         catalog: AchievementCatalog = AchievementCatalogFixture.bundled,
+        feedback: FeedbackSpy = FeedbackSpy(),
         timeZone: String = "UTC"
     ) {
         let measurements = LineSink()
+        self.feedback = feedback
         clock = ClockStub(now: instant, timeZone: timeZone)
         self.motion = motion
         self.storage = storage
@@ -109,10 +117,14 @@ struct SessionStoreFixture {
         self.history = history
         let achievements = AchievementsStore(storage: storage)
         self.achievements = achievements
+        // **El mismo canal** para los dos stores, como en el composition root: en la app hay un
+        // solo `FeedbackAdapter`, y un espía por store dejaría los cuatro disparos repartidos en
+        // dos listas que nadie ordena.
         let settings = SettingsStore(
             storage: storage,
             history: history,
             achievements: achievements,
+            feedback: feedback,
             clock: clock
         )
         self.settings = settings
@@ -130,6 +142,7 @@ struct SessionStoreFixture {
             history: history,
             achievements: achievements,
             achievementCatalog: catalog,
+            feedback: feedback,
             quotes: quotes,
             random: random,
             weatherStepTimeoutS: weatherStepTimeoutS,

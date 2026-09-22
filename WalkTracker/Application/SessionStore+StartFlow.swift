@@ -106,6 +106,16 @@ extension SessionStore {
             hasSession = true
             countSteps(from: session.startedAt)
             measureTransition(.start, session, at: session.startedAt)
+            // La caminata ha empezado de verdad —el dominio la aceptó y ya está contando—, así
+            // que se confirma con una vibración corta (CAP-12, 4.1). Es el **punto único** donde
+            // nace una sesión: los dos entrantes (`start()` y `confirmMotionPermission()`) pasan
+            // por aquí, así que un disparo cubre los dos y no hay forma de abrir una sesión
+            // muda. Va antes de `persist()` para que la confirmación no espere a un fichero.
+            //
+            // `soundEnabled: false` es la decisión D1: la preferencia de sonido llega con la 4.2.
+            // No lleva `try` ni condiciona nada de lo que viene detrás: el puerto promete que un
+            // feedback perdido no es un fallo de sesión.
+            feedback.fire(.sessionStart, soundEnabled: false)
             attachQuoteForNewSession()
             persist()
             beginWeatherForNewSession()

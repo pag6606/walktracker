@@ -105,8 +105,21 @@ development_status:
   3-5-summary-screen-la-pantalla-de-cierre-y-su-contrato-de-filas: backlog
   epic-3-retrospective: optional
 
-  epic-4: backlog
-  4-1-canal-de-feedback-puerto-y-disparo-de-eventos: backlog
+  epic-4: in-progress
+  # 2026-09-22 · Implementada: spec-4-1-canal-feedback.md. El puerto, sus cuatro eventos y el
+  # adapter existían desde la 8.6 y nadie los disparaba; esta historia los cablea a los cuatro
+  # sucesos reales (inicio, kilómetro, meta y logro) y añade la pieza que faltaba, el cruce de
+  # kilómetro como función pura del dominio. Cuatro gates en verde, suite completa de 870 a 901
+  # casos en 69 suites (dos suites nuevas) y NUEVE mutaciones comprobadas y revertidas, entre
+  # ellas las cuatro que quitan cada disparo. La novena la encontró la revisión, no la
+  # implementación: quitar el `max` de la marca del cruce de kilómetro sobrevivía a los 900 tests
+  # en verde, así que nada fijaba su monotonía; ya tiene test y camino rojo comprobado contra la
+  # suite completa. Queda en review, no en done, por lo mismo que la 3.1, la
+  # 3.2 y la 3.3: sus checks manuales en el iPhone nunca se ejecutaron — y aquí pesan más que de
+  # costumbre, porque el `FeedbackAdapter` no tiene costura inyectable (diferido con destino 4.2)
+  # y ningún test llega a CoreHaptics: que algo VIBRE de verdad solo se comprueba en el
+  # dispositivo. Deliberado, no deriva: 2026-09-22.
+  4-1-canal-de-feedback-puerto-y-disparo-de-eventos: review
   4-2-háptica-nativa-corehaptics-y-sonido-respetuoso-con-música: backlog
   epic-4-retrospective: optional
 

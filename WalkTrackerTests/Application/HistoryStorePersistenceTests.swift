@@ -57,10 +57,12 @@ struct HistoryStorePersistenceTests {
         let history = HistoryStore(storage: storage)
         // Y los logros, una vez y compartidos, por la misma razón (AD-16).
         let achievements = AchievementsStore(storage: storage)
+        let feedback = FeedbackSpy()
         let settings = SettingsStore(
             storage: storage,
             history: history,
             achievements: achievements,
+            feedback: feedback,
             clock: clock
         )
         let store = SessionStore(
@@ -77,6 +79,7 @@ struct HistoryStorePersistenceTests {
             history: history,
             achievements: achievements,
             achievementCatalog: AchievementCatalogFixture.bundled,
+            feedback: feedback,
             quotes: .empty,
             random: RandomStub(),
             weatherStepTimeoutS: 5,

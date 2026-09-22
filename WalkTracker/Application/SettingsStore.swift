@@ -125,6 +125,13 @@ final class SettingsStore {
     @ObservationIgnored let achievements: AchievementsStore
     /// El reloj y el `AppCalendar` de AD-19: la semana del anillo no se calcula con otro.
     @ObservationIgnored let clock: any ClockPort
+    /// Háptica y sonido de sistema (CAP-12, AD-10). Aquí solo se dispara la meta cumplida, la
+    /// primera vez de cada semana (`goalRingDidUpdate()`).
+    ///
+    /// **Obligatorio y sin valor por omisión**, como los tres de arriba y por la lección de la
+    /// 3.1: un colaborador con defecto se olvida en el composition root sin que nada falle. El
+    /// olvido aquí sería una meta que se cumple en silencio, y ningún test lo diría.
+    @ObservationIgnored let feedback: any FeedbackPort
     @ObservationIgnored let log = Logger(subsystem: "com.walktracker.app", category: "SettingsStore")
 
     /// El historial y los logros **se inyectan, no se construyen aquí**, y eso no es estilo: un
@@ -141,11 +148,13 @@ final class SettingsStore {
         storage: any StoragePort,
         history: HistoryStore,
         achievements: AchievementsStore,
+        feedback: any FeedbackPort,
         clock: any ClockPort = SystemClock()
     ) {
         self.storage = storage
         self.history = history
         self.achievements = achievements
+        self.feedback = feedback
         self.clock = clock
         self.settings = .defaults
         load()

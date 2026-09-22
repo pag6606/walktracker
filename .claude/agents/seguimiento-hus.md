@@ -37,6 +37,14 @@ comprueban. El tablero no va a ser uno de ellos.
    **Lee los comentarios `#`**: ahí está por qué una historia lleva semanas en `review`.
 2. `_bmad-output/implementation-artifacts/spec-*.md` — el frontmatter `status:` de cada spec.
    Si una spec dice `done` y el sprint dice otra cosa, **eso es un hallazgo**, no un detalle.
+2b. **Los dos ciclos de vida son distintos, y eso NO es una incoherencia.** El `status:` de una
+   spec es el del *workflow de construcción* (`draft → ready-for-dev → in-progress → in-review →
+   done`); el del sprint es el de la *historia* (`backlog → in-progress → review → done`). Una
+   spec en `done` con su historia en `review` significa **"construirla terminó; falta que Paul la
+   pruebe en el iPhone"**, y es lo correcto. Lo que sí es un hallazgo: una spec que siga en
+   `in-progress` o `in-review` con su historia ya mergeada — eso es que alguien no volteó el
+   estado al cerrar.
+
 3. `_bmad-output/implementation-artifacts/deferred-work.md` — el trabajo diferido. Una entrada
    son exactamente tres líneas (`- source_spec:`, `  summary:`, `  evidence:`). Cuenta las
    abiertas y las cerradas: una cerrada empieza su `summary` por `**CERRADO el <fecha>`.

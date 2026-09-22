@@ -193,4 +193,41 @@ struct CompositionRootTests {
         #expect(root.historyStore.showsUnreadableNotice)
         #expect(root.settingsStore.weeklyProgress == nil)
     }
+
+    // MARK: - El canal de feedback (4.1)
+
+    /// **Los dos stores reciben el canal, y es el mismo adapter.** Hasta la 4.1 `feedback` solo
+    /// llegaba a la pantalla de diagnóstico de DEBUG y ningún store lo recibía: el puerto, sus
+    /// cuatro eventos y el adapter existían desde la 8.6 y nadie los disparaba.
+    ///
+    /// El parámetro va **sin valor por omisión** en los dos `init`, así que olvidarlo ya no
+    /// compila — que es la lección que la 3.1 dejó escrita con `clock:`—. Lo que este caso añade
+    /// es lo que el compilador no puede decir: que el root cablea **su** adapter y no construye
+    /// otro por el camino. Dos instancias serían dos motores de háptica perezosos, y el disparo
+    /// de uno no lo vería el otro.
+    @Test("Los dos stores reciben el canal de feedback DEL ROOT: iniciar vibra y cumplir la meta también")
+    func bothStoresGetTheRootFeedbackChannel() async throws {
+        let feedback = FeedbackSpy()
+        // 12 km en la semana ISO del reloj (lunes 6 de julio de 2026): la meta por omisión son 10.
+        let record = try SessionRecord(
+            id: UUID(), startedAt: ISO8601DateFormatter().date(from: "2026-07-06T10:00:00Z")!,
+            endedAt: ISO8601DateFormatter().date(from: "2026-07-06T11:00:00Z")!,
+            stepsMeasured: 0, stepsEstimated: 0, strideM: 0.655, distanceM: 12_000,
+            durationS: 3_600, pausesS: 0, paceSecPerKm: nil, cadenceSpm: 0
+        )
+        let root = CompositionRoot(
+            clock: ClockStub(now: ISO8601DateFormatter().date(from: "2026-07-08T12:00:00Z")!),
+            motion: MotionStub(status: .granted), feedback: feedback,
+            storage: StorageStub(sessions: [record]),
+            location: LocationStub(status: .denied), weather: WeatherStub()
+        )
+
+        await root.sessionStore.start()
+        #expect(feedback.events == [.sessionStart], "el store de sesión dispara por el canal del root")
+
+        #expect(root.settingsStore.goalRingDidUpdate() == true)
+
+        #expect(feedback.events == [.sessionStart, .goal], "y el de ajustes, por el MISMO canal")
+        #expect(feedback.fired.allSatisfy { !$0.soundEnabled }, "D1: solo háptica hasta que la 4.2 traiga la preferencia")
+    }
 }

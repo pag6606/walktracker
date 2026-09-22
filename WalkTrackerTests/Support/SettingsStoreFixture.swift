@@ -28,16 +28,22 @@ enum SettingsStoreFixture {
     /// - Parameter clock: el reloj del anillo. **Un test de meta semanal pasa el suyo**: con el
     ///   del sistema, la semana la fijaría el día en que se ejecute la suite.
     @MainActor
+    ///
+    /// - Parameter feedback: el canal de háptica (4.1). Un `FeedbackSpy` nuevo por omisión: solo
+    ///   lo pasa un test que quiera **leer** lo disparado, y los demás ni se enteran de que la
+    ///   meta cumplida vibra.
     static func store(
         storage: any StoragePort,
         history: HistoryStore? = nil,
         achievements: AchievementsStore? = nil,
+        feedback: any FeedbackPort = FeedbackSpy(),
         clock: any ClockPort = ClockStub(now: Self.defaultNow)
     ) -> SettingsStore {
         SettingsStore(
             storage: storage,
             history: history ?? HistoryStore(storage: storage),
             achievements: achievements ?? AchievementsStore(storage: storage),
+            feedback: feedback,
             clock: clock
         )
     }

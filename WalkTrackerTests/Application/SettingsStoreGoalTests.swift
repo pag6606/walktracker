@@ -29,7 +29,8 @@ struct SettingsStoreGoalTests {
     private static func store(
         _ storage: StorageStub = StorageStub(),
         now: Date = Self.wednesday,
-        timeZone: String = "UTC"
+        timeZone: String = "UTC",
+        feedback: any FeedbackPort = FeedbackSpy()
     ) -> (StorageStub, SettingsStore, AchievementsStore) {
         let history = HistoryStore(storage: storage)
         let achievements = AchievementsStore(storage: storage)
@@ -37,6 +38,7 @@ struct SettingsStoreGoalTests {
             storage: storage,
             history: history,
             achievements: achievements,
+            feedback: feedback,
             clock: ClockStub(now: now, timeZone: timeZone)
         )
         return (storage, settings, achievements)
@@ -351,6 +353,7 @@ struct SettingsStoreGoalTests {
             storage: storage,
             history: history,
             achievements: achievements,
+            feedback: FeedbackSpy(),
             clock: ClockStub(now: Self.instant("2026-07-13T12:00:00Z"))
         )
 
@@ -432,6 +435,7 @@ struct SettingsStoreGoalTests {
             storage: storage,
             history: history,
             achievements: AchievementsStore(storage: storage),
+            feedback: FeedbackSpy(),
             clock: clock
         )
         #expect(settings.goalRingDidUpdate() == true)
@@ -445,6 +449,74 @@ struct SettingsStoreGoalTests {
         #expect(settings.weeklyProgress?.completedKm == 12)
     }
 
+    // MARK: - El canal de feedback (4.1)
+
+    /// El cuarto de los cuatro disparos de la 4.1. Va **donde se decide que se celebra** y no
+    /// donde se pinta: la sección 10 del gate prohíbe `CoreHaptics` en `WalkTracker/UI/`, y los
+    /// dos entrantes de `goalRingDidUpdate()` —`HomeView` al pintar el anillo y
+    /// `weekMayHaveChanged()` al volver de background— comparten este único punto.
+    @Test("Cumplir la meta por primera vez esta semana dispara un .goal, sin sonido")
+    func meetingTheGoalFiresOnce() throws {
+        let feedback = FeedbackSpy()
+        let storage = StorageStub(sessions: try [Self.record("2026-07-06T10:00:00Z", 12_000)])
+        let (_, settings, _) = Self.store(storage, feedback: feedback)
+
+        #expect(settings.goalRingDidUpdate() == true)
+
+        #expect(feedback.fired == [.init(event: .goal, soundEnabled: false)])
+    }
+
+    /// Volver a Inicio, repintar el anillo o relanzar **no** vuelven a vibrar: la semana celebrada
+    /// vive en `settings.json`, y el disparo cuelga del mismo `return true` que la celebración.
+    @Test("Repintar el anillo con la meta ya celebrada no vuelve a vibrar")
+    func repaintingTheRingDoesNotFireAgain() throws {
+        let feedback = FeedbackSpy()
+        let storage = StorageStub(sessions: try [Self.record("2026-07-06T10:00:00Z", 12_000)])
+        let (_, settings, _) = Self.store(storage, feedback: feedback)
+        #expect(settings.goalRingDidUpdate() == true)
+
+        #expect(settings.goalRingDidUpdate() == false)
+        #expect(settings.goalRingDidUpdate() == false)
+
+        #expect(feedback.count(of: .goal) == 1, "una vibración por semana, no una por repintado")
+    }
+
+    @Test("La meta sin cumplir no vibra")
+    func anIncompleteGoalDoesNotFire() throws {
+        let feedback = FeedbackSpy()
+        let storage = StorageStub(sessions: try [Self.record("2026-07-06T10:00:00Z", 3_000)])
+        let (_, settings, _) = Self.store(storage, feedback: feedback)
+
+        #expect(settings.goalRingDidUpdate() == false)
+
+        #expect(feedback.events.isEmpty)
+    }
+
+    /// Semana nueva, celebración nueva **y vibración nueva**: el disparo sigue a la señal, no al
+    /// desbloqueo de `weekly_goal`, que es de por vida y no se re-dispara.
+    @Test("La semana siguiente vuelve a vibrar, aunque weekly_goal ya esté conseguido")
+    func aNewWeekFiresAgain() throws {
+        let feedback = FeedbackSpy()
+        let storage = StorageStub(sessions: try [
+            Self.record("2026-07-06T10:00:00Z", 12_000),
+            Self.record("2026-07-13T10:00:00Z", 12_000),
+        ])
+        let (_, thisWeek, achievements) = Self.store(storage, feedback: feedback)
+        #expect(thisWeek.goalRingDidUpdate() == true)
+
+        let nextWeek = SettingsStore(
+            storage: storage,
+            history: HistoryStore(storage: storage),
+            achievements: achievements,
+            feedback: feedback,
+            clock: ClockStub(now: Self.instant("2026-07-13T12:00:00Z"))
+        )
+        #expect(nextWeek.goalRingDidUpdate() == true)
+
+        #expect(feedback.count(of: .goal) == 2)
+        #expect(storage.achievementsSaved.count == 1, "pero el logro de por vida se escribió una sola vez")
+    }
+
     @Test("Relanzar la app en la misma semana NO vuelve a celebrar")
     func relaunchingInTheSameWeekDoesNotCelebrateAgain() throws {
         let storage = StorageStub(sessions: try [Self.record("2026-07-06T10:00:00Z", 12_000)])
@@ -455,6 +527,7 @@ struct SettingsStoreGoalTests {
             storage: storage,
             history: HistoryStore(storage: storage),
             achievements: achievements,
+            feedback: FeedbackSpy(),
             clock: ClockStub(now: Self.instant("2026-07-09T08:00:00Z"))
         )
 
